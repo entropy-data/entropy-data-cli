@@ -47,8 +47,8 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install the project
-        run: uv pip install . --system
+        run: uv sync
       - name: Test entropy-data --help
-        run: entropy-data --help
+        run: uv run entropy-data --help
       - name: Test entropy-data --version
-        run: entropy-data --version
+        run: uv run entropy-data --version
