@@ -121,3 +121,41 @@ def test_server_error(client):
     with pytest.raises(ApiError) as exc_info:
         client.list_resources("teams")
     assert exc_info.value.status_code == 500
+
+
+def test_negative_page_rejected(client):
+    with pytest.raises(ValueError, match="must not be negative"):
+        client.list_resources("teams", params={"p": -1})
+
+
+@responses.activate
+def test_html_error_response_cleaned(client):
+    html_body = (
+        '<!doctype html><html><head><title>HTTP Status 400 – Bad Request</title></head>'
+        "<body><h1>Bad Request</h1><p>Request header is too large</p></body></html>"
+    )
+    responses.add(responses.GET, f"{BASE_URL}/api/teams/long-id", body=html_body, status=400)
+    with pytest.raises(ApiError) as exc_info:
+        client.get_resource("teams", "long-id")
+    assert "HTTP Status 400" in str(exc_info.value)
+    assert "<html" not in str(exc_info.value)
+
+
+@responses.activate
+def test_put_resource_overrides_mismatched_body_id(client):
+    responses.add(responses.PUT, f"{BASE_URL}/api/teams/correct-id", status=200)
+    client.put_resource("teams", "correct-id", {"id": "wrong-id", "name": "Test"})
+    sent_body = responses.calls[0].request.body
+    import json
+
+    assert json.loads(sent_body)["id"] == "correct-id"
+
+
+@responses.activate
+def test_put_resource_preserves_matching_body_id(client):
+    responses.add(responses.PUT, f"{BASE_URL}/api/teams/t1", status=200)
+    client.put_resource("teams", "t1", {"id": "t1", "name": "Test"})
+    sent_body = responses.calls[0].request.body
+    import json
+
+    assert json.loads(sent_body)["id"] == "t1"

@@ -8,6 +8,7 @@ import requests
 from entropy_data_cli.config import ConnectionConfig
 
 RESPONSE_HEADER_LOCATION_HTML = "location-html"
+REQUEST_TIMEOUT = 30
 
 
 class ApiError(Exception):
@@ -36,7 +37,10 @@ def _raise_for_status(response: requests.Response) -> None:
         body = response.json()
         message = body.get("detail") or body.get("message") or body.get("title") or response.text
     except (json.JSONDecodeError, AttributeError):
-        pass
+        # If the response is HTML, extract a useful message instead of dumping raw markup
+        if "<html" in message.lower():
+            match = re.search(r"<title>([^<]+)</title>", message, re.IGNORECASE)
+            message = match.group(1).strip() if match else response.reason or "Server error"
     if response.status_code == 404:
         raise NotFoundError(response.status_code, message, response.url)
     if response.status_code == 422:
@@ -50,12 +54,23 @@ def _has_next_page(response: requests.Response) -> bool:
     return bool(re.search(r'rel="next"', link))
 
 
+MAX_RESOURCE_ID_LENGTH = 256
+
+
 def _validate_resource_id(resource_id: str) -> None:
-    """Reject empty or path-traversal resource IDs."""
+    """Reject empty, too-long, or path-traversal resource IDs."""
     if not resource_id:
         raise ValueError("Resource ID must not be empty.")
+    if len(resource_id) > MAX_RESOURCE_ID_LENGTH:
+        raise ValueError(f"Resource ID must not exceed {MAX_RESOURCE_ID_LENGTH} characters.")
     if ".." in resource_id.split("/"):
         raise ValueError(f"Resource ID must not contain path traversal: '{resource_id}'")
+
+
+def _validate_page(page: int) -> None:
+    """Reject negative page numbers."""
+    if page < 0:
+        raise ValueError(f"Page number must not be negative: {page}")
 
 
 class EntropyDataClient:
@@ -71,40 +86,46 @@ class EntropyDataClient:
 
     def list_resources(self, path: str, params: dict | None = None) -> tuple[list[dict], bool]:
         """GET /api/{path}. Returns (items, has_next_page)."""
-        response = self.session.get(f"{self.base_url}/api/{path}", params=params)
+        if params and "p" in params:
+            _validate_page(int(params["p"]))
+        response = self.session.get(f"{self.base_url}/api/{path}", params=params, timeout=REQUEST_TIMEOUT)
         _raise_for_status(response)
         return response.json(), _has_next_page(response)
 
     def get_resource(self, path: str, resource_id: str) -> dict:
         """GET /api/{path}/{id}."""
         _validate_resource_id(resource_id)
-        response = self.session.get(f"{self.base_url}/api/{path}/{resource_id}")
+        response = self.session.get(f"{self.base_url}/api/{path}/{resource_id}", timeout=REQUEST_TIMEOUT)
         _raise_for_status(response)
         return response.json()
 
     def put_resource(self, path: str, resource_id: str, body: dict) -> str | None:
         """PUT /api/{path}/{id}. Returns location-html URL if present."""
         _validate_resource_id(resource_id)
-        response = self.session.put(f"{self.base_url}/api/{path}/{resource_id}", json=body)
+        if "id" in body and body["id"] != resource_id:
+            body = {**body, "id": resource_id}
+        response = self.session.put(f"{self.base_url}/api/{path}/{resource_id}", json=body, timeout=REQUEST_TIMEOUT)
         _raise_for_status(response)
         return response.headers.get(RESPONSE_HEADER_LOCATION_HTML)
 
     def delete_resource(self, path: str, resource_id: str) -> None:
         """DELETE /api/{path}/{id}."""
         _validate_resource_id(resource_id)
-        response = self.session.delete(f"{self.base_url}/api/{path}/{resource_id}")
+        response = self.session.delete(f"{self.base_url}/api/{path}/{resource_id}", timeout=REQUEST_TIMEOUT)
         _raise_for_status(response)
 
     def post_action(self, path: str, resource_id: str, action: str) -> str | None:
         """POST /api/{path}/{id}/{action}. Returns location-html URL if present."""
         _validate_resource_id(resource_id)
-        response = self.session.post(f"{self.base_url}/api/{path}/{resource_id}/{action}")
+        response = self.session.post(
+            f"{self.base_url}/api/{path}/{resource_id}/{action}", timeout=REQUEST_TIMEOUT
+        )
         _raise_for_status(response)
         return response.headers.get(RESPONSE_HEADER_LOCATION_HTML)
 
     def post_resource(self, path: str, body: dict) -> str | None:
         """POST /api/{path}. Returns location-html URL if present."""
-        response = self.session.post(f"{self.base_url}/api/{path}", json=body)
+        response = self.session.post(f"{self.base_url}/api/{path}", json=body, timeout=REQUEST_TIMEOUT)
         _raise_for_status(response)
         return response.headers.get(RESPONSE_HEADER_LOCATION_HTML)
 
@@ -113,13 +134,13 @@ class EntropyDataClient:
         params = {}
         if last_event_id:
             params["lastEventId"] = last_event_id
-        response = self.session.get(f"{self.base_url}/api/events", params=params)
+        response = self.session.get(f"{self.base_url}/api/events", params=params, timeout=REQUEST_TIMEOUT)
         _raise_for_status(response)
         return response.json()
 
     def search(self, query: str, **params) -> dict:
         """GET /api/search."""
         params["query"] = query
-        response = self.session.get(f"{self.base_url}/api/search", params=params)
+        response = self.session.get(f"{self.base_url}/api/search", params=params, timeout=REQUEST_TIMEOUT)
         _raise_for_status(response)
         return response.json()
