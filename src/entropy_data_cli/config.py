@@ -60,6 +60,8 @@ def resolve_connection(
         connections = config.get("connections", {})
 
         name = connection_name or config.get("default_connection_name")
+        if connection_name and connection_name not in connections:
+            raise ConfigurationError(f"Connection '{connection_name}' not found.")
         if name and name in connections:
             conn = connections[name]
             if api_key is None:
@@ -81,6 +83,8 @@ def resolve_connection(
 
 def add_connection(name: str, api_key: str, host: str = DEFAULT_HOST) -> None:
     """Add or update a named connection."""
+    if not name or not name.strip():
+        raise ConfigurationError("Connection name must not be empty.")
     config = load_config()
     if "connections" not in config:
         config["connections"] = {}

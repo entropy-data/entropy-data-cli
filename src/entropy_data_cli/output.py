@@ -17,8 +17,8 @@ class OutputFormat(str, Enum):
 
 # Column definitions per resource type: list of (header, dict_key)
 RESOURCE_COLUMNS: dict[str, list[tuple[str, str]]] = {
-    "dataproducts": [("ID", "id"), ("Title", "info.title"), ("Status", "info.status"), ("Owner", "info.owner")],
-    "datacontracts": [("ID", "id"), ("Title", "info.title"), ("Version", "info.version"), ("Owner", "info.owner")],
+    "dataproducts": [("ID", "id"), ("Title", "name"), ("Status", "status"), ("Owner", "team.name")],
+    "datacontracts": [("ID", "id"), ("Title", "name"), ("Version", "version"), ("Owner", "team.name")],
     "access": [
         ("ID", "id"),
         ("Purpose", "info.purpose"),
@@ -29,7 +29,7 @@ RESOURCE_COLUMNS: dict[str, list[tuple[str, str]]] = {
     ],
     "teams": [("ID", "id"), ("Name", "name"), ("Type", "type"), ("Parent", "parent")],
     "sourcesystems": [("ID", "id"), ("Name", "name"), ("Owner", "owner")],
-    "definitions": [("ID", "id"), ("Name", "name"), ("Owner", "owner")],
+    "definitions": [("ID", "id"), ("Name", "title"), ("Owner", "owner")],
     "certifications": [("ID", "id"), ("Name", "name"), ("Rank", "rank"), ("Tag", "tag")],
     "example-data": [("ID", "id"), ("Data Product", "dataProductId"), ("Schema", "schemaName")],
     "test-results": [("ID", "id"), ("Data Contract", "dataContractId"), ("Result", "result")],

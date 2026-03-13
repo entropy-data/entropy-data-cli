@@ -43,8 +43,12 @@ def add_connection(
     ] = cfg.DEFAULT_HOST,
 ) -> None:
     """Add or update a named connection."""
-    cfg.add_connection(name, api_key, host)
-    print_success(f"Connection '{name}' saved.")
+    try:
+        cfg.add_connection(name, api_key, host)
+        print_success(f"Connection '{name}' saved.")
+    except cfg.ConfigurationError as e:
+        print_error(str(e))
+        raise typer.Exit(1)
 
 
 @connection_app.command("remove")

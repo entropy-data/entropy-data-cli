@@ -14,6 +14,9 @@ def read_body(file: Path) -> dict:
     else:
         content = file.read_text()
     try:
-        return json.loads(content)
+        data = json.loads(content)
     except json.JSONDecodeError:
-        return yaml.safe_load(content)
+        data = yaml.safe_load(content)
+    if not isinstance(data, dict):
+        raise ValueError(f"Expected a JSON/YAML object, got {type(data).__name__}.")
+    return data

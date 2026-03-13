@@ -33,7 +33,8 @@ def _raise_for_status(response: requests.Response) -> None:
         return
     message = response.text
     try:
-        message = response.json().get("message", response.text)
+        body = response.json()
+        message = body.get("detail") or body.get("message") or body.get("title") or response.text
     except (json.JSONDecodeError, AttributeError):
         pass
     if response.status_code == 404:
@@ -47,6 +48,14 @@ def _has_next_page(response: requests.Response) -> bool:
     """Check if the Link header contains rel="next"."""
     link = response.headers.get("Link", "")
     return bool(re.search(r'rel="next"', link))
+
+
+def _validate_resource_id(resource_id: str) -> None:
+    """Reject empty or path-traversal resource IDs."""
+    if not resource_id:
+        raise ValueError("Resource ID must not be empty.")
+    if ".." in resource_id.split("/"):
+        raise ValueError(f"Resource ID must not contain path traversal: '{resource_id}'")
 
 
 class EntropyDataClient:
@@ -68,23 +77,27 @@ class EntropyDataClient:
 
     def get_resource(self, path: str, resource_id: str) -> dict:
         """GET /api/{path}/{id}."""
+        _validate_resource_id(resource_id)
         response = self.session.get(f"{self.base_url}/api/{path}/{resource_id}")
         _raise_for_status(response)
         return response.json()
 
     def put_resource(self, path: str, resource_id: str, body: dict) -> str | None:
         """PUT /api/{path}/{id}. Returns location-html URL if present."""
+        _validate_resource_id(resource_id)
         response = self.session.put(f"{self.base_url}/api/{path}/{resource_id}", json=body)
         _raise_for_status(response)
         return response.headers.get(RESPONSE_HEADER_LOCATION_HTML)
 
     def delete_resource(self, path: str, resource_id: str) -> None:
         """DELETE /api/{path}/{id}."""
+        _validate_resource_id(resource_id)
         response = self.session.delete(f"{self.base_url}/api/{path}/{resource_id}")
         _raise_for_status(response)
 
     def post_action(self, path: str, resource_id: str, action: str) -> str | None:
         """POST /api/{path}/{id}/{action}. Returns location-html URL if present."""
+        _validate_resource_id(resource_id)
         response = self.session.post(f"{self.base_url}/api/{path}/{resource_id}/{action}")
         _raise_for_status(response)
         return response.headers.get(RESPONSE_HEADER_LOCATION_HTML)

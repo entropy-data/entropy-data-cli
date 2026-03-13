@@ -15,6 +15,7 @@ RESOURCE_TYPE = "certifications"
 
 @certifications_app.command("list")
 def list_certifications(
+    page: Annotated[int, typer.Option("--page", "-p", help="Page number (0-indexed).")] = 0,
     output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
 ) -> None:
     """List all certifications."""
@@ -23,8 +24,8 @@ def list_certifications(
     fmt = output or get_output_format()
     try:
         client = get_client()
-        data, has_next = client.list_resources(RESOURCE_PATH)
-        print_resource_list(data, RESOURCE_TYPE, fmt, has_next_page=has_next)
+        data, has_next = client.list_resources(RESOURCE_PATH, params={"p": page})
+        print_resource_list(data, RESOURCE_TYPE, fmt, has_next_page=has_next, page=page)
     except Exception as e:
         handle_error(e)
 

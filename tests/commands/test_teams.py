@@ -5,6 +5,7 @@ import json
 import responses
 from typer.testing import CliRunner
 
+import entropy_data_cli.config as cfg
 from entropy_data_cli.cli import app
 
 runner = CliRunner()
@@ -17,7 +18,8 @@ TEAMS_LIST = [
 
 
 @responses.activate
-def test_teams_list(monkeypatch):
+def test_teams_list(monkeypatch, tmp_path):
+    monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
     responses.add(responses.GET, f"{BASE_URL}/api/teams", json=TEAMS_LIST, status=200)
     result = runner.invoke(app, ["teams", "list"])
@@ -27,7 +29,8 @@ def test_teams_list(monkeypatch):
 
 
 @responses.activate
-def test_teams_list_json(monkeypatch):
+def test_teams_list_json(monkeypatch, tmp_path):
+    monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
     responses.add(responses.GET, f"{BASE_URL}/api/teams", json=TEAMS_LIST, status=200)
     result = runner.invoke(app, ["teams", "list", "--output", "json"])
@@ -37,7 +40,8 @@ def test_teams_list_json(monkeypatch):
 
 
 @responses.activate
-def test_teams_get(monkeypatch):
+def test_teams_get(monkeypatch, tmp_path):
+    monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
     responses.add(responses.GET, f"{BASE_URL}/api/teams/marketing", json=TEAMS_LIST[0], status=200)
     result = runner.invoke(app, ["teams", "get", "marketing"])
@@ -46,7 +50,8 @@ def test_teams_get(monkeypatch):
 
 
 @responses.activate
-def test_teams_get_json(monkeypatch):
+def test_teams_get_json(monkeypatch, tmp_path):
+    monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
     responses.add(responses.GET, f"{BASE_URL}/api/teams/marketing", json=TEAMS_LIST[0], status=200)
     result = runner.invoke(app, ["teams", "get", "marketing", "--output", "json"])
@@ -57,6 +62,7 @@ def test_teams_get_json(monkeypatch):
 
 @responses.activate
 def test_teams_put(monkeypatch, tmp_path):
+    monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
     responses.add(
         responses.PUT,
@@ -72,7 +78,8 @@ def test_teams_put(monkeypatch, tmp_path):
 
 
 @responses.activate
-def test_teams_delete(monkeypatch):
+def test_teams_delete(monkeypatch, tmp_path):
+    monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
     responses.add(responses.DELETE, f"{BASE_URL}/api/teams/marketing", status=200)
     result = runner.invoke(app, ["teams", "delete", "marketing"])
@@ -80,7 +87,8 @@ def test_teams_delete(monkeypatch):
     assert "deleted" in result.output
 
 
-def test_teams_list_no_api_key():
+def test_teams_list_no_api_key(monkeypatch, tmp_path):
+    monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     result = runner.invoke(app, ["teams", "list"])
     assert result.exit_code != 0
 
