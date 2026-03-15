@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.2.2]
+
+- Fix version reporting to read from package metadata instead of hardcoded value
+
 ## [0.2.1]
 
 - Add Docker Hub publish to CI and release workflows
