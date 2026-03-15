@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.2.1]
+
+- Add Docker Hub publish to CI and release workflows
+
 ## [0.2.0]
 
 - Fix negative page numbers leaking SQL queries from the server
