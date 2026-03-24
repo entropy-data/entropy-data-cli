@@ -139,3 +139,31 @@ def test_resolve_default_host(config_dir, monkeypatch):
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "mykey")
     conn = resolve_connection()
     assert conn.host == DEFAULT_HOST
+
+
+def test_resolve_from_dotenv(config_dir, tmp_path, monkeypatch):
+    """A .env file in the working directory should populate env vars."""
+    from dotenv import load_dotenv
+
+    dotenv_dir = tmp_path / "dotenv_test"
+    dotenv_dir.mkdir()
+    env_file = dotenv_dir / ".env"
+    env_file.write_text("ENTROPY_DATA_API_KEY=dotenv_key\nENTROPY_DATA_HOST=https://dotenv.host\n")
+    load_dotenv(env_file)
+    conn = resolve_connection()
+    assert conn.api_key == "dotenv_key"
+    assert conn.host == "https://dotenv.host"
+
+
+def test_env_var_overrides_dotenv(config_dir, tmp_path, monkeypatch):
+    """Explicit env vars should take precedence over .env file values."""
+    from dotenv import load_dotenv
+
+    dotenv_dir = tmp_path / "dotenv_test"
+    dotenv_dir.mkdir()
+    env_file = dotenv_dir / ".env"
+    env_file.write_text("ENTROPY_DATA_API_KEY=dotenv_key\n")
+    monkeypatch.setenv("ENTROPY_DATA_API_KEY", "real_env_key")
+    load_dotenv(env_file, override=False)
+    conn = resolve_connection()
+    assert conn.api_key == "real_env_key"

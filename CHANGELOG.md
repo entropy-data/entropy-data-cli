@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.2.3]
+
+- Add `.env` file support for project-specific configuration via `python-dotenv`
+- Document release process in README
+
 ## [0.2.2]
 
 - Fix version reporting to read from package metadata instead of hardcoded value

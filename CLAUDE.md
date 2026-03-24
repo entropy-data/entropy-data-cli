@@ -52,7 +52,7 @@ Resources: dataproducts, datacontracts, access, teams, sourcesystems, definition
 
 ### Config Resolution Precedence
 1. CLI options (`--api-key`, `--host`)
-2. Environment variables (`ENTROPY_DATA_API_KEY`, `ENTROPY_DATA_HOST`)
+2. Environment variables / `.env` file (`ENTROPY_DATA_API_KEY`, `ENTROPY_DATA_HOST`)
 3. Named connection from `~/.entropy-data/config.toml`
 
 ## Code Conventions

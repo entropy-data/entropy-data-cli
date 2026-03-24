@@ -111,7 +111,19 @@ host = "https://localhost:8080"
 
 You can also use environment variables (`ENTROPY_DATA_API_KEY`, `ENTROPY_DATA_HOST`) or CLI options (`--api-key`, `--host`).
 
-Resolution precedence: CLI options > environment variables > config file.
+### `.env` File Support
+
+The CLI automatically loads a `.env` file from the current working directory. This is useful for project-specific configuration:
+
+```bash
+# .env
+ENTROPY_DATA_API_KEY=ed_abc123...
+ENTROPY_DATA_HOST=https://api.entropy-data.com
+```
+
+Values from `.env` are loaded as environment variables and do **not** override already-set environment variables.
+
+Resolution precedence: CLI options > environment variables / `.env` > config file.
 
 ## Development
 
@@ -122,3 +134,18 @@ uv sync --dev
 uv run pytest
 uv run ruff check .
 ```
+
+## Release
+
+1. Update the version in `pyproject.toml`
+2. Update `CHANGELOG.md` with a `## [X.Y.Z]` section
+3. Commit, tag, and push:
+
+```bash
+git add pyproject.toml CHANGELOG.md
+git commit -m "Bump version to X.Y.Z"
+git tag vX.Y.Z
+git push origin main --tags
+```
+
+The release workflow will automatically run tests, publish to PyPI, create a GitHub Release, and push a Docker image to Docker Hub.
