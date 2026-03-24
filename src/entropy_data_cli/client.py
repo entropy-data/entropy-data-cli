@@ -117,17 +117,24 @@ class EntropyDataClient:
     def post_action(self, path: str, resource_id: str, action: str) -> str | None:
         """POST /api/{path}/{id}/{action}. Returns location-html URL if present."""
         _validate_resource_id(resource_id)
-        response = self.session.post(
-            f"{self.base_url}/api/{path}/{resource_id}/{action}", timeout=REQUEST_TIMEOUT
-        )
+        response = self.session.post(f"{self.base_url}/api/{path}/{resource_id}/{action}", timeout=REQUEST_TIMEOUT)
         _raise_for_status(response)
         return response.headers.get(RESPONSE_HEADER_LOCATION_HTML)
 
-    def post_resource(self, path: str, body: dict) -> str | None:
+    def post_resource(self, path: str, body: dict, params: dict | None = None) -> str | None:
         """POST /api/{path}. Returns location-html URL if present."""
-        response = self.session.post(f"{self.base_url}/api/{path}", json=body, timeout=REQUEST_TIMEOUT)
+        response = self.session.post(f"{self.base_url}/api/{path}", json=body, params=params, timeout=REQUEST_TIMEOUT)
         _raise_for_status(response)
         return response.headers.get(RESPONSE_HEADER_LOCATION_HTML)
+
+    def delete_resources(self, path: str, params: dict | None = None) -> dict:
+        """DELETE /api/{path} with query params. Returns response JSON."""
+        response = self.session.delete(f"{self.base_url}/api/{path}", params=params, timeout=REQUEST_TIMEOUT)
+        _raise_for_status(response)
+        try:
+            return response.json()
+        except Exception:
+            return {}
 
     def get_events(self, last_event_id: str | None = None) -> list[dict]:
         """GET /api/events. Returns list of events."""

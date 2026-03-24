@@ -34,6 +34,14 @@ RESOURCE_COLUMNS: dict[str, list[tuple[str, str]]] = {
     "example-data": [("ID", "id"), ("Data Product", "dataProductId"), ("Schema", "schemaName")],
     "test-results": [("ID", "id"), ("Data Contract", "dataContractId"), ("Result", "result")],
     "events": [("ID", "id"), ("Type", "type"), ("Subject", "subject"), ("Time", "time")],
+    "costs": [("ID", "id"), ("Data Product", "dataProductId"), ("Amount", "amount"), ("Currency", "currency")],
+    "lineage": [
+        ("Event Type", "eventType"),
+        ("Event Time", "eventTime"),
+        ("Job", "job.name"),
+        ("Namespace", "job.namespace"),
+    ],
+    "usage": [],
 }
 
 

@@ -131,7 +131,7 @@ def test_negative_page_rejected(client):
 @responses.activate
 def test_html_error_response_cleaned(client):
     html_body = (
-        '<!doctype html><html><head><title>HTTP Status 400 – Bad Request</title></head>'
+        "<!doctype html><html><head><title>HTTP Status 400 – Bad Request</title></head>"
         "<body><h1>Bad Request</h1><p>Request header is too large</p></body></html>"
     )
     responses.add(responses.GET, f"{BASE_URL}/api/teams/long-id", body=html_body, status=400)
