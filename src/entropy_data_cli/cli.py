@@ -91,6 +91,8 @@ def main(
 
 # Register command groups
 from entropy_data_cli.commands.access import access_app  # noqa: E402
+from entropy_data_cli.commands.api_keys import api_keys_app  # noqa: E402
+from entropy_data_cli.commands.assets import assets_app  # noqa: E402
 from entropy_data_cli.commands.certifications import certifications_app  # noqa: E402
 from entropy_data_cli.commands.connection import connection_app  # noqa: E402
 from entropy_data_cli.commands.costs import costs_app  # noqa: E402
@@ -101,7 +103,9 @@ from entropy_data_cli.commands.events import events_app  # noqa: E402
 from entropy_data_cli.commands.example_data import example_data_app  # noqa: E402
 from entropy_data_cli.commands.lineage import lineage_app  # noqa: E402
 from entropy_data_cli.commands.search import search_app  # noqa: E402
+from entropy_data_cli.commands.settings import settings_app  # noqa: E402
 from entropy_data_cli.commands.sourcesystems import sourcesystems_app  # noqa: E402
+from entropy_data_cli.commands.tags import tags_app  # noqa: E402
 from entropy_data_cli.commands.teams import teams_app  # noqa: E402
 from entropy_data_cli.commands.test_results import test_results_app  # noqa: E402
 from entropy_data_cli.commands.usage import usage_app  # noqa: E402
@@ -117,6 +121,10 @@ app.add_typer(certifications_app, name="certifications", help="Manage certificat
 app.add_typer(example_data_app, name="example-data", help="Manage example data.")
 app.add_typer(test_results_app, name="test-results", help="Manage test results.")
 app.add_typer(costs_app, name="costs", help="Manage costs.")
+app.add_typer(assets_app, name="assets", help="Manage data assets.")
+app.add_typer(tags_app, name="tags", help="Manage tags.")
+app.add_typer(api_keys_app, name="api-keys", help="Manage API keys.")
+app.add_typer(settings_app, name="settings", help="Manage organization settings.")
 app.add_typer(events_app, name="events", help="Poll events.")
 app.add_typer(lineage_app, name="lineage", help="Manage lineage (OpenLineage events).")
 app.add_typer(search_app, name="search", help="Search across resources.")
