@@ -100,8 +100,8 @@ from entropy_data_cli.commands.datacontracts import datacontracts_app  # noqa: E
 from entropy_data_cli.commands.dataproducts import dataproducts_app  # noqa: E402
 from entropy_data_cli.commands.definitions import definitions_app  # noqa: E402
 from entropy_data_cli.commands.events import events_app  # noqa: E402
-from entropy_data_cli.commands.import_export import import_app  # noqa: E402
 from entropy_data_cli.commands.example_data import example_data_app  # noqa: E402
+from entropy_data_cli.commands.import_export import import_app  # noqa: E402
 from entropy_data_cli.commands.lineage import lineage_app  # noqa: E402
 from entropy_data_cli.commands.search import search_app  # noqa: E402
 from entropy_data_cli.commands.settings import settings_app  # noqa: E402
