@@ -121,6 +121,16 @@ class EntropyDataClient:
         _raise_for_status(response)
         return response.headers.get(RESPONSE_HEADER_LOCATION_HTML)
 
+    def post_action_json(self, path: str, resource_id: str, action: str, params: dict | None = None,
+                         timeout: int = REQUEST_TIMEOUT) -> dict:
+        """POST /api/{path}/{id}/{action} with query params. Returns response JSON."""
+        _validate_resource_id(resource_id)
+        response = self.session.post(
+            f"{self.base_url}/api/{path}/{resource_id}/{action}", params=params, timeout=timeout,
+        )
+        _raise_for_status(response)
+        return response.json()
+
     def post_resource(self, path: str, body: dict, params: dict | None = None) -> str | None:
         """POST /api/{path}. Returns location-html URL if present."""
         response = self.session.post(f"{self.base_url}/api/{path}", json=body, params=params, timeout=REQUEST_TIMEOUT)

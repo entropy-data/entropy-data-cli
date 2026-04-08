@@ -78,6 +78,28 @@ def put_datacontract(
         handle_error(e)
 
 
+@datacontracts_app.command("test")
+def test_datacontract(
+    id: Annotated[str, typer.Argument(help="Data contract ID.")],
+    server: Annotated[Optional[str], typer.Option("--server", "-s", help="Server name to test against.")] = None,
+) -> None:
+    """Run a data contract test."""
+    import json
+
+    from entropy_data_cli.cli import get_client, handle_error
+
+    try:
+        client = get_client()
+        params = {}
+        if server:
+            params["server"] = server
+        # Data contract tests can take a long time (up to 30 minutes)
+        data = client.post_action_json(RESOURCE_PATH, id, "test", params=params, timeout=1800)
+        print(json.dumps(data, indent=2))
+    except Exception as e:
+        handle_error(e)
+
+
 @datacontracts_app.command("delete")
 def delete_datacontract(
     id: Annotated[str, typer.Argument(help="Data contract ID.")],
