@@ -81,7 +81,7 @@ entropy-data [--version] [--connection NAME] [--output table|json] [--debug]
 
   connection      list | add | remove | set-default | test
   dataproducts    list | get | put | delete
-  datacontracts   list | get | put | delete
+  datacontracts   list | get | put | test | delete
   access          list | get | put | delete | approve | reject | cancel
   teams           list | get | put | delete
   sourcesystems   list | get | put | delete
@@ -89,8 +89,16 @@ entropy-data [--version] [--connection NAME] [--output table|json] [--debug]
   certifications  list | get | put | delete
   example-data    list | get | put | delete
   test-results    list | get | publish | delete
+  costs           list | add | delete
+  assets          list | get | put | delete
+  tags            list | get | put | delete
+  api-keys        create | delete
+  settings        get-customization | put-customization
   events          poll
+  lineage         list | submit | delete
   search          query
+  usage           list | submit | delete
+  import          zip
 ```
 
 ## Connection Management
