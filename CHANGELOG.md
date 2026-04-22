@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.3.0]
+
+- Rename PyPI package from `entropy-data-cli` to `entropy-data`. Install with `pip install entropy-data` (or `uv tool install entropy-data`). The CLI command remains `entropy-data`.
+
 ## [0.2.3]
 
 - Add `.env` file support for project-specific configuration via `python-dotenv`
