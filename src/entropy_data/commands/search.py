@@ -5,7 +5,7 @@ from typing import Annotated, Optional
 
 import typer
 
-from entropy_data_cli.output import OutputFormat, console
+from entropy_data.output import OutputFormat, console
 
 search_app = typer.Typer(no_args_is_help=True)
 
@@ -19,7 +19,7 @@ def search_query(
     output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
 ) -> None:
     """Search across all resources."""
-    from entropy_data_cli.cli import get_client, get_output_format, handle_error
+    from entropy_data.cli import get_client, get_output_format, handle_error
 
     fmt = output or get_output_format()
     try:

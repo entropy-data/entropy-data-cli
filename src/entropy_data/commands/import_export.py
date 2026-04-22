@@ -8,8 +8,8 @@ from typing import Annotated
 import typer
 import yaml
 
-from entropy_data_cli.client import ApiError
-from entropy_data_cli.output import console, error_console
+from entropy_data.client import ApiError
+from entropy_data.output import console, error_console
 
 import_app = typer.Typer(no_args_is_help=True)
 
@@ -89,7 +89,7 @@ def import_zip(
     file: Annotated[Path, typer.Argument(help="Path to the export zip file.")],
 ) -> None:
     """Import an organization export zip file."""
-    from entropy_data_cli.cli import get_client, handle_error
+    from entropy_data.cli import get_client, handle_error
 
     if not file.is_file():
         error_console.print(f"[red]Error: {file} not found[/red]")

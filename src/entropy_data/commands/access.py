@@ -5,8 +5,8 @@ from typing import Annotated, Optional
 
 import typer
 
-from entropy_data_cli.output import OutputFormat, print_link, print_resource, print_resource_list, print_success
-from entropy_data_cli.util import read_body
+from entropy_data.output import OutputFormat, print_link, print_resource, print_resource_list, print_success
+from entropy_data.util import read_body
 
 access_app = typer.Typer(no_args_is_help=True)
 RESOURCE_PATH = "access"
@@ -19,7 +19,7 @@ def list_access(
     output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
 ) -> None:
     """List all access agreements."""
-    from entropy_data_cli.cli import get_client, get_output_format, handle_error
+    from entropy_data.cli import get_client, get_output_format, handle_error
 
     fmt = output or get_output_format()
     try:
@@ -36,7 +36,7 @@ def get_access(
     output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
 ) -> None:
     """Get an access agreement by ID."""
-    from entropy_data_cli.cli import get_client, get_output_format, handle_error
+    from entropy_data.cli import get_client, get_output_format, handle_error
 
     fmt = output or get_output_format()
     try:
@@ -53,7 +53,7 @@ def put_access(
     file: Annotated[Path, typer.Option("--file", "-f", help="JSON or YAML file (use - for stdin).")] = ...,
 ) -> None:
     """Create or update an access agreement."""
-    from entropy_data_cli.cli import get_client, handle_error
+    from entropy_data.cli import get_client, handle_error
 
     try:
         body = read_body(file)
@@ -70,7 +70,7 @@ def delete_access(
     id: Annotated[str, typer.Argument(help="Access agreement ID.")],
 ) -> None:
     """Delete an access agreement."""
-    from entropy_data_cli.cli import get_client, handle_error
+    from entropy_data.cli import get_client, handle_error
 
     try:
         client = get_client()
@@ -85,7 +85,7 @@ def approve_access(
     id: Annotated[str, typer.Argument(help="Access agreement ID.")],
 ) -> None:
     """Approve an access agreement."""
-    from entropy_data_cli.cli import get_client, handle_error
+    from entropy_data.cli import get_client, handle_error
 
     try:
         client = get_client()
@@ -101,7 +101,7 @@ def reject_access(
     id: Annotated[str, typer.Argument(help="Access agreement ID.")],
 ) -> None:
     """Reject an access agreement."""
-    from entropy_data_cli.cli import get_client, handle_error
+    from entropy_data.cli import get_client, handle_error
 
     try:
         client = get_client()
@@ -117,7 +117,7 @@ def cancel_access(
     id: Annotated[str, typer.Argument(help="Access agreement ID.")],
 ) -> None:
     """Cancel an access agreement."""
-    from entropy_data_cli.cli import get_client, handle_error
+    from entropy_data.cli import get_client, handle_error
 
     try:
         client = get_client()

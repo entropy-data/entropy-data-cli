@@ -3,8 +3,8 @@
 import pytest
 import responses
 
-from entropy_data_cli.client import ApiError, EntropyDataClient, NotFoundError, ValidationError
-from entropy_data_cli.config import ConnectionConfig
+from entropy_data.client import ApiError, EntropyDataClient, NotFoundError, ValidationError
+from entropy_data.config import ConnectionConfig
 
 BASE_URL = "https://api.entropy-data.com"
 

@@ -5,8 +5,8 @@ from typing import Annotated, Optional
 
 import typer
 
-from entropy_data_cli.output import OutputFormat, print_resource_list, print_success
-from entropy_data_cli.util import read_body
+from entropy_data.output import OutputFormat, print_resource_list, print_success
+from entropy_data.util import read_body
 
 costs_app = typer.Typer(no_args_is_help=True)
 RESOURCE_PATH = "costs"
@@ -19,7 +19,7 @@ def list_costs(
     output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
 ) -> None:
     """List all costs of a data product."""
-    from entropy_data_cli.cli import get_client, get_output_format, handle_error
+    from entropy_data.cli import get_client, get_output_format, handle_error
 
     fmt = output or get_output_format()
     try:
@@ -35,7 +35,7 @@ def add_cost(
     file: Annotated[Path, typer.Option("--file", "-f", help="JSON or YAML file (use - for stdin).")] = ...,
 ) -> None:
     """Add a cost."""
-    from entropy_data_cli.cli import get_client, handle_error
+    from entropy_data.cli import get_client, handle_error
 
     try:
         body = read_body(file)
@@ -51,7 +51,7 @@ def delete_cost(
     id: Annotated[str, typer.Argument(help="Cost ID.")],
 ) -> None:
     """Delete a cost."""
-    from entropy_data_cli.cli import get_client, handle_error
+    from entropy_data.cli import get_client, handle_error
 
     try:
         client = get_client()

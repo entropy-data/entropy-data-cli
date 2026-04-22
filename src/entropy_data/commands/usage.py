@@ -6,8 +6,8 @@ from typing import Annotated, Optional
 
 import typer
 
-from entropy_data_cli.output import OutputFormat, console, print_resource_list, print_success
-from entropy_data_cli.util import read_body
+from entropy_data.output import OutputFormat, console, print_resource_list, print_success
+from entropy_data.util import read_body
 
 usage_app = typer.Typer(no_args_is_help=True)
 RESOURCE_PATH = "v1/traces"
@@ -28,7 +28,7 @@ def list_usage(
     output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
 ) -> None:
     """List usage traces."""
-    from entropy_data_cli.cli import get_client, get_output_format, handle_error
+    from entropy_data.cli import get_client, get_output_format, handle_error
 
     fmt = output or get_output_format()
     try:
@@ -56,7 +56,7 @@ def submit_usage(
     ] = ...,
 ) -> None:
     """Submit OpenTelemetry traces in OTLP/JSON format."""
-    from entropy_data_cli.cli import get_client, handle_error
+    from entropy_data.cli import get_client, handle_error
 
     try:
         body = read_body(file)
@@ -79,7 +79,7 @@ def delete_usage(
     span_id: Annotated[Optional[str], typer.Option("--span-id", help="Delete a specific trace by span ID.")] = None,
 ) -> None:
     """Delete usage traces."""
-    from entropy_data_cli.cli import get_client, handle_error
+    from entropy_data.cli import get_client, handle_error
 
     try:
         params = {}

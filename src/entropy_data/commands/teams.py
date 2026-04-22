@@ -1,25 +1,25 @@
-"""Definitions commands."""
+"""Teams commands."""
 
 from pathlib import Path
 from typing import Annotated, Optional
 
 import typer
 
-from entropy_data_cli.output import OutputFormat, print_link, print_resource, print_resource_list, print_success
-from entropy_data_cli.util import read_body
+from entropy_data.output import OutputFormat, print_link, print_resource, print_resource_list, print_success
+from entropy_data.util import read_body
 
-definitions_app = typer.Typer(no_args_is_help=True)
-RESOURCE_PATH = "definitions"
-RESOURCE_TYPE = "definitions"
+teams_app = typer.Typer(no_args_is_help=True)
+RESOURCE_PATH = "teams"
+RESOURCE_TYPE = "teams"
 
 
-@definitions_app.command("list")
-def list_definitions(
+@teams_app.command("list")
+def list_teams(
     page: Annotated[int, typer.Option("--page", "-p", help="Page number (0-indexed).")] = 0,
     output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
 ) -> None:
-    """List all definitions."""
-    from entropy_data_cli.cli import get_client, get_output_format, handle_error
+    """List all teams."""
+    from entropy_data.cli import get_client, get_output_format, handle_error
 
     fmt = output or get_output_format()
     try:
@@ -30,13 +30,13 @@ def list_definitions(
         handle_error(e)
 
 
-@definitions_app.command("get")
-def get_definition(
-    id: Annotated[str, typer.Argument(help="Definition ID.")],
+@teams_app.command("get")
+def get_team(
+    id: Annotated[str, typer.Argument(help="Team ID.")],
     output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
 ) -> None:
-    """Get a definition by ID."""
-    from entropy_data_cli.cli import get_client, get_output_format, handle_error
+    """Get a team by ID."""
+    from entropy_data.cli import get_client, get_output_format, handle_error
 
     fmt = output or get_output_format()
     try:
@@ -47,34 +47,34 @@ def get_definition(
         handle_error(e)
 
 
-@definitions_app.command("put")
-def put_definition(
-    id: Annotated[str, typer.Argument(help="Definition ID.")],
+@teams_app.command("put")
+def put_team(
+    id: Annotated[str, typer.Argument(help="Team ID.")],
     file: Annotated[Path, typer.Option("--file", "-f", help="JSON or YAML file (use - for stdin).")] = ...,
 ) -> None:
-    """Create or update a definition."""
-    from entropy_data_cli.cli import get_client, handle_error
+    """Create or update a team."""
+    from entropy_data.cli import get_client, handle_error
 
     try:
         body = read_body(file)
         client = get_client()
         location = client.put_resource(RESOURCE_PATH, id, body)
-        print_success(f"Definition '{id}' saved.")
+        print_success(f"Team '{id}' saved.")
         print_link(location)
     except Exception as e:
         handle_error(e)
 
 
-@definitions_app.command("delete")
-def delete_definition(
-    id: Annotated[str, typer.Argument(help="Definition ID.")],
+@teams_app.command("delete")
+def delete_team(
+    id: Annotated[str, typer.Argument(help="Team ID.")],
 ) -> None:
-    """Delete a definition."""
-    from entropy_data_cli.cli import get_client, handle_error
+    """Delete a team."""
+    from entropy_data.cli import get_client, handle_error
 
     try:
         client = get_client()
         client.delete_resource(RESOURCE_PATH, id)
-        print_success(f"Definition '{id}' deleted.")
+        print_success(f"Team '{id}' deleted.")
     except Exception as e:
         handle_error(e)

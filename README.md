@@ -3,10 +3,10 @@
 <p>
   <a href="https://github.com/entropy-data/entropy-data-cli/actions/workflows/ci.yaml?query=branch%3Amain">
     <img alt="CI" src="https://img.shields.io/github/actions/workflow/status/entropy-data/entropy-data-cli/ci.yaml?branch=main"></a>
-  <a href="https://pypi.org/project/entropy-data-cli/">
-    <img alt="PyPI" src="https://img.shields.io/pypi/v/entropy-data-cli" /></a>
-  <a href="https://pypi.org/project/entropy-data-cli/">
-    <img alt="Python" src="https://img.shields.io/pypi/pyversions/entropy-data-cli" /></a>
+  <a href="https://pypi.org/project/entropy-data/">
+    <img alt="PyPI" src="https://img.shields.io/pypi/v/entropy-data" /></a>
+  <a href="https://pypi.org/project/entropy-data/">
+    <img alt="Python" src="https://img.shields.io/pypi/pyversions/entropy-data" /></a>
 </p>
 
 The `entropy-data` CLI lets you manage your [Entropy Data](https://entropy-data.com) platform from the command line.
@@ -20,14 +20,14 @@ Docs: [https://docs.entropy-data.com](https://docs.entropy-data.com)
 Requires Python >= 3.12.
 
 ```bash
-uv tool install entropy-data-cli
+uv tool install entropy-data
 entropy-data --help
 ```
 
 Or with pip:
 
 ```bash
-pip install entropy-data-cli
+pip install entropy-data
 entropy-data --help
 ```
 

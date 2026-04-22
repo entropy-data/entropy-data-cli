@@ -8,10 +8,10 @@ import typer
 from dotenv import load_dotenv
 from rich.console import Console
 
-from entropy_data_cli import __version__
-from entropy_data_cli.client import ApiError, EntropyDataClient
-from entropy_data_cli.config import ConfigurationError, resolve_connection
-from entropy_data_cli.output import OutputFormat
+from entropy_data import __version__
+from entropy_data.client import ApiError, EntropyDataClient
+from entropy_data.config import ConfigurationError, resolve_connection
+from entropy_data.output import OutputFormat
 
 # Global state shared across commands
 _connection_name: str | None = None
@@ -90,26 +90,26 @@ def main(
 
 
 # Register command groups
-from entropy_data_cli.commands.access import access_app  # noqa: E402
-from entropy_data_cli.commands.api_keys import api_keys_app  # noqa: E402
-from entropy_data_cli.commands.assets import assets_app  # noqa: E402
-from entropy_data_cli.commands.certifications import certifications_app  # noqa: E402
-from entropy_data_cli.commands.connection import connection_app  # noqa: E402
-from entropy_data_cli.commands.costs import costs_app  # noqa: E402
-from entropy_data_cli.commands.datacontracts import datacontracts_app  # noqa: E402
-from entropy_data_cli.commands.dataproducts import dataproducts_app  # noqa: E402
-from entropy_data_cli.commands.definitions import definitions_app  # noqa: E402
-from entropy_data_cli.commands.events import events_app  # noqa: E402
-from entropy_data_cli.commands.example_data import example_data_app  # noqa: E402
-from entropy_data_cli.commands.import_export import import_app  # noqa: E402
-from entropy_data_cli.commands.lineage import lineage_app  # noqa: E402
-from entropy_data_cli.commands.search import search_app  # noqa: E402
-from entropy_data_cli.commands.settings import settings_app  # noqa: E402
-from entropy_data_cli.commands.sourcesystems import sourcesystems_app  # noqa: E402
-from entropy_data_cli.commands.tags import tags_app  # noqa: E402
-from entropy_data_cli.commands.teams import teams_app  # noqa: E402
-from entropy_data_cli.commands.test_results import test_results_app  # noqa: E402
-from entropy_data_cli.commands.usage import usage_app  # noqa: E402
+from entropy_data.commands.access import access_app  # noqa: E402
+from entropy_data.commands.api_keys import api_keys_app  # noqa: E402
+from entropy_data.commands.assets import assets_app  # noqa: E402
+from entropy_data.commands.certifications import certifications_app  # noqa: E402
+from entropy_data.commands.connection import connection_app  # noqa: E402
+from entropy_data.commands.costs import costs_app  # noqa: E402
+from entropy_data.commands.datacontracts import datacontracts_app  # noqa: E402
+from entropy_data.commands.dataproducts import dataproducts_app  # noqa: E402
+from entropy_data.commands.definitions import definitions_app  # noqa: E402
+from entropy_data.commands.events import events_app  # noqa: E402
+from entropy_data.commands.example_data import example_data_app  # noqa: E402
+from entropy_data.commands.import_export import import_app  # noqa: E402
+from entropy_data.commands.lineage import lineage_app  # noqa: E402
+from entropy_data.commands.search import search_app  # noqa: E402
+from entropy_data.commands.settings import settings_app  # noqa: E402
+from entropy_data.commands.sourcesystems import sourcesystems_app  # noqa: E402
+from entropy_data.commands.tags import tags_app  # noqa: E402
+from entropy_data.commands.teams import teams_app  # noqa: E402
+from entropy_data.commands.test_results import test_results_app  # noqa: E402
+from entropy_data.commands.usage import usage_app  # noqa: E402
 
 app.add_typer(connection_app, name="connection", help="Manage connections.")
 app.add_typer(teams_app, name="teams", help="Manage teams.")

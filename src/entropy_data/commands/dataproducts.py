@@ -5,8 +5,8 @@ from typing import Annotated, Optional
 
 import typer
 
-from entropy_data_cli.output import OutputFormat, print_link, print_resource, print_resource_list, print_success
-from entropy_data_cli.util import read_body
+from entropy_data.output import OutputFormat, print_link, print_resource, print_resource_list, print_success
+from entropy_data.util import read_body
 
 dataproducts_app = typer.Typer(no_args_is_help=True)
 RESOURCE_PATH = "dataproducts"
@@ -23,7 +23,7 @@ def list_dataproducts(
     output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
 ) -> None:
     """List all data products."""
-    from entropy_data_cli.cli import get_client, get_output_format, handle_error
+    from entropy_data.cli import get_client, get_output_format, handle_error
 
     fmt = output or get_output_format()
     try:
@@ -49,7 +49,7 @@ def get_dataproduct(
     output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
 ) -> None:
     """Get a data product by ID."""
-    from entropy_data_cli.cli import get_client, get_output_format, handle_error
+    from entropy_data.cli import get_client, get_output_format, handle_error
 
     fmt = output or get_output_format()
     try:
@@ -66,7 +66,7 @@ def put_dataproduct(
     file: Annotated[Path, typer.Option("--file", "-f", help="JSON or YAML file (use - for stdin).")] = ...,
 ) -> None:
     """Create or update a data product."""
-    from entropy_data_cli.cli import get_client, handle_error
+    from entropy_data.cli import get_client, handle_error
 
     try:
         body = read_body(file)
@@ -83,7 +83,7 @@ def delete_dataproduct(
     id: Annotated[str, typer.Argument(help="Data product ID.")],
 ) -> None:
     """Delete a data product."""
-    from entropy_data_cli.cli import get_client, handle_error
+    from entropy_data.cli import get_client, handle_error
 
     try:
         client = get_client()

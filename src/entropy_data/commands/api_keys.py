@@ -5,7 +5,7 @@ from typing import Annotated, Optional
 
 import typer
 
-from entropy_data_cli.output import OutputFormat, console, print_success
+from entropy_data.output import OutputFormat, console, print_success
 
 api_keys_app = typer.Typer(no_args_is_help=True)
 RESOURCE_PATH = "api-keys"
@@ -21,7 +21,7 @@ def create_api_key(
     output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
 ) -> None:
     """Create a team-scoped API key."""
-    from entropy_data_cli.cli import get_client, get_output_format, handle_error
+    from entropy_data.cli import get_client, get_output_format, handle_error
 
     fmt = output or get_output_format()
     try:
@@ -34,7 +34,7 @@ def create_api_key(
             json=body,
             timeout=30,
         )
-        from entropy_data_cli.client import _raise_for_status
+        from entropy_data.client import _raise_for_status
 
         _raise_for_status(response)
         data = response.json()
@@ -55,7 +55,7 @@ def delete_api_key(
     id: Annotated[str, typer.Argument(help="API key ID.")],
 ) -> None:
     """Delete a team-scoped API key."""
-    from entropy_data_cli.cli import get_client, handle_error
+    from entropy_data.cli import get_client, handle_error
 
     try:
         client = get_client()

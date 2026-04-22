@@ -2,7 +2,7 @@
 
 import pytest
 
-from entropy_data_cli.config import (
+from entropy_data.config import (
     DEFAULT_HOST,
     ConfigurationError,
     add_connection,
@@ -18,7 +18,7 @@ from entropy_data_cli.config import (
 @pytest.fixture
 def config_dir(tmp_path, monkeypatch):
     """Use a temp directory for config."""
-    import entropy_data_cli.config as cfg
+    import entropy_data.config as cfg
 
     monkeypatch.setattr(cfg, "CONFIG_DIR", tmp_path)
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")

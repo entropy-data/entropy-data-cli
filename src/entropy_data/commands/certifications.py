@@ -5,8 +5,8 @@ from typing import Annotated, Optional
 
 import typer
 
-from entropy_data_cli.output import OutputFormat, print_link, print_resource, print_resource_list, print_success
-from entropy_data_cli.util import read_body
+from entropy_data.output import OutputFormat, print_link, print_resource, print_resource_list, print_success
+from entropy_data.util import read_body
 
 certifications_app = typer.Typer(no_args_is_help=True)
 RESOURCE_PATH = "certifications"
@@ -19,7 +19,7 @@ def list_certifications(
     output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
 ) -> None:
     """List all certifications."""
-    from entropy_data_cli.cli import get_client, get_output_format, handle_error
+    from entropy_data.cli import get_client, get_output_format, handle_error
 
     fmt = output or get_output_format()
     try:
@@ -36,7 +36,7 @@ def get_certification(
     output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
 ) -> None:
     """Get a certification by ID."""
-    from entropy_data_cli.cli import get_client, get_output_format, handle_error
+    from entropy_data.cli import get_client, get_output_format, handle_error
 
     fmt = output or get_output_format()
     try:
@@ -53,7 +53,7 @@ def put_certification(
     file: Annotated[Path, typer.Option("--file", "-f", help="JSON or YAML file (use - for stdin).")] = ...,
 ) -> None:
     """Create or update a certification."""
-    from entropy_data_cli.cli import get_client, handle_error
+    from entropy_data.cli import get_client, handle_error
 
     try:
         body = read_body(file)
@@ -70,7 +70,7 @@ def delete_certification(
     id: Annotated[str, typer.Argument(help="Certification ID.")],
 ) -> None:
     """Delete a certification."""
-    from entropy_data_cli.cli import get_client, handle_error
+    from entropy_data.cli import get_client, handle_error
 
     try:
         client = get_client()

@@ -1,25 +1,25 @@
-"""Assets commands."""
+"""Source systems commands."""
 
 from pathlib import Path
 from typing import Annotated, Optional
 
 import typer
 
-from entropy_data_cli.output import OutputFormat, print_link, print_resource, print_resource_list, print_success
-from entropy_data_cli.util import read_body
+from entropy_data.output import OutputFormat, print_link, print_resource, print_resource_list, print_success
+from entropy_data.util import read_body
 
-assets_app = typer.Typer(no_args_is_help=True)
-RESOURCE_PATH = "assets"
-RESOURCE_TYPE = "assets"
+sourcesystems_app = typer.Typer(no_args_is_help=True)
+RESOURCE_PATH = "sourcesystems"
+RESOURCE_TYPE = "sourcesystems"
 
 
-@assets_app.command("list")
-def list_assets(
+@sourcesystems_app.command("list")
+def list_sourcesystems(
     page: Annotated[int, typer.Option("--page", "-p", help="Page number (0-indexed).")] = 0,
     output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
 ) -> None:
-    """List all data assets."""
-    from entropy_data_cli.cli import get_client, get_output_format, handle_error
+    """List all source systems."""
+    from entropy_data.cli import get_client, get_output_format, handle_error
 
     fmt = output or get_output_format()
     try:
@@ -30,13 +30,13 @@ def list_assets(
         handle_error(e)
 
 
-@assets_app.command("get")
-def get_asset(
-    id: Annotated[str, typer.Argument(help="Asset ID.")],
+@sourcesystems_app.command("get")
+def get_sourcesystem(
+    id: Annotated[str, typer.Argument(help="Source system ID.")],
     output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
 ) -> None:
-    """Get a data asset by ID."""
-    from entropy_data_cli.cli import get_client, get_output_format, handle_error
+    """Get a source system by ID."""
+    from entropy_data.cli import get_client, get_output_format, handle_error
 
     fmt = output or get_output_format()
     try:
@@ -47,34 +47,34 @@ def get_asset(
         handle_error(e)
 
 
-@assets_app.command("put")
-def put_asset(
-    id: Annotated[str, typer.Argument(help="Asset ID.")],
+@sourcesystems_app.command("put")
+def put_sourcesystem(
+    id: Annotated[str, typer.Argument(help="Source system ID.")],
     file: Annotated[Path, typer.Option("--file", "-f", help="JSON or YAML file (use - for stdin).")] = ...,
 ) -> None:
-    """Create or update a data asset."""
-    from entropy_data_cli.cli import get_client, handle_error
+    """Create or update a source system."""
+    from entropy_data.cli import get_client, handle_error
 
     try:
         body = read_body(file)
         client = get_client()
         location = client.put_resource(RESOURCE_PATH, id, body)
-        print_success(f"Asset '{id}' saved.")
+        print_success(f"Source system '{id}' saved.")
         print_link(location)
     except Exception as e:
         handle_error(e)
 
 
-@assets_app.command("delete")
-def delete_asset(
-    id: Annotated[str, typer.Argument(help="Asset ID.")],
+@sourcesystems_app.command("delete")
+def delete_sourcesystem(
+    id: Annotated[str, typer.Argument(help="Source system ID.")],
 ) -> None:
-    """Delete a data asset."""
-    from entropy_data_cli.cli import get_client, handle_error
+    """Delete a source system."""
+    from entropy_data.cli import get_client, handle_error
 
     try:
         client = get_client()
         client.delete_resource(RESOURCE_PATH, id)
-        print_success(f"Asset '{id}' deleted.")
+        print_success(f"Source system '{id}' deleted.")
     except Exception as e:
         handle_error(e)

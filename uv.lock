@@ -126,8 +126,8 @@ wheels = [
 ]
 
 [[package]]
-name = "entropy-data-cli"
-version = "0.2.3"
+name = "entropy-data"
+version = "0.2.8"
 source = { editable = "." }
 dependencies = [
     { name = "pydantic" },

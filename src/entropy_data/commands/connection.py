@@ -5,8 +5,8 @@ from typing import Annotated
 import typer
 from rich.table import Table
 
-from entropy_data_cli import config as cfg
-from entropy_data_cli.output import console, print_error, print_success
+from entropy_data import config as cfg
+from entropy_data.output import console, print_error, print_success
 
 connection_app = typer.Typer(no_args_is_help=True)
 
@@ -80,7 +80,7 @@ def set_default(
 @connection_app.command("test")
 def test_connection() -> None:
     """Test the current connection by calling the API."""
-    from entropy_data_cli.cli import get_client, handle_error
+    from entropy_data.cli import get_client, handle_error
 
     try:
         client = get_client()

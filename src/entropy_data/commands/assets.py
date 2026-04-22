@@ -1,25 +1,25 @@
-"""Teams commands."""
+"""Assets commands."""
 
 from pathlib import Path
 from typing import Annotated, Optional
 
 import typer
 
-from entropy_data_cli.output import OutputFormat, print_link, print_resource, print_resource_list, print_success
-from entropy_data_cli.util import read_body
+from entropy_data.output import OutputFormat, print_link, print_resource, print_resource_list, print_success
+from entropy_data.util import read_body
 
-teams_app = typer.Typer(no_args_is_help=True)
-RESOURCE_PATH = "teams"
-RESOURCE_TYPE = "teams"
+assets_app = typer.Typer(no_args_is_help=True)
+RESOURCE_PATH = "assets"
+RESOURCE_TYPE = "assets"
 
 
-@teams_app.command("list")
-def list_teams(
+@assets_app.command("list")
+def list_assets(
     page: Annotated[int, typer.Option("--page", "-p", help="Page number (0-indexed).")] = 0,
     output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
 ) -> None:
-    """List all teams."""
-    from entropy_data_cli.cli import get_client, get_output_format, handle_error
+    """List all data assets."""
+    from entropy_data.cli import get_client, get_output_format, handle_error
 
     fmt = output or get_output_format()
     try:
@@ -30,13 +30,13 @@ def list_teams(
         handle_error(e)
 
 
-@teams_app.command("get")
-def get_team(
-    id: Annotated[str, typer.Argument(help="Team ID.")],
+@assets_app.command("get")
+def get_asset(
+    id: Annotated[str, typer.Argument(help="Asset ID.")],
     output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
 ) -> None:
-    """Get a team by ID."""
-    from entropy_data_cli.cli import get_client, get_output_format, handle_error
+    """Get a data asset by ID."""
+    from entropy_data.cli import get_client, get_output_format, handle_error
 
     fmt = output or get_output_format()
     try:
@@ -47,34 +47,34 @@ def get_team(
         handle_error(e)
 
 
-@teams_app.command("put")
-def put_team(
-    id: Annotated[str, typer.Argument(help="Team ID.")],
+@assets_app.command("put")
+def put_asset(
+    id: Annotated[str, typer.Argument(help="Asset ID.")],
     file: Annotated[Path, typer.Option("--file", "-f", help="JSON or YAML file (use - for stdin).")] = ...,
 ) -> None:
-    """Create or update a team."""
-    from entropy_data_cli.cli import get_client, handle_error
+    """Create or update a data asset."""
+    from entropy_data.cli import get_client, handle_error
 
     try:
         body = read_body(file)
         client = get_client()
         location = client.put_resource(RESOURCE_PATH, id, body)
-        print_success(f"Team '{id}' saved.")
+        print_success(f"Asset '{id}' saved.")
         print_link(location)
     except Exception as e:
         handle_error(e)
 
 
-@teams_app.command("delete")
-def delete_team(
-    id: Annotated[str, typer.Argument(help="Team ID.")],
+@assets_app.command("delete")
+def delete_asset(
+    id: Annotated[str, typer.Argument(help="Asset ID.")],
 ) -> None:
-    """Delete a team."""
-    from entropy_data_cli.cli import get_client, handle_error
+    """Delete a data asset."""
+    from entropy_data.cli import get_client, handle_error
 
     try:
         client = get_client()
         client.delete_resource(RESOURCE_PATH, id)
-        print_success(f"Team '{id}' deleted.")
+        print_success(f"Asset '{id}' deleted.")
     except Exception as e:
         handle_error(e)

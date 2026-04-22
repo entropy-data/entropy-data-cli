@@ -3,8 +3,8 @@
 import responses
 from typer.testing import CliRunner
 
-import entropy_data_cli.config as cfg
-from entropy_data_cli.cli import app
+import entropy_data.config as cfg
+from entropy_data.cli import app
 
 runner = CliRunner()
 BASE_URL = "https://api.entropy-data.com"

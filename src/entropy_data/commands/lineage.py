@@ -6,8 +6,8 @@ from typing import Annotated, Optional
 
 import typer
 
-from entropy_data_cli.output import OutputFormat, console, print_resource_list, print_success
-from entropy_data_cli.util import read_body
+from entropy_data.output import OutputFormat, console, print_resource_list, print_success
+from entropy_data.util import read_body
 
 lineage_app = typer.Typer(no_args_is_help=True)
 RESOURCE_PATH = "v1/lineage"
@@ -29,7 +29,7 @@ def list_lineage(
     output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
 ) -> None:
     """List OpenLineage events."""
-    from entropy_data_cli.cli import get_client, get_output_format, handle_error
+    from entropy_data.cli import get_client, get_output_format, handle_error
 
     fmt = output or get_output_format()
     try:
@@ -67,7 +67,7 @@ def submit_lineage(
     ] = None,
 ) -> None:
     """Submit an OpenLineage RunEvent."""
-    from entropy_data_cli.cli import get_client, handle_error
+    from entropy_data.cli import get_client, handle_error
 
     try:
         body = read_body(file)
@@ -90,7 +90,7 @@ def delete_lineage(
     job_name: Annotated[Optional[str], typer.Option("--job-name", help="Delete by job name.")] = None,
 ) -> None:
     """Delete OpenLineage events."""
-    from entropy_data_cli.cli import get_client, handle_error
+    from entropy_data.cli import get_client, handle_error
 
     try:
         params = {}

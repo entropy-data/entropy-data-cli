@@ -28,12 +28,12 @@ jobs:
       - name: Check tag version > pypi version
         run: |
           LOCAL_VERSION=${{ steps.version.outputs.project_version }}
-          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" https://pypi.org/pypi/entropy-data-cli/json)
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" https://pypi.org/pypi/entropy-data/json)
           if [ "$RESPONSE" = "404" ]; then
             echo "Package not yet on PyPI — first release, skipping version comparison"
             exit 0
           fi
-          PUBLIC_VERSION=$(curl -s https://pypi.org/pypi/entropy-data-cli/json | python3 -c "import sys,json; print(json.load(sys.stdin)['info']['version'])")
+          PUBLIC_VERSION=$(curl -s https://pypi.org/pypi/entropy-data/json | python3 -c "import sys,json; print(json.load(sys.stdin)['info']['version'])")
           echo "Local version: $LOCAL_VERSION"
           echo "Public version: $PUBLIC_VERSION"
           pip install -q packaging
@@ -75,7 +75,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: release-pypi
-      url: https://pypi.org/p/entropy-data-cli
+      url: https://pypi.org/p/entropy-data
     permissions:
       id-token: write
     steps:
@@ -174,7 +174,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: release-testpypi
-      url: https://test.pypi.org/p/entropy-data-cli
+      url: https://test.pypi.org/p/entropy-data
     permissions:
       id-token: write
     steps:

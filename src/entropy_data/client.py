@@ -5,7 +5,7 @@ import re
 
 import requests
 
-from entropy_data_cli.config import ConnectionConfig
+from entropy_data.config import ConnectionConfig
 
 RESPONSE_HEADER_LOCATION_HTML = "location-html"
 REQUEST_TIMEOUT = 30
