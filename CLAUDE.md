@@ -56,7 +56,7 @@ Resources: dataproducts, datacontracts, access, teams, sourcesystems, definition
 3. Named connection from `~/.entropy-data/config.toml`
 
 ## Code Conventions
-- Python 3.12+
+- Python 3.11+
 - Typer for CLI, Rich for output, Pydantic for models, requests for HTTP
 - Ruff for linting/formatting (line-length 120)
 - Tests use pytest + responses (mocked HTTP)
