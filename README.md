@@ -17,7 +17,7 @@ Docs: [https://docs.entropy-data.com](https://docs.entropy-data.com)
 
 ## Install
 
-Requires Python >= 3.12.
+Requires Python >= 3.11.
 
 ```bash
 uv tool install entropy-data
