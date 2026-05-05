@@ -121,12 +121,15 @@ class EntropyDataClient:
         _raise_for_status(response)
         return response.headers.get(RESPONSE_HEADER_LOCATION_HTML)
 
-    def post_action_json(self, path: str, resource_id: str, action: str, params: dict | None = None,
-                         timeout: int = REQUEST_TIMEOUT) -> dict:
+    def post_action_json(
+        self, path: str, resource_id: str, action: str, params: dict | None = None, timeout: int = REQUEST_TIMEOUT
+    ) -> dict:
         """POST /api/{path}/{id}/{action} with query params. Returns response JSON."""
         _validate_resource_id(resource_id)
         response = self.session.post(
-            f"{self.base_url}/api/{path}/{resource_id}/{action}", params=params, timeout=timeout,
+            f"{self.base_url}/api/{path}/{resource_id}/{action}",
+            params=params,
+            timeout=timeout,
         )
         _raise_for_status(response)
         return response.json()
@@ -152,6 +155,53 @@ class EntropyDataClient:
         if last_event_id:
             params["lastEventId"] = last_event_id
         response = self.session.get(f"{self.base_url}/api/events", params=params, timeout=REQUEST_TIMEOUT)
+        _raise_for_status(response)
+        return response.json()
+
+    def get_gitconnection(self, path: str, resource_id: str) -> dict:
+        """GET /api/{path}/{id}/gitconnection."""
+        _validate_resource_id(resource_id)
+        response = self.session.get(
+            f"{self.base_url}/api/{path}/{resource_id}/gitconnection",
+            timeout=REQUEST_TIMEOUT,
+        )
+        _raise_for_status(response)
+        return response.json()
+
+    def put_gitconnection(self, path: str, resource_id: str, body: dict) -> dict:
+        """PUT /api/{path}/{id}/gitconnection."""
+        _validate_resource_id(resource_id)
+        response = self.session.put(
+            f"{self.base_url}/api/{path}/{resource_id}/gitconnection",
+            json=body,
+            timeout=REQUEST_TIMEOUT,
+        )
+        _raise_for_status(response)
+        return response.json()
+
+    def delete_gitconnection(self, path: str, resource_id: str) -> None:
+        """DELETE /api/{path}/{id}/gitconnection."""
+        _validate_resource_id(resource_id)
+        response = self.session.delete(
+            f"{self.base_url}/api/{path}/{resource_id}/gitconnection",
+            timeout=REQUEST_TIMEOUT,
+        )
+        _raise_for_status(response)
+
+    def gitconnection_action(
+        self,
+        path: str,
+        resource_id: str,
+        action: str,
+        body: dict | None = None,
+    ) -> dict:
+        """POST /api/{path}/{id}/gitconnection/{action}. action ∈ {pull, push, push-pr}."""
+        _validate_resource_id(resource_id)
+        response = self.session.post(
+            f"{self.base_url}/api/{path}/{resource_id}/gitconnection/{action}",
+            json=body if body is not None else None,
+            timeout=REQUEST_TIMEOUT,
+        )
         _raise_for_status(response)
         return response.json()
 

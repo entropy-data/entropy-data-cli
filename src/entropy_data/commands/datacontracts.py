@@ -113,3 +113,12 @@ def delete_datacontract(
         print_success(f"Data contract '{id}' deleted.")
     except Exception as e:
         handle_error(e)
+
+
+from entropy_data.commands.gitconnections import make_gitconnection_app  # noqa: E402
+
+datacontracts_app.add_typer(
+    make_gitconnection_app(RESOURCE_PATH, "Data contract"),
+    name="gitconnection",
+    help="Manage the git connection.",
+)
