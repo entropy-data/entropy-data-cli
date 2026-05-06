@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.3.2]
+
+- Add `git-connection` subcommands to `dataproducts` and `datacontracts`
+
 ## [0.3.1]
 
 - Support Python 3.11 (lowered minimum from 3.12)
