@@ -103,6 +103,7 @@ from entropy_data.commands.events import events_app  # noqa: E402
 from entropy_data.commands.example_data import example_data_app  # noqa: E402
 from entropy_data.commands.import_export import import_app  # noqa: E402
 from entropy_data.commands.lineage import lineage_app  # noqa: E402
+from entropy_data.commands.organization import organization_app  # noqa: E402
 from entropy_data.commands.search import search_app  # noqa: E402
 from entropy_data.commands.settings import settings_app  # noqa: E402
 from entropy_data.commands.sourcesystems import sourcesystems_app  # noqa: E402
@@ -125,6 +126,7 @@ app.add_typer(costs_app, name="costs", help="Manage costs.")
 app.add_typer(assets_app, name="assets", help="Manage data assets.")
 app.add_typer(tags_app, name="tags", help="Manage tags.")
 app.add_typer(api_keys_app, name="api-keys", help="Manage API keys.")
+app.add_typer(organization_app, name="organization", help="Get organization details.")
 app.add_typer(settings_app, name="settings", help="Manage organization settings.")
 app.add_typer(events_app, name="events", help="Poll events.")
 app.add_typer(lineage_app, name="lineage", help="Manage lineage (OpenLineage events).")

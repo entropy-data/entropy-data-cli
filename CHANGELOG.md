@@ -1,5 +1,14 @@
 # Changelog
 
+## [Unreleased]
+
+## [0.3.3]
+
+- Add `entropy-data organization get` to fetch organization settings (vanity URL, host, full name, plan, SSO) for the API key in use. Backed by the new `GET /api/organization/settings` endpoint.
+- Add `entropy-data connection get [name]` to inspect a stored connection. API key is masked by default; pass `--show-api-key` to print it in clear text. Use `-o json` for scripting.
+- `entropy-data connection add` auto-fetches the organization vanity URL via `/api/organization/settings` and stores it on the connection. Best-effort: older servers or network errors fall back to no vanity URL.
+- `connection list` surfaces the stored vanity URL.
+
 ## [0.3.2]
 
 - Add `git-connection` subcommands to `dataproducts` and `datacontracts`

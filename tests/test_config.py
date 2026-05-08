@@ -104,6 +104,29 @@ def test_resolve_from_config(config_dir):
     conn = resolve_connection()
     assert conn.api_key == "mykey"
     assert conn.host == "https://custom.host"
+    assert conn.vanity_url is None
+
+
+def test_add_and_resolve_with_vanity_url(config_dir):
+    add_connection("prod", "mykey", "https://custom.host", vanity_url="acme")
+    conn = resolve_connection()
+    assert conn.vanity_url == "acme"
+    config = load_config()
+    assert config["connections"]["prod"]["vanity_url"] == "acme"
+
+
+def test_add_without_vanity_url_omits_key(config_dir):
+    add_connection("prod", "mykey")
+    config = load_config()
+    assert "vanity_url" not in config["connections"]["prod"]
+
+
+def test_list_connections_includes_vanity_url(config_dir):
+    add_connection("prod", "abcd1234efgh5678", vanity_url="acme")
+    add_connection("dev", "key2")
+    result = {row["name"]: row for row in list_connections()}
+    assert result["prod"]["vanity_url"] == "acme"
+    assert result["dev"]["vanity_url"] is None
 
 
 def test_resolve_env_overrides_config(config_dir, monkeypatch):

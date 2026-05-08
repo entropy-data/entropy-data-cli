@@ -21,6 +21,7 @@ class ConfigurationError(Exception):
 class ConnectionConfig:
     api_key: str
     host: str = DEFAULT_HOST
+    vanity_url: str | None = None
 
 
 def load_config() -> dict:
@@ -47,6 +48,7 @@ def resolve_connection(
     """Resolve connection with precedence: CLI options > env vars > config file."""
     api_key = cli_api_key
     host = cli_host
+    vanity_url: str | None = None
 
     # Layer 2: environment variables
     if api_key is None:
@@ -68,6 +70,7 @@ def resolve_connection(
                 api_key = conn.get("api_key")
             if host is None:
                 host = conn.get("host")
+            vanity_url = conn.get("vanity_url")
 
     # Default host
     if host is None:
@@ -78,17 +81,20 @@ def resolve_connection(
             "No API key found. Set ENTROPY_DATA_API_KEY, use --api-key, or run: entropy-data connection add <name>"
         )
 
-    return ConnectionConfig(api_key=api_key, host=host)
+    return ConnectionConfig(api_key=api_key, host=host, vanity_url=vanity_url)
 
 
-def add_connection(name: str, api_key: str, host: str = DEFAULT_HOST) -> None:
+def add_connection(name: str, api_key: str, host: str = DEFAULT_HOST, vanity_url: str | None = None) -> None:
     """Add or update a named connection."""
     if not name or not name.strip():
         raise ConfigurationError("Connection name must not be empty.")
     config = load_config()
     if "connections" not in config:
         config["connections"] = {}
-    config["connections"][name] = {"api_key": api_key, "host": host}
+    entry: dict = {"api_key": api_key, "host": host}
+    if vanity_url:
+        entry["vanity_url"] = vanity_url
+    config["connections"][name] = entry
     # Set as default if it's the first connection
     if "default_connection_name" not in config:
         config["default_connection_name"] = name
@@ -134,6 +140,7 @@ def list_connections() -> list[dict]:
             {
                 "name": name,
                 "host": conn.get("host", DEFAULT_HOST),
+                "vanity_url": conn.get("vanity_url"),
                 "api_key": masked,
                 "default": name == default_name,
             }
