@@ -28,6 +28,7 @@ RESOURCE_COLUMNS: dict[str, list[tuple[str, str]]] = {
         ("Consumer", "consumer.teamId"),
     ],
     "teams": [("ID", "id"), ("Name", "name"), ("Type", "type"), ("Parent", "parent")],
+    "my-teams": [("ID", "id"), ("Name", "name"), ("Type", "type"), ("Parent", "parent"), ("Role", "role")],
     "sourcesystems": [("ID", "id"), ("Name", "name"), ("Owner", "owner")],
     "definitions": [("ID", "id"), ("Name", "title"), ("Owner", "owner")],
     "certifications": [("ID", "id"), ("Name", "name"), ("Rank", "rank"), ("Tag", "tag")],
@@ -83,7 +84,12 @@ def print_resource(data: dict, resource_type: str, fmt: OutputFormat) -> None:
 
 
 def print_resource_list(
-    data: list[dict], resource_type: str, fmt: OutputFormat, has_next_page: bool = False, page: int = 0
+    data: list[dict],
+    resource_type: str,
+    fmt: OutputFormat,
+    has_next_page: bool = False,
+    page: int = 0,
+    title: str | None = None,
 ) -> None:
     """Print a list of resources."""
     if fmt == OutputFormat.json:
@@ -95,7 +101,7 @@ def print_resource_list(
         console.print_json(json.dumps(data))
         return
 
-    table = Table(show_header=True, title=f"{resource_type} (page {page})")
+    table = Table(show_header=True, title=title or f"{resource_type} (page {page})")
     for header, _ in columns:
         table.add_column(header)
     for item in data:

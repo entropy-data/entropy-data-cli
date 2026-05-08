@@ -16,6 +16,33 @@ TEAMS_LIST = [
     {"id": "engineering", "name": "Engineering", "type": "Domain Team", "parent": None},
 ]
 
+TEAMS_LIST_WITH_MEMBERS = [
+    {
+        "id": "marketing",
+        "name": "Marketing",
+        "type": "Team",
+        "parent": "sales",
+        "members": [
+            {"emailAddress": "alice@example.com", "role": "Owner"},
+            {"emailAddress": "bob@example.com", "role": "Member"},
+        ],
+    },
+    {
+        "id": "engineering",
+        "name": "Engineering",
+        "type": "Domain Team",
+        "parent": None,
+        "members": [{"emailAddress": "carol@example.com", "role": "Lead"}],
+    },
+    {
+        "id": "platform",
+        "name": "Platform",
+        "type": "Team",
+        "parent": None,
+        "members": [{"emailAddress": "alice@example.com", "role": "Maintainer"}],
+    },
+]
+
 
 @responses.activate
 def test_teams_list(monkeypatch, tmp_path):
@@ -37,6 +64,60 @@ def test_teams_list_json(monkeypatch, tmp_path):
     assert result.exit_code == 0
     data = json.loads(result.output)
     assert len(data) == 2
+
+
+@responses.activate
+def test_teams_list_member_filter(monkeypatch, tmp_path):
+    monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
+    monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
+    responses.add(responses.GET, f"{BASE_URL}/api/teams", json=TEAMS_LIST_WITH_MEMBERS, status=200)
+    result = runner.invoke(app, ["teams", "list", "--member", "alice@example.com"])
+    assert result.exit_code == 0
+    assert "marketing" in result.output
+    assert "platform" in result.output
+    assert "engineering" not in result.output
+    assert "Owner" in result.output
+    assert "Maintainer" in result.output
+
+
+@responses.activate
+def test_teams_list_member_filter_case_insensitive(monkeypatch, tmp_path):
+    monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
+    monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
+    responses.add(responses.GET, f"{BASE_URL}/api/teams", json=TEAMS_LIST_WITH_MEMBERS, status=200)
+    result = runner.invoke(app, ["teams", "list", "-m", "ALICE@example.com", "--output", "json"])
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    ids = {t["id"] for t in data}
+    assert ids == {"marketing", "platform"}
+    roles = {t["id"]: t["role"] for t in data}
+    assert roles == {"marketing": "Owner", "platform": "Maintainer"}
+
+
+@responses.activate
+def test_teams_list_member_filter_paginates(monkeypatch, tmp_path):
+    monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
+    monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
+    responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/teams",
+        json=TEAMS_LIST_WITH_MEMBERS[:1],
+        status=200,
+        headers={"Link": '</api/teams?p=1>; rel="next"'},
+        match=[responses.matchers.query_param_matcher({"p": "0"})],
+    )
+    responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/teams",
+        json=TEAMS_LIST_WITH_MEMBERS[1:],
+        status=200,
+        match=[responses.matchers.query_param_matcher({"p": "1"})],
+    )
+    result = runner.invoke(app, ["teams", "list", "--member", "alice@example.com", "--output", "json"])
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    ids = {t["id"] for t in data}
+    assert ids == {"marketing", "platform"}
 
 
 @responses.activate

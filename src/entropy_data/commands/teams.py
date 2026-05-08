@@ -15,6 +15,10 @@ RESOURCE_TYPE = "teams"
 
 @teams_app.command("list")
 def list_teams(
+    member: Annotated[
+        Optional[str],
+        typer.Option("--member", "-m", help="Filter to teams where this email is a member; adds a Role column."),
+    ] = None,
     page: Annotated[int, typer.Option("--page", "-p", help="Page number (0-indexed).")] = 0,
     output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
 ) -> None:
@@ -24,8 +28,29 @@ def list_teams(
     fmt = output or get_output_format()
     try:
         client = get_client()
-        data, has_next = client.list_resources(RESOURCE_PATH, params={"p": page})
-        print_resource_list(data, RESOURCE_TYPE, fmt, has_next_page=has_next, page=page)
+        if member is None:
+            data, has_next = client.list_resources(RESOURCE_PATH, params={"p": page})
+            print_resource_list(data, RESOURCE_TYPE, fmt, has_next_page=has_next, page=page)
+            return
+
+        all_teams: list[dict] = []
+        current_page = 0
+        while True:
+            items, has_next = client.list_resources(RESOURCE_PATH, params={"p": current_page})
+            all_teams.extend(items)
+            if not has_next:
+                break
+            current_page += 1
+
+        member_lower = member.lower()
+        filtered: list[dict] = []
+        for team in all_teams:
+            for m in team.get("members") or []:
+                if (m.get("emailAddress") or "").lower() == member_lower:
+                    team["role"] = m.get("role") or ""
+                    filtered.append(team)
+                    break
+        print_resource_list(filtered, "my-teams", fmt, title=f"teams where {member} is a member")
     except Exception as e:
         handle_error(e)
 
