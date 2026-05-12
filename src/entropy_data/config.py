@@ -45,32 +45,43 @@ def resolve_connection(
     cli_api_key: str | None = None,
     cli_host: str | None = None,
 ) -> ConnectionConfig:
-    """Resolve connection with precedence: CLI options > env vars > config file."""
+    """Resolve connection with precedence: --api-key/--host > --connection > env vars > default config connection."""
     api_key = cli_api_key
     host = cli_host
     vanity_url: str | None = None
 
-    # Layer 2: environment variables
+    # Layer 2: explicit --connection takes precedence over env vars
+    if connection_name is not None:
+        config = load_config()
+        connections = config.get("connections", {})
+        if connection_name not in connections:
+            raise ConfigurationError(f"Connection '{connection_name}' not found.")
+        conn = connections[connection_name]
+        if api_key is None:
+            api_key = conn.get("api_key")
+        if host is None:
+            host = conn.get("host")
+        vanity_url = conn.get("vanity_url")
+
+    # Layer 3: environment variables
     if api_key is None:
         api_key = os.getenv("ENTROPY_DATA_API_KEY")
     if host is None:
         host = os.getenv("ENTROPY_DATA_HOST")
 
-    # Layer 3: config file
+    # Layer 4: default connection from config file
     if api_key is None or host is None:
         config = load_config()
         connections = config.get("connections", {})
-
-        name = connection_name or config.get("default_connection_name")
-        if connection_name and connection_name not in connections:
-            raise ConfigurationError(f"Connection '{connection_name}' not found.")
+        name = config.get("default_connection_name")
         if name and name in connections:
             conn = connections[name]
             if api_key is None:
                 api_key = conn.get("api_key")
             if host is None:
                 host = conn.get("host")
-            vanity_url = conn.get("vanity_url")
+            if vanity_url is None:
+                vanity_url = conn.get("vanity_url")
 
     # Default host
     if host is None:

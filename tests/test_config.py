@@ -153,6 +153,24 @@ def test_resolve_named_connection(config_dir):
     assert conn.host == "http://localhost:8080"
 
 
+def test_resolve_named_connection_overrides_env(config_dir, monkeypatch):
+    """Explicit --connection should take precedence over env vars."""
+    add_connection("prod", "prod_key", "https://prod.host")
+    monkeypatch.setenv("ENTROPY_DATA_API_KEY", "env_key")
+    monkeypatch.setenv("ENTROPY_DATA_HOST", "https://env.host")
+    conn = resolve_connection(connection_name="prod")
+    assert conn.api_key == "prod_key"
+    assert conn.host == "https://prod.host"
+
+
+def test_resolve_cli_key_overrides_named_connection(config_dir):
+    """--api-key/--host should still beat an explicit --connection."""
+    add_connection("prod", "prod_key", "https://prod.host")
+    conn = resolve_connection(connection_name="prod", cli_api_key="cli_key", cli_host="https://cli.host")
+    assert conn.api_key == "cli_key"
+    assert conn.host == "https://cli.host"
+
+
 def test_resolve_no_key_raises(config_dir):
     with pytest.raises(ConfigurationError, match="No API key"):
         resolve_connection()
