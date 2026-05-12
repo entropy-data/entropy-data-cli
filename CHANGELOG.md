@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [0.3.6]
+
+- `entropy-data connection add` now sets the newly added connection as the default, overriding any previously set default.
+
 ## [0.3.5]
 
 - Add `entropy-data semantics search <namespace> <query> [--kind <kind>] [--limit <n>]` for case-insensitive substring search across concept id, name, and description in a namespace. Implemented client-side over the existing `GET /api/semantics/experimental/namespaces/{ns}/concepts` endpoint.
