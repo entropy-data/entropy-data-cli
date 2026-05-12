@@ -106,9 +106,7 @@ def add_connection(name: str, api_key: str, host: str = DEFAULT_HOST, vanity_url
     if vanity_url:
         entry["vanity_url"] = vanity_url
     config["connections"][name] = entry
-    # Set as default if it's the first connection
-    if "default_connection_name" not in config:
-        config["default_connection_name"] = name
+    config["default_connection_name"] = name
     save_config(config)
 
 

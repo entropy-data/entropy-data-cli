@@ -43,11 +43,11 @@ def test_add_connection_sets_default(config_dir):
     assert config["connections"]["prod"]["api_key"] == "key123"
 
 
-def test_add_second_connection_keeps_default(config_dir):
+def test_add_second_connection_becomes_default(config_dir):
     add_connection("prod", "key1")
     add_connection("dev", "key2", "http://localhost:8080")
     config = load_config()
-    assert config["default_connection_name"] == "prod"
+    assert config["default_connection_name"] == "dev"
     assert len(config["connections"]) == 2
 
 
