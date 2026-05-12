@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.3.4]
+
 - Add `entropy-data datacontracts yaml <id>` to fetch a data contract as ODCS YAML (writes to stdout or `--file`). Backed by `GET /api/datacontracts/{id}.yaml`.
 - Add `entropy-data datacontracts generate <id> --type <kind>` for code generation (`sql-select`, `sql-ddl`, `dbt-models`, `dbt-sources`, `json-schema`, `pydantic`, `custom`). With `--out-dir`, each returned file is written to disk; without it, the JSON response is printed.
 - Add `entropy-data dataproducts import-from-git` and `entropy-data datacontracts import-from-git` to import resources from a Git repository (flags or `--file body.json`).
