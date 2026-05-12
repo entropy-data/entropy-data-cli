@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [0.3.5]
+
+- Add `entropy-data semantics search <namespace> <query> [--kind <kind>] [--limit <n>]` for case-insensitive substring search across concept id, name, and description in a namespace. Implemented client-side over the existing `GET /api/semantics/experimental/namespaces/{ns}/concepts` endpoint.
+- Add `entropy-data access request <data-product-id> <output-port-id> --purpose <text> --consumer-team|--consumer-user|--consumer-dataproduct <id> [--roles <comma-list>] [--id <agreement-id>]` to submit an access request for a provider output port. Wraps `PUT /api/access/{id}` and auto-generates a UUID when `--id` is omitted.
+
 ## [0.3.4]
 
 - Add `entropy-data datacontracts yaml <id>` to fetch a data contract as ODCS YAML (writes to stdout or `--file`). Backed by `GET /api/datacontracts/{id}.yaml`.
