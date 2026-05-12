@@ -1,14 +1,16 @@
 """Assets commands."""
 
+import json
 from pathlib import Path
 from typing import Annotated, Optional
 
 import typer
 
-from entropy_data.output import OutputFormat, print_link, print_resource, print_resource_list, print_success
+from entropy_data.output import OutputFormat, console, print_link, print_resource, print_resource_list, print_success
 from entropy_data.util import read_body
 
 assets_app = typer.Typer(no_args_is_help=True)
+tags_app = typer.Typer(no_args_is_help=True)
 RESOURCE_PATH = "assets"
 RESOURCE_TYPE = "assets"
 
@@ -78,3 +80,80 @@ def delete_asset(
         print_success(f"Asset '{id}' deleted.")
     except Exception as e:
         handle_error(e)
+
+
+@tags_app.command("list")
+def list_asset_tags(
+    asset_id: Annotated[str, typer.Argument(help="Asset ID.")],
+    output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
+) -> None:
+    """List tags assigned to an asset."""
+    from entropy_data.cli import get_client, get_output_format, handle_error
+    from entropy_data.client import REQUEST_TIMEOUT, _raise_for_status, _validate_resource_id
+
+    fmt = output or get_output_format()
+    try:
+        client = get_client()
+        _validate_resource_id(asset_id)
+        response = client.session.get(
+            f"{client.base_url}/api/assets/{asset_id}/assigned-tags",
+            timeout=REQUEST_TIMEOUT,
+        )
+        _raise_for_status(response)
+        data = response.json()
+        if fmt == OutputFormat.json:
+            console.print_json(json.dumps(data))
+        else:
+            for tag in data:
+                console.print(tag)
+    except Exception as e:
+        handle_error(e)
+
+
+@tags_app.command("add")
+def add_asset_tag(
+    asset_id: Annotated[str, typer.Argument(help="Asset ID.")],
+    tag_id: Annotated[str, typer.Argument(help="Tag ID (may be hierarchical, e.g. governance/PII).")],
+) -> None:
+    """Assign a tag to an asset."""
+    from entropy_data.cli import get_client, handle_error
+    from entropy_data.client import REQUEST_TIMEOUT, _raise_for_status, _validate_resource_id
+
+    try:
+        client = get_client()
+        _validate_resource_id(asset_id)
+        # tag_id can contain "/" (e.g. governance/PII) so we don't run it through the
+        # path-traversal-rejecting validator; the server validates anyway.
+        response = client.session.put(
+            f"{client.base_url}/api/assets/{asset_id}/assigned-tags/{tag_id}",
+            timeout=REQUEST_TIMEOUT,
+        )
+        _raise_for_status(response)
+        print_success(f"Tag '{tag_id}' assigned to asset '{asset_id}'.")
+    except Exception as e:
+        handle_error(e)
+
+
+@tags_app.command("remove")
+def remove_asset_tag(
+    asset_id: Annotated[str, typer.Argument(help="Asset ID.")],
+    tag_id: Annotated[str, typer.Argument(help="Tag ID (may be hierarchical, e.g. governance/PII).")],
+) -> None:
+    """Unassign a tag from an asset."""
+    from entropy_data.cli import get_client, handle_error
+    from entropy_data.client import REQUEST_TIMEOUT, _raise_for_status, _validate_resource_id
+
+    try:
+        client = get_client()
+        _validate_resource_id(asset_id)
+        response = client.session.delete(
+            f"{client.base_url}/api/assets/{asset_id}/assigned-tags/{tag_id}",
+            timeout=REQUEST_TIMEOUT,
+        )
+        _raise_for_status(response)
+        print_success(f"Tag '{tag_id}' removed from asset '{asset_id}'.")
+    except Exception as e:
+        handle_error(e)
+
+
+assets_app.add_typer(tags_app, name="tags", help="Manage tag assignments on an asset.")

@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+- Add `entropy-data datacontracts yaml <id>` to fetch a data contract as ODCS YAML (writes to stdout or `--file`). Backed by `GET /api/datacontracts/{id}.yaml`.
+- Add `entropy-data datacontracts generate <id> --type <kind>` for code generation (`sql-select`, `sql-ddl`, `dbt-models`, `dbt-sources`, `json-schema`, `pydantic`, `custom`). With `--out-dir`, each returned file is written to disk; without it, the JSON response is printed.
+- Add `entropy-data dataproducts import-from-git` and `entropy-data datacontracts import-from-git` to import resources from a Git repository (flags or `--file body.json`).
+- Add `entropy-data organization members list` and `entropy-data organization members get <email>` to inspect organization membership.
+- Add `entropy-data settings get-scim-mapping` and `entropy-data settings put-scim-mapping` to manage the SCIM group mapping (YAML or JSON, mirrors the customization commands).
+- Add `entropy-data connectors list|get|put|delete` to manage connector state.
+- Add `entropy-data assets tags list|add|remove` to manage tag assignments on data assets.
+- Add `entropy-data organization git-credentials list|get|create|update|delete` and `entropy-data teams git-credentials list|get|create|update|delete <team-id>` to manage organization- and team-level git credentials. Pass `--authentication-token -` to read the secret from stdin.
+- Add `entropy-data teams notifications get|put|delete <team-id> <channel-id>` to manage a team's notification channels.
+- Add EXPERIMENTAL `entropy-data semantics namespaces list|get|put|delete`, `entropy-data semantics concepts list|get|put|delete <namespace> [<external-id>]`, and `entropy-data semantics relationships list|get|put|delete <namespace> [<external-id>]` covering the `/api/semantics/experimental/...` endpoints. PUT commands enforce that any `namespace`/`id` in the body matches the path argument.
+
 ## [0.3.3]
 
 - Add `entropy-data organization get` to fetch organization settings (vanity URL, host, full name, plan, SSO) for the API key in use. Backed by the new `GET /api/organization/settings` endpoint.

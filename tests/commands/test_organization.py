@@ -79,7 +79,61 @@ def test_organization_get_minimal_payload(monkeypatch, tmp_path):
     assert "minimal" in result.output
 
 
+MEMBERS_LIST = [
+    {"emailAddress": "alice@example.com", "userId": "u-alice", "role": "Owner"},
+    {"emailAddress": "bob@example.com", "userId": "u-bob", "role": "Member"},
+]
+
+
+@responses.activate
+def test_organization_members_list(monkeypatch, tmp_path):
+    monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
+    monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
+    responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/organization/members",
+        json=MEMBERS_LIST,
+        status=200,
+    )
+    result = runner.invoke(app, ["organization", "members", "list"])
+    assert result.exit_code == 0
+    assert "alice@example.com" in result.output
+    assert "Owner" in result.output
+
+
+@responses.activate
+def test_organization_members_list_json(monkeypatch, tmp_path):
+    monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
+    monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
+    responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/organization/members",
+        json=MEMBERS_LIST,
+        status=200,
+    )
+    result = runner.invoke(app, ["organization", "members", "list", "--output", "json"])
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert len(data) == 2
+
+
+@responses.activate
+def test_organization_members_get(monkeypatch, tmp_path):
+    monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
+    monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
+    responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/organization/members/alice@example.com",
+        json=MEMBERS_LIST[0],
+        status=200,
+    )
+    result = runner.invoke(app, ["organization", "members", "get", "alice@example.com"])
+    assert result.exit_code == 0
+    assert "alice@example.com" in result.output
+
+
 def test_organization_help():
     result = runner.invoke(app, ["organization", "--help"])
     assert result.exit_code == 0
     assert "get" in result.output
+    assert "members" in result.output

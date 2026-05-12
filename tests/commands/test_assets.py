@@ -88,6 +88,66 @@ def test_assets_delete(monkeypatch, tmp_path):
     assert "deleted" in result.output
 
 
+@responses.activate
+def test_assets_tags_list(monkeypatch, tmp_path):
+    monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
+    monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
+    responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/assets/asset-1/assigned-tags",
+        json=["pii:true", "governance/internal"],
+        status=200,
+    )
+    result = runner.invoke(app, ["assets", "tags", "list", "asset-1"])
+    assert result.exit_code == 0
+    assert "pii:true" in result.output
+    assert "governance/internal" in result.output
+
+
+@responses.activate
+def test_assets_tags_list_json(monkeypatch, tmp_path):
+    monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
+    monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
+    responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/assets/asset-1/assigned-tags",
+        json=["pii:true"],
+        status=200,
+    )
+    result = runner.invoke(app, ["assets", "tags", "list", "asset-1", "--output", "json"])
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert data == ["pii:true"]
+
+
+@responses.activate
+def test_assets_tags_add(monkeypatch, tmp_path):
+    monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
+    monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
+    responses.add(
+        responses.PUT,
+        f"{BASE_URL}/api/assets/asset-1/assigned-tags/governance/PII",
+        status=200,
+    )
+    result = runner.invoke(app, ["assets", "tags", "add", "asset-1", "governance/PII"])
+    assert result.exit_code == 0
+    assert "assigned" in result.output
+
+
+@responses.activate
+def test_assets_tags_remove(monkeypatch, tmp_path):
+    monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
+    monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
+    responses.add(
+        responses.DELETE,
+        f"{BASE_URL}/api/assets/asset-1/assigned-tags/governance/PII",
+        status=200,
+    )
+    result = runner.invoke(app, ["assets", "tags", "remove", "asset-1", "governance/PII"])
+    assert result.exit_code == 0
+    assert "removed" in result.output
+
+
 def test_assets_help():
     result = runner.invoke(app, ["assets", "--help"])
     assert result.exit_code == 0
@@ -95,3 +155,4 @@ def test_assets_help():
     assert "get" in result.output
     assert "put" in result.output
     assert "delete" in result.output
+    assert "tags" in result.output

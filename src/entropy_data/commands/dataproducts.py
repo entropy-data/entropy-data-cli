@@ -93,6 +93,59 @@ def delete_dataproduct(
         handle_error(e)
 
 
+@dataproducts_app.command("import-from-git")
+def import_dataproduct_from_git(
+    file: Annotated[
+        Optional[Path],
+        typer.Option("--file", "-f", help="JSON or YAML file with the GitImportRequest body (use - for stdin)."),
+    ] = None,
+    repository_url: Annotated[
+        Optional[str], typer.Option("--repository-url", help="URL of the Git repository.")
+    ] = None,
+    repository_path: Annotated[
+        Optional[str], typer.Option("--repository-path", help="Path to the YAML file in the repository.")
+    ] = None,
+    repository_branch: Annotated[
+        Optional[str], typer.Option("--repository-branch", help="Branch. Defaults to 'main'.")
+    ] = None,
+    git_connection_type: Annotated[
+        Optional[str],
+        typer.Option(
+            "--git-connection-type",
+            help="github | gitlab | bitbucket | azuredevops. Required without --git-credential-external-id.",
+        ),
+    ] = None,
+    host: Annotated[Optional[str], typer.Option("--host", help="Host of a self-hosted git provider.")] = None,
+    git_credential_external_id: Annotated[
+        Optional[str],
+        typer.Option(
+            "--git-credential-external-id",
+            help="External ID of a stored git credential to use.",
+        ),
+    ] = None,
+) -> None:
+    """Import a data product from a Git repository."""
+    from entropy_data.cli import get_client, handle_error
+    from entropy_data.commands.datacontracts import _build_git_import_body
+
+    body = _build_git_import_body(
+        file=file,
+        repository_url=repository_url,
+        repository_path=repository_path,
+        repository_branch=repository_branch,
+        git_connection_type=git_connection_type,
+        host=host,
+        git_credential_external_id=git_credential_external_id,
+    )
+
+    try:
+        client = get_client()
+        client.post_resource("dataproducts/import/git", body)
+        print_success("Data product imported from Git.")
+    except Exception as e:
+        handle_error(e)
+
+
 from entropy_data.commands.gitconnections import make_gitconnection_app  # noqa: E402
 
 dataproducts_app.add_typer(

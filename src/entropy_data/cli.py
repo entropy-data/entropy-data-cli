@@ -95,6 +95,7 @@ from entropy_data.commands.api_keys import api_keys_app  # noqa: E402
 from entropy_data.commands.assets import assets_app  # noqa: E402
 from entropy_data.commands.certifications import certifications_app  # noqa: E402
 from entropy_data.commands.connection import connection_app  # noqa: E402
+from entropy_data.commands.connectors import connectors_app  # noqa: E402
 from entropy_data.commands.costs import costs_app  # noqa: E402
 from entropy_data.commands.datacontracts import datacontracts_app  # noqa: E402
 from entropy_data.commands.dataproducts import dataproducts_app  # noqa: E402
@@ -105,6 +106,7 @@ from entropy_data.commands.import_export import import_app  # noqa: E402
 from entropy_data.commands.lineage import lineage_app  # noqa: E402
 from entropy_data.commands.organization import organization_app  # noqa: E402
 from entropy_data.commands.search import search_app  # noqa: E402
+from entropy_data.commands.semantics import semantics_app  # noqa: E402
 from entropy_data.commands.settings import settings_app  # noqa: E402
 from entropy_data.commands.sourcesystems import sourcesystems_app  # noqa: E402
 from entropy_data.commands.tags import tags_app  # noqa: E402
@@ -126,10 +128,12 @@ app.add_typer(costs_app, name="costs", help="Manage costs.")
 app.add_typer(assets_app, name="assets", help="Manage data assets.")
 app.add_typer(tags_app, name="tags", help="Manage tags.")
 app.add_typer(api_keys_app, name="api-keys", help="Manage API keys.")
+app.add_typer(connectors_app, name="connectors", help="Manage connectors.")
 app.add_typer(organization_app, name="organization", help="Get organization details.")
 app.add_typer(settings_app, name="settings", help="Manage organization settings.")
 app.add_typer(events_app, name="events", help="Poll events.")
 app.add_typer(lineage_app, name="lineage", help="Manage lineage (OpenLineage events).")
 app.add_typer(search_app, name="search", help="Search across resources.")
+app.add_typer(semantics_app, name="semantics", help="EXPERIMENTAL semantics API.")
 app.add_typer(usage_app, name="usage", help="Manage usage (OpenTelemetry traces).")
 app.add_typer(import_app, name="import", help="Import organization exports.")

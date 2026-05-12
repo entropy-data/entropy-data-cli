@@ -122,13 +122,20 @@ class EntropyDataClient:
         return response.headers.get(RESPONSE_HEADER_LOCATION_HTML)
 
     def post_action_json(
-        self, path: str, resource_id: str, action: str, params: dict | None = None, timeout: int = REQUEST_TIMEOUT
+        self,
+        path: str,
+        resource_id: str,
+        action: str,
+        params: dict | None = None,
+        body: dict | None = None,
+        timeout: int = REQUEST_TIMEOUT,
     ) -> dict:
-        """POST /api/{path}/{id}/{action} with query params. Returns response JSON."""
+        """POST /api/{path}/{id}/{action}. Returns response JSON."""
         _validate_resource_id(resource_id)
         response = self.session.post(
             f"{self.base_url}/api/{path}/{resource_id}/{action}",
             params=params,
+            json=body if body is not None else None,
             timeout=timeout,
         )
         _raise_for_status(response)

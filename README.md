@@ -80,23 +80,26 @@ entropy-data search query "customer orders"
 entropy-data [--version] [--connection NAME] [--output table|json] [--debug]
 
   connection      list | add | remove | set-default | test
-  dataproducts    list | get | put | delete
-  datacontracts   list | get | put | test | delete
+  dataproducts    list | get | put | delete | import-from-git | gitconnection ...
+  datacontracts   list | get | put | test | delete | yaml | generate | import-from-git | gitconnection ...
   access          list | get | put | delete | approve | reject | cancel
-  teams           list | get | put | delete
+  teams           list | get | put | delete | git-credentials ... | notifications ...
   sourcesystems   list | get | put | delete
   definitions     list | get | put | delete
   certifications  list | get | put | delete
   example-data    list | get | put | delete
   test-results    list | get | publish | delete
   costs           list | add | delete
-  assets          list | get | put | delete
+  assets          list | get | put | delete | tags ...
   tags            list | get | put | delete
   api-keys        create | delete
-  settings        get-customization | put-customization
+  connectors      list | get | put | delete
+  organization    get | members ... | git-credentials ...
+  settings        get-customization | put-customization | get-scim-mapping | put-scim-mapping
   events          poll
   lineage         list | submit | delete
   search          query
+  semantics       namespaces ... | concepts ... | relationships ...    (EXPERIMENTAL)
   usage           list | submit | delete
   import          zip
 ```

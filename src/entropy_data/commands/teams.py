@@ -103,3 +103,14 @@ def delete_team(
         print_success(f"Team '{id}' deleted.")
     except Exception as e:
         handle_error(e)
+
+
+from entropy_data.commands.git_credentials import make_git_credentials_app  # noqa: E402
+from entropy_data.commands.notification_channels import notifications_app  # noqa: E402
+
+teams_app.add_typer(
+    make_git_credentials_app("team"),
+    name="git-credentials",
+    help="Manage team-level git credentials.",
+)
+teams_app.add_typer(notifications_app, name="notifications", help="Manage team notification channels.")

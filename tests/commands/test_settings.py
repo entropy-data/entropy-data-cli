@@ -78,8 +78,77 @@ def test_settings_put_customization_json(monkeypatch, tmp_path):
     assert responses.calls[0].request.headers["Content-Type"] == "application/json"
 
 
+SCIM_MAPPING_YAML = """scimGroupMappings:
+  - scimGroup: admins
+    type: organizationOwner
+"""
+
+SCIM_MAPPING_JSON = {
+    "scimGroupMappings": [{"scimGroup": "admins", "type": "organizationOwner"}],
+}
+
+
+@responses.activate
+def test_settings_get_scim_mapping_yaml(monkeypatch, tmp_path):
+    monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
+    monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
+    responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/settings/scim-mapping",
+        body=SCIM_MAPPING_YAML,
+        content_type="application/yaml",
+        status=200,
+    )
+    result = runner.invoke(app, ["settings", "get-scim-mapping"])
+    assert result.exit_code == 0
+    assert "scimGroupMappings" in result.output
+
+
+@responses.activate
+def test_settings_get_scim_mapping_json(monkeypatch, tmp_path):
+    monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
+    monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
+    responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/settings/scim-mapping",
+        json=SCIM_MAPPING_JSON,
+        status=200,
+    )
+    result = runner.invoke(app, ["settings", "get-scim-mapping", "--output", "json"])
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert "scimGroupMappings" in data
+
+
+@responses.activate
+def test_settings_put_scim_mapping_yaml(monkeypatch, tmp_path):
+    monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
+    monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
+    responses.add(responses.PUT, f"{BASE_URL}/api/settings/scim-mapping", status=200)
+    yaml_file = tmp_path / "mapping.yaml"
+    yaml_file.write_text(SCIM_MAPPING_YAML)
+    result = runner.invoke(app, ["settings", "put-scim-mapping", "--file", str(yaml_file)])
+    assert result.exit_code == 0
+    assert "updated" in result.output
+    assert responses.calls[0].request.headers["Content-Type"] == "application/yaml"
+
+
+@responses.activate
+def test_settings_put_scim_mapping_json(monkeypatch, tmp_path):
+    monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
+    monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
+    responses.add(responses.PUT, f"{BASE_URL}/api/settings/scim-mapping", status=200)
+    json_file = tmp_path / "mapping.json"
+    json_file.write_text(json.dumps(SCIM_MAPPING_JSON))
+    result = runner.invoke(app, ["settings", "put-scim-mapping", "--file", str(json_file)])
+    assert result.exit_code == 0
+    assert responses.calls[0].request.headers["Content-Type"] == "application/json"
+
+
 def test_settings_help():
     result = runner.invoke(app, ["settings", "--help"])
     assert result.exit_code == 0
     assert "get-customization" in result.output
     assert "put-customization" in result.output
+    assert "get-scim-mapping" in result.output
+    assert "put-scim-mapping" in result.output
