@@ -1,5 +1,6 @@
 """Access (data usage agreements) commands."""
 
+import uuid
 from pathlib import Path
 from typing import Annotated, Optional
 
@@ -123,6 +124,80 @@ def cancel_access(
         client = get_client()
         location = client.post_action(RESOURCE_PATH, id, "cancel")
         print_success(f"Access agreement '{id}' cancelled.")
+        print_link(location)
+    except Exception as e:
+        handle_error(e)
+
+
+@access_app.command("request")
+def request_access(
+    data_product_id: Annotated[str, typer.Argument(help="Provider data product ID.")],
+    output_port_id: Annotated[str, typer.Argument(help="Provider output port ID.")],
+    purpose: Annotated[str, typer.Option("--purpose", help="Business justification for the access.")] = ...,
+    consumer_team: Annotated[
+        Optional[str],
+        typer.Option("--consumer-team", help="Consumer team ID (request on behalf of a team)."),
+    ] = None,
+    consumer_user: Annotated[
+        Optional[str],
+        typer.Option("--consumer-user", help="Consumer user ID (request on behalf of a user)."),
+    ] = None,
+    consumer_dataproduct: Annotated[
+        Optional[str],
+        typer.Option("--consumer-dataproduct", help="Consumer data product ID (cross-product agreement)."),
+    ] = None,
+    roles: Annotated[
+        Optional[str],
+        typer.Option("--roles", help="Comma-separated list of roles to request (e.g. analyst,data_engineer)."),
+    ] = None,
+    id: Annotated[
+        Optional[str],
+        typer.Option("--id", help="Agreement ID. Auto-generated UUID if not provided."),
+    ] = None,
+) -> None:
+    """Submit an access request for a provider data product output port.
+
+    Creates a new access agreement in 'requested' state via PUT /api/access/{id}. Exactly
+    one of --consumer-team / --consumer-user / --consumer-dataproduct must be specified.
+    """
+    from entropy_data.cli import get_client, handle_error
+    from entropy_data.output import error_console
+
+    consumer_count = sum(c is not None for c in (consumer_team, consumer_user, consumer_dataproduct))
+    if consumer_count != 1:
+        error_console.print(
+            "[red]Error: provide exactly one of --consumer-team, --consumer-user, "
+            "or --consumer-dataproduct.[/red]"
+        )
+        raise SystemExit(2)
+
+    agreement_id = id or str(uuid.uuid4())
+    consumer: dict = {}
+    if consumer_team is not None:
+        consumer["teamId"] = consumer_team
+    if consumer_user is not None:
+        consumer["userId"] = consumer_user
+    if consumer_dataproduct is not None:
+        consumer["dataProductId"] = consumer_dataproduct
+
+    body: dict = {
+        "id": agreement_id,
+        "provider": {
+            "dataProductId": data_product_id,
+            "outputPortId": output_port_id,
+        },
+        "consumer": consumer,
+        "info": {
+            "purpose": purpose,
+        },
+    }
+    if roles:
+        body["roles"] = [r.strip() for r in roles.split(",") if r.strip()]
+
+    try:
+        client = get_client()
+        location = client.put_resource(RESOURCE_PATH, agreement_id, body)
+        print_success(f"Access request '{agreement_id}' submitted.")
         print_link(location)
     except Exception as e:
         handle_error(e)

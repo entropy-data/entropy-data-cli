@@ -257,6 +257,52 @@ def delete_relationship(
         handle_error(e)
 
 
+@semantics_app.command("search")
+def search_concepts(
+    namespace: Annotated[str, typer.Argument(help="Namespace ID.")],
+    query: Annotated[str, typer.Argument(help="Search query (case-insensitive substring).")],
+    kind: Annotated[
+        Optional[str],
+        typer.Option("--kind", help="Filter by kind: entity, metric, group, shared_property, property."),
+    ] = None,
+    limit: Annotated[int, typer.Option("--limit", help="Max results.")] = 50,
+    output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
+) -> None:
+    """Search concepts in a namespace by case-insensitive substring against id, name, description.
+
+    Implemented client-side: fetches all concepts in the namespace via the experimental list
+    endpoint, then filters in memory. The platform has no dedicated search endpoint.
+    """
+    from entropy_data.cli import get_client, get_output_format, handle_error
+    from entropy_data.output import error_console
+
+    fmt = output or get_output_format()
+    q = query.strip().lower()
+    if not q:
+        error_console.print("[red]Error: query must not be empty.[/red]")
+        raise SystemExit(2)
+
+    try:
+        client = get_client()
+        all_concepts, _ = client.list_resources(_concepts_path(namespace))
+
+        def matches(c: dict) -> bool:
+            haystack = " ".join(
+                [
+                    c.get("id") or "",
+                    c.get("name") or "",
+                    c.get("description") or "",
+                ]
+            ).lower()
+            return q in haystack
+
+        filtered = [c for c in all_concepts if matches(c) and (kind is None or c.get("kind") == kind)]
+        truncated = filtered[: max(1, limit)]
+        print_resource_list(truncated, "semantic-concepts", fmt)
+    except Exception as e:
+        handle_error(e)
+
+
 semantics_app.add_typer(namespaces_app, name="namespaces", help="Manage semantic namespaces.")
 semantics_app.add_typer(concepts_app, name="concepts", help="Manage semantic concepts.")
 semantics_app.add_typer(relationships_app, name="relationships", help="Manage semantic relationships.")

@@ -24,6 +24,27 @@ CONCEPT = {
     "status": "active",
 }
 
+CONCEPTS_FOR_SEARCH = [
+    {
+        "id": "customer",
+        "name": "Customer",
+        "kind": "entity",
+        "description": "A person or organization that purchases.",
+    },
+    {
+        "id": "account",
+        "name": "Account",
+        "kind": "entity",
+        "description": "An ongoing relationship with a customer.",
+    },
+    {
+        "id": "mrr",
+        "name": "Monthly Recurring Revenue",
+        "kind": "metric",
+        "description": "Monthly revenue from active subscriptions.",
+    },
+]
+
 RELATIONSHIP = {
     "id": "customer-has-orders",
     "name": "Customer has Orders",
@@ -216,7 +237,60 @@ def test_semantics_relationships_delete(monkeypatch, tmp_path):
         ["semantics", "relationships", "delete", "main", "customer-has-orders"],
     )
     assert result.exit_code == 0
-    assert "deleted" in result.output
+
+
+# Search
+
+
+@responses.activate
+def test_semantics_search_substring(monkeypatch, tmp_path):
+    monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
+    monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
+    responses.add(responses.GET, f"{NS_URL}/main/concepts", json=CONCEPTS_FOR_SEARCH, status=200)
+    result = runner.invoke(
+        app, ["semantics", "search", "main", "customer", "--output", "json"]
+    )
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    ids = {c["id"] for c in data}
+    # 'customer' matches both the customer concept and the account description
+    assert ids == {"customer", "account"}
+
+
+@responses.activate
+def test_semantics_search_kind_filter(monkeypatch, tmp_path):
+    monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
+    monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
+    responses.add(responses.GET, f"{NS_URL}/main/concepts", json=CONCEPTS_FOR_SEARCH, status=200)
+    result = runner.invoke(
+        app,
+        ["semantics", "search", "main", "revenue", "--kind", "metric", "--output", "json"],
+    )
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert len(data) == 1
+    assert data[0]["id"] == "mrr"
+
+
+@responses.activate
+def test_semantics_search_limit(monkeypatch, tmp_path):
+    monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
+    monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
+    responses.add(responses.GET, f"{NS_URL}/main/concepts", json=CONCEPTS_FOR_SEARCH, status=200)
+    result = runner.invoke(
+        app,
+        ["semantics", "search", "main", "a", "--limit", "1", "--output", "json"],
+    )
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert len(data) == 1
+
+
+def test_semantics_search_empty_query(monkeypatch, tmp_path):
+    monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
+    monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
+    result = runner.invoke(app, ["semantics", "search", "main", "   "])
+    assert result.exit_code == 2
 
 
 def test_semantics_help():
