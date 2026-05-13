@@ -1,6 +1,6 @@
 [project]
 name = "entropy-data"
-version = "0.3.8"
+version = "0.3.9"
 description = "CLI for Entropy Data"
 requires-python = ">=3.11"
 license = "MIT"

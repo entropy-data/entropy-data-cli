@@ -1,6 +1,7 @@
 """Access (data usage agreements) commands."""
 
 import uuid
+from datetime import date
 from pathlib import Path
 from typing import Annotated, Optional
 
@@ -207,6 +208,10 @@ def request_access(
         "consumer": consumer,
         "info": {
             "purpose": purpose,
+            # Default startDate so the platform can flip info.active to true once approved.
+            # Without it, the agreement stays inactive even after approval, and the data
+            # product's lineage / input-port views silently skip it.
+            "startDate": date.today().isoformat(),
         },
     }
     if roles:

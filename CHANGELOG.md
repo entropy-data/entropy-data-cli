@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [0.3.9]
+
+- `entropy-data access request` now sets `info.startDate` to today by default. Without it, the platform left auto-approved agreements with `info.active: false`, and lineage / input-port views silently skipped them.
+
 ## [0.3.8]
 
 - Add `entropy-data policies list|get|put|delete` to manage policies. Wraps `/api/policies` and `/api/policies/{externalId}`.

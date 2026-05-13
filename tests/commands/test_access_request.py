@@ -2,6 +2,7 @@
 
 import json
 import re
+from datetime import date
 
 import responses
 from typer.testing import CliRunner
@@ -49,7 +50,10 @@ def test_request_with_consumer_team(monkeypatch, tmp_path):
     body = captured["body"]
     assert body["provider"] == {"dataProductId": "dp_account_master", "outputPortId": "accounts"}
     assert body["consumer"] == {"teamId": "customer-success"}
-    assert body["info"] == {"purpose": "Building churn model."}
+    assert body["info"] == {
+        "purpose": "Building churn model.",
+        "startDate": date.today().isoformat(),
+    }
     assert UUID_RE.match(body["id"])
 
 
