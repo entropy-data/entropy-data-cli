@@ -105,6 +105,7 @@ from entropy_data.commands.example_data import example_data_app  # noqa: E402
 from entropy_data.commands.import_export import import_app  # noqa: E402
 from entropy_data.commands.lineage import lineage_app  # noqa: E402
 from entropy_data.commands.organization import organization_app  # noqa: E402
+from entropy_data.commands.policies import policies_app  # noqa: E402
 from entropy_data.commands.search import search_app  # noqa: E402
 from entropy_data.commands.semantics import semantics_app  # noqa: E402
 from entropy_data.commands.settings import settings_app  # noqa: E402
@@ -122,6 +123,7 @@ app.add_typer(access_app, name="access", help="Manage access (data usage agreeme
 app.add_typer(sourcesystems_app, name="sourcesystems", help="Manage source systems.")
 app.add_typer(definitions_app, name="definitions", help="Manage definitions.")
 app.add_typer(certifications_app, name="certifications", help="Manage certifications.")
+app.add_typer(policies_app, name="policies", help="Manage policies.")
 app.add_typer(example_data_app, name="example-data", help="Manage example data.")
 app.add_typer(test_results_app, name="test-results", help="Manage test results.")
 app.add_typer(costs_app, name="costs", help="Manage costs.")

@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [0.3.8]
+
+- Add `entropy-data policies list|get|put|delete` to manage policies. Wraps `/api/policies` and `/api/policies/{externalId}`.
+
 ## [0.3.7]
 
 - Add `yaml` as a third value for `--output` / `-o` alongside `table` and `json`. Useful when piping results into editors or files that expect YAML (e.g. data contracts).
