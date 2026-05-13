@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.3.7]
+
 - Add `yaml` as a third value for `--output` / `-o` alongside `table` and `json`. Useful when piping results into editors or files that expect YAML (e.g. data contracts).
 - `entropy-data access list` now supports `--provider-dataproduct`, `--consumer-dataproduct`, and `--consumer-type` filters, passed through to the existing `providerDataProductId`, `consumerDataProductId`, and `consumerType` query parameters of `GET /api/access`.
 
