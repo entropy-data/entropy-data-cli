@@ -1,12 +1,11 @@
 """Team notification channel subcommands."""
 
-import json
 from pathlib import Path
 from typing import Annotated, Optional
 
 import typer
 
-from entropy_data.output import OutputFormat, console, print_success
+from entropy_data.output import OutputFormat, print_data, print_success
 from entropy_data.util import read_body
 
 notifications_app = typer.Typer(no_args_is_help=True)
@@ -34,10 +33,7 @@ def get_channel(
         response = client.session.get(_channel_url(client, team_id, channel_id), timeout=REQUEST_TIMEOUT)
         _raise_for_status(response)
         data = response.json()
-        if fmt == OutputFormat.json:
-            console.print_json(json.dumps(data))
-        else:
-            console.print_json(json.dumps(data))
+        print_data(data, fmt)
     except Exception as e:
         handle_error(e)
 

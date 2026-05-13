@@ -1,12 +1,11 @@
 """Organization commands."""
 
-import json
 from typing import Annotated, Optional
 
 import typer
 from rich.table import Table
 
-from entropy_data.output import OutputFormat, console, print_resource, print_resource_list
+from entropy_data.output import OutputFormat, console, print_data, print_resource, print_resource_list
 
 organization_app = typer.Typer(no_args_is_help=True)
 members_app = typer.Typer(no_args_is_help=True)
@@ -29,8 +28,8 @@ def get_organization(
         )
         _raise_for_status(response)
         data = response.json()
-        if fmt == OutputFormat.json:
-            console.print_json(json.dumps(data))
+        if fmt != OutputFormat.table:
+            print_data(data, fmt)
             return
 
         table = Table(show_header=False)

@@ -1,11 +1,10 @@
 """Git connection subcommands. Used as a sub-typer of dataproducts and datacontracts."""
 
-import json
 from typing import Annotated, Optional
 
 import typer
 
-from entropy_data.output import OutputFormat, print_link, print_success
+from entropy_data.output import OutputFormat, print_data, print_link, print_success
 
 GIT_CONNECTION_TYPES = ("github", "gitlab", "bitbucket", "azuredevops")
 
@@ -31,10 +30,7 @@ def make_gitconnection_app(resource_path: str, resource_label: str) -> typer.Typ
         try:
             client = get_client()
             data = client.get_gitconnection(resource_path, id)
-            if fmt == OutputFormat.json:
-                print(json.dumps(data, indent=2))
-            else:
-                print(json.dumps(data, indent=2))
+            print_data(data, fmt)
         except Exception as e:
             handle_error(e)
 

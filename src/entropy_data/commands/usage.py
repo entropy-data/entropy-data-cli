@@ -1,12 +1,11 @@
 """Usage commands (OpenTelemetry traces)."""
 
-import json
 from pathlib import Path
 from typing import Annotated, Optional
 
 import typer
 
-from entropy_data.output import OutputFormat, console, print_resource_list, print_success
+from entropy_data.output import OutputFormat, print_resource_list, print_success
 from entropy_data.util import read_body
 
 usage_app = typer.Typer(no_args_is_help=True)
@@ -41,10 +40,7 @@ def list_usage(
             params["dataContractId"] = data_contract_id
         client = get_client()
         data, _ = client.list_resources(RESOURCE_PATH, params=params)
-        if fmt == OutputFormat.json:
-            console.print_json(json.dumps(data))
-        else:
-            print_resource_list(data, RESOURCE_TYPE, fmt)
+        print_resource_list(data, RESOURCE_TYPE, fmt)
     except Exception as e:
         handle_error(e)
 

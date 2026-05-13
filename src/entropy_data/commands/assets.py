@@ -1,12 +1,19 @@
 """Assets commands."""
 
-import json
 from pathlib import Path
 from typing import Annotated, Optional
 
 import typer
 
-from entropy_data.output import OutputFormat, console, print_link, print_resource, print_resource_list, print_success
+from entropy_data.output import (
+    OutputFormat,
+    console,
+    print_data,
+    print_link,
+    print_resource,
+    print_resource_list,
+    print_success,
+)
 from entropy_data.util import read_body
 
 assets_app = typer.Typer(no_args_is_help=True)
@@ -101,8 +108,8 @@ def list_asset_tags(
         )
         _raise_for_status(response)
         data = response.json()
-        if fmt == OutputFormat.json:
-            console.print_json(json.dumps(data))
+        if fmt != OutputFormat.table:
+            print_data(data, fmt)
         else:
             for tag in data:
                 console.print(tag)

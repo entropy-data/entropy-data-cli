@@ -5,7 +5,7 @@ from typing import Annotated, Optional
 
 import typer
 
-from entropy_data.output import OutputFormat, console
+from entropy_data.output import OutputFormat, console, print_data
 
 search_app = typer.Typer(no_args_is_help=True)
 
@@ -29,8 +29,8 @@ def search_query(
             params["resourceType"] = resource_type
         data = client.search(query, **params)
 
-        if fmt == OutputFormat.json:
-            console.print_json(json.dumps(data))
+        if fmt != OutputFormat.table:
+            print_data(data, fmt)
             return
 
         # Table output for search results

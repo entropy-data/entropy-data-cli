@@ -1,11 +1,10 @@
 """Events commands."""
 
-import json
 from typing import Annotated, Optional
 
 import typer
 
-from entropy_data.output import OutputFormat, console, print_resource_list
+from entropy_data.output import OutputFormat, print_data, print_resource_list
 
 events_app = typer.Typer(no_args_is_help=True)
 
@@ -24,8 +23,8 @@ def poll_events(
     try:
         client = get_client()
         data = client.get_events(last_event_id=last_event_id)
-        if fmt == OutputFormat.json:
-            console.print_json(json.dumps(data))
+        if fmt != OutputFormat.table:
+            print_data(data, fmt)
         else:
             print_resource_list(data, "events", fmt)
     except Exception as e:

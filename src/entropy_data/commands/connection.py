@@ -1,13 +1,12 @@
 """Connection management commands."""
 
-import json
 from typing import Annotated, Optional
 
 import typer
 from rich.table import Table
 
 from entropy_data import config as cfg
-from entropy_data.output import OutputFormat, console, print_error, print_success
+from entropy_data.output import OutputFormat, console, print_data, print_error, print_success
 
 connection_app = typer.Typer(no_args_is_help=True)
 
@@ -102,7 +101,7 @@ def get_connection(
     is_default = config.get("default_connection_name") == resolved_name
 
     fmt = output or get_output_format()
-    if fmt == OutputFormat.json:
+    if fmt != OutputFormat.table:
         payload = {
             "name": resolved_name,
             "host": conn.get("host", cfg.DEFAULT_HOST),
@@ -110,7 +109,7 @@ def get_connection(
             "api_key": displayed_key,
             "default": is_default,
         }
-        console.print_json(json.dumps(payload))
+        print_data(payload, fmt)
         return
 
     table = Table(show_header=False)

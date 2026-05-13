@@ -3,6 +3,7 @@
 import json
 from enum import Enum
 
+import yaml
 from rich.console import Console
 from rich.table import Table
 
@@ -13,6 +14,15 @@ error_console = Console(stderr=True)
 class OutputFormat(str, Enum):
     table = "table"
     json = "json"
+    yaml = "yaml"
+
+
+def print_data(data, fmt: OutputFormat) -> None:
+    """Print data structured as JSON or YAML."""
+    if fmt == OutputFormat.yaml:
+        console.print(yaml.safe_dump(data, sort_keys=False, default_flow_style=False), end="")
+    else:
+        console.print_json(json.dumps(data))
 
 
 # Column definitions per resource type: list of (header, dict_key)
@@ -96,8 +106,8 @@ def _get_nested(data: dict, key: str) -> str:
 
 def print_resource(data: dict, resource_type: str, fmt: OutputFormat) -> None:
     """Print a single resource."""
-    if fmt == OutputFormat.json:
-        console.print_json(json.dumps(data))
+    if fmt != OutputFormat.table:
+        print_data(data, fmt)
         return
 
     columns = RESOURCE_COLUMNS.get(resource_type, [])
@@ -120,8 +130,8 @@ def print_resource_list(
     title: str | None = None,
 ) -> None:
     """Print a list of resources."""
-    if fmt == OutputFormat.json:
-        console.print_json(json.dumps(data))
+    if fmt != OutputFormat.table:
+        print_data(data, fmt)
         return
 
     columns = RESOURCE_COLUMNS.get(resource_type, [])

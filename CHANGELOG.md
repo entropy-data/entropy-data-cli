@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Add `yaml` as a third value for `--output` / `-o` alongside `table` and `json`. Useful when piping results into editors or files that expect YAML (e.g. data contracts).
+
 ## [0.3.6]
 
 - `entropy-data connection add` now sets the newly added connection as the default, overriding any previously set default.

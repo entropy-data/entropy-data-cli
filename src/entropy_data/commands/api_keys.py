@@ -1,11 +1,10 @@
 """API Keys commands."""
 
-import json
 from typing import Annotated, Optional
 
 import typer
 
-from entropy_data.output import OutputFormat, console, print_success
+from entropy_data.output import OutputFormat, console, print_data, print_success
 
 api_keys_app = typer.Typer(no_args_is_help=True)
 RESOURCE_PATH = "api-keys"
@@ -38,8 +37,8 @@ def create_api_key(
 
         _raise_for_status(response)
         data = response.json()
-        if fmt == OutputFormat.json:
-            console.print_json(json.dumps(data))
+        if fmt != OutputFormat.table:
+            print_data(data, fmt)
         else:
             print_success(f"API key created: {data.get('organizationApiKeyId')}")
             key = data.get("key")
