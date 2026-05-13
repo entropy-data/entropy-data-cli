@@ -116,3 +116,39 @@ def test_request_multiple_consumers(monkeypatch, tmp_path):
         ],
     )
     assert result.exit_code == 2
+
+
+@responses.activate
+def test_list_with_filters(monkeypatch, tmp_path):
+    _setup(monkeypatch, tmp_path)
+    responses.add(responses.GET, f"{BASE_URL}/api/access", json=[], status=200)
+    result = runner.invoke(
+        app,
+        [
+            "access",
+            "list",
+            "--provider-dataproduct",
+            "dp_provider",
+            "--consumer-dataproduct",
+            "dp_consumer",
+            "--consumer-type",
+            "team",
+        ],
+    )
+    assert result.exit_code == 0
+    qs = responses.calls[0].request.url.split("?", 1)[1]
+    assert "providerDataProductId=dp_provider" in qs
+    assert "consumerDataProductId=dp_consumer" in qs
+    assert "consumerType=team" in qs
+
+
+@responses.activate
+def test_list_without_filters(monkeypatch, tmp_path):
+    _setup(monkeypatch, tmp_path)
+    responses.add(responses.GET, f"{BASE_URL}/api/access", json=[], status=200)
+    result = runner.invoke(app, ["access", "list"])
+    assert result.exit_code == 0
+    qs = responses.calls[0].request.url.split("?", 1)[1]
+    assert "providerDataProductId" not in qs
+    assert "consumerDataProductId" not in qs
+    assert "consumerType" not in qs

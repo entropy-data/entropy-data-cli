@@ -17,6 +17,18 @@ RESOURCE_TYPE = "access"
 @access_app.command("list")
 def list_access(
     page: Annotated[int, typer.Option("--page", "-p", help="Page number (0-indexed).")] = 0,
+    provider_dataproduct: Annotated[
+        Optional[str],
+        typer.Option("--provider-dataproduct", help="Filter by provider data product ID."),
+    ] = None,
+    consumer_dataproduct: Annotated[
+        Optional[str],
+        typer.Option("--consumer-dataproduct", help="Filter by consumer data product ID."),
+    ] = None,
+    consumer_type: Annotated[
+        Optional[str],
+        typer.Option("--consumer-type", help="Filter by consumer type (e.g. team, user, dataProduct)."),
+    ] = None,
     output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
 ) -> None:
     """List all access agreements."""
@@ -25,7 +37,14 @@ def list_access(
     fmt = output or get_output_format()
     try:
         client = get_client()
-        data, has_next = client.list_resources(RESOURCE_PATH, params={"p": page})
+        params: dict = {"p": page}
+        if provider_dataproduct:
+            params["providerDataProductId"] = provider_dataproduct
+        if consumer_dataproduct:
+            params["consumerDataProductId"] = consumer_dataproduct
+        if consumer_type:
+            params["consumerType"] = consumer_type
+        data, has_next = client.list_resources(RESOURCE_PATH, params=params)
         print_resource_list(data, RESOURCE_TYPE, fmt, has_next_page=has_next, page=page)
     except Exception as e:
         handle_error(e)
@@ -166,8 +185,7 @@ def request_access(
     consumer_count = sum(c is not None for c in (consumer_team, consumer_user, consumer_dataproduct))
     if consumer_count != 1:
         error_console.print(
-            "[red]Error: provide exactly one of --consumer-team, --consumer-user, "
-            "or --consumer-dataproduct.[/red]"
+            "[red]Error: provide exactly one of --consumer-team, --consumer-user, or --consumer-dataproduct.[/red]"
         )
         raise SystemExit(2)
 
