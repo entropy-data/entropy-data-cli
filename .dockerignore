@@ -1,0 +1,33 @@
+# Version control
+.git/
+.gitignore
+
+# Python virtual environment & caches
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# Tests & dev tooling
+tests/
+.pre-commit-config.yaml
+.editorconfig
+
+# Docs & project meta
+README.md
+CHANGELOG.md
+CLAUDE.md
+LICENSE
+release
+
+# Local environment / secrets
+.env
+.env.*
+
+# CI
+.github/
+
+# Docker
+Dockerfile
+.dockerignore
