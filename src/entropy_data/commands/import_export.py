@@ -15,12 +15,13 @@ import_app = typer.Typer(no_args_is_help=True)
 
 # Import order respects resource dependencies:
 # teams (parent→child), tags (→teams), definitions (→teams),
-# assets (→teams), datacontracts (→teams, assets),
+# policies (independent), assets (→teams), datacontracts (→teams, assets),
 # dataproducts (→teams, datacontracts, assets), access (→dataproducts)
 RESOURCE_ORDER = [
     ("teams", "teams"),
     ("tags", "tags"),
     ("definitions", "definitions"),
+    ("policies", "policies"),
     ("assets", "assets"),
     ("datacontracts", "datacontracts"),
     ("dataproducts", "dataproducts"),
