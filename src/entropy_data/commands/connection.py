@@ -102,11 +102,15 @@ def get_connection(
 
     fmt = output or get_output_format()
     if fmt != OutputFormat.table:
+        # JSON/YAML are machine-consumed (scripts, automation). Masking here
+        # only breaks tooling and adds no security — the key already lives in
+        # plaintext in ~/.entropy-data/config.toml. Emit the real value; the
+        # mask / --show-api-key flag governs the human `table` view only.
         payload = {
             "name": resolved_name,
             "host": conn.get("host", cfg.DEFAULT_HOST),
             "vanity_url": conn.get("vanity_url"),
-            "api_key": displayed_key,
+            "api_key": api_key_value,
             "default": is_default,
         }
         print_data(payload, fmt)
