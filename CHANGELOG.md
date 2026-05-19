@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [0.3.10]
+
+- `--output yaml` no longer produces invalid YAML. Output was printed through the Rich console, which soft-wraps to the terminal width (80 cols when not a TTY) and parses markup, breaking long scalar values mid-token when piped or redirected to a file. Machine formats (`json`/`yaml`) are now written straight to stdout.
+- `entropy-data connection get` with `--output json`/`yaml` now returns the API key in clear text. Machine formats are consumed by scripts (e.g. exporting the key for another tool); masking only broke automation and added no security since the key is already stored in plaintext locally. The mask / `--show-api-key` flag now governs the human `table` view only.
+
 ## [0.3.9]
 
 - `entropy-data access request` now sets `info.startDate` to today by default. Without it, the platform left auto-approved agreements with `info.active: false`, and lineage / input-port views silently skipped them.
