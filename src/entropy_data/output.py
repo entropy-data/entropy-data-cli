@@ -1,6 +1,7 @@
 """Output formatting for CLI results."""
 
 import json
+import sys
 from enum import Enum
 
 import yaml
@@ -18,11 +19,27 @@ class OutputFormat(str, Enum):
 
 
 def print_data(data, fmt: OutputFormat) -> None:
-    """Print data structured as JSON or YAML."""
+    """Print data structured as JSON or YAML.
+
+    Machine formats are written straight to stdout, NOT through the Rich
+    console: Rich soft-wraps to the (80-col, non-TTY) console width and parses
+    markup, which breaks long scalar values mid-token and yields invalid YAML
+    when the output is piped or redirected to a file. ``width`` is set high so
+    PyYAML itself does not fold long strings either.
+    """
     if fmt == OutputFormat.yaml:
-        console.print(yaml.safe_dump(data, sort_keys=False, default_flow_style=False), end="")
+        sys.stdout.write(
+            yaml.safe_dump(
+                data,
+                sort_keys=False,
+                default_flow_style=False,
+                allow_unicode=True,
+                width=4096,
+            )
+        )
     else:
-        console.print_json(json.dumps(data))
+        json.dump(data, sys.stdout, indent=2)
+        sys.stdout.write("\n")
 
 
 # Column definitions per resource type: list of (header, dict_key)
