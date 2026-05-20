@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [0.3.11]
+
+- Add `entropy-data integrations list|get|configuration|runs|run|cancel` to manage native data-platform integrations (Snowflake, Databricks, BigQuery, Postgres, MySQL, MariaDB, MSSQL, Glue, Alation, Fabric, Power BI). Wraps the new `/api/integrations` endpoints. Commands accept the integration's `externalId`, display `name`, or UUID; name-to-UUID resolution happens client-side. `integrations run` supports `--wait` to poll the run until it reaches a terminal status (SUCCESS, FAILED, CANCELLED), useful for CI and automation that wants to know the outcome before continuing.
+
 ## [0.3.10]
 
 - `--output yaml` no longer produces invalid YAML. Output was printed through the Rich console, which soft-wraps to the terminal width (80 cols when not a TTY) and parses markup, breaking long scalar values mid-token when piped or redirected to a file. Machine formats (`json`/`yaml`) are now written straight to stdout.
