@@ -13,7 +13,9 @@ The `entropy-data` CLI lets you manage your [Entropy Data](https://entropy-data.
 
 You can manage data products, data contracts, access agreements, teams, source systems, definitions, certifications, and more — directly from your terminal or CI/CD pipeline.
 
-Docs: [https://docs.entropy-data.com](https://docs.entropy-data.com)
+- Docs: [https://docs.entropy-data.com](https://docs.entropy-data.com)
+- PyPI: [https://pypi.org/project/entropy-data/](https://pypi.org/project/entropy-data/)
+- GitHub: [https://github.com/entropy-data/entropy-data-cli](https://github.com/entropy-data/entropy-data-cli)
 
 ## Install
 
@@ -77,12 +79,12 @@ entropy-data search query "customer orders"
 ## Commands
 
 ```
-entropy-data [--version] [--connection NAME] [--output table|json] [--debug]
+entropy-data [--version] [--connection NAME] [--output table|json|yaml] [--debug]
 
-  connection      list | add | remove | set-default | test
+  connection      list | get | add | remove | set-default | test
   dataproducts    list | get | put | delete | import-from-git | gitconnection ...
   datacontracts   list | get | put | test | delete | yaml | generate | import-from-git | gitconnection ...
-  access          list | get | put | delete | approve | reject | cancel
+  access          list | get | put | delete | approve | reject | cancel | request
   teams           list | get | put | delete | git-credentials ... | notifications ...
   sourcesystems   list | get | put | delete
   definitions     list | get | put | delete
@@ -100,7 +102,7 @@ entropy-data [--version] [--connection NAME] [--output table|json] [--debug]
   events          poll
   lineage         list | submit | delete
   search          query
-  semantics       namespaces ... | concepts ... | relationships ...    (EXPERIMENTAL)
+  semantics       namespaces ... | concepts ... | relationships ... | search
   usage           list | submit | delete
   import          zip
 ```
