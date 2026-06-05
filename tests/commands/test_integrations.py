@@ -184,6 +184,44 @@ def test_integrations_runs_lists_history(monkeypatch, tmp_path):
 
 
 @responses.activate
+def test_integrations_runs_get_by_uuid(monkeypatch, tmp_path):
+    _setup(monkeypatch, tmp_path)
+    run = DEMO_INTEGRATION["latestRun"]
+    run_id = run["ingestionRunId"]
+    responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/integrations/{INGESTION_ID}/runs/{run_id}",
+        json=run,
+        status=200,
+    )
+    result = runner.invoke(app, ["integrations", "runs-get", INGESTION_ID, run_id, "--output", "json"])
+    assert result.exit_code == 0, result.output
+    data = json.loads(result.output)
+    assert data["ingestionRunId"] == run_id
+    assert data["status"] == "SUCCESS"
+
+
+@responses.activate
+def test_integrations_runs_get_resolves_name_via_list(monkeypatch, tmp_path):
+    _setup(monkeypatch, tmp_path)
+    run = DEMO_INTEGRATION["latestRun"]
+    run_id = run["ingestionRunId"]
+    # First call: list (for name resolution), then get the single run by uuid
+    responses.add(responses.GET, f"{BASE_URL}/api/integrations", json=[DEMO_INTEGRATION], status=200)
+    responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/integrations/{INGESTION_ID}/runs/{run_id}",
+        json=run,
+        status=200,
+    )
+    result = runner.invoke(app, ["integrations", "runs-get", "demo-snowflake", run_id, "--output", "json"])
+    assert result.exit_code == 0, result.output
+    data = json.loads(result.output)
+    assert data["ingestionRunId"] == run_id
+    assert len(responses.calls) == 2
+
+
+@responses.activate
 def test_integrations_run_triggers_and_returns_scheduled(monkeypatch, tmp_path):
     _setup(monkeypatch, tmp_path)
     responses.add(
@@ -233,7 +271,7 @@ def test_integrations_cancel_returns_success(monkeypatch, tmp_path):
 def test_integrations_help_lists_subcommands():
     result = runner.invoke(app, ["integrations", "--help"])
     assert result.exit_code == 0
-    for cmd in ("list", "get", "configuration", "runs", "run", "cancel"):
+    for cmd in ("list", "get", "configuration", "runs", "runs-get", "run", "cancel"):
         assert cmd in result.output
 
 

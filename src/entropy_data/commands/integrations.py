@@ -173,6 +173,31 @@ def list_runs(
         handle_error(e)
 
 
+@integrations_app.command("runs-get")
+def get_run(
+    identifier: Annotated[
+        str,
+        typer.Argument(help="Integration UUID, externalId, or display name."),
+    ],
+    run_id: Annotated[
+        str,
+        typer.Argument(help="Ingestion run ID (see 'integrations runs')."),
+    ],
+    output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
+) -> None:
+    """Get a single ingestion run by id."""
+    from entropy_data.cli import get_client, get_output_format, handle_error
+
+    fmt = output or get_output_format()
+    try:
+        client = get_client()
+        ingestion_id = _resolve_ingestion_id(client, identifier)
+        data = client.get_resource(f"{RESOURCE_PATH}/{ingestion_id}/runs", run_id)
+        print_resource(data, RUN_RESOURCE_TYPE, fmt)
+    except Exception as e:
+        handle_error(e)
+
+
 @integrations_app.command("run")
 def trigger_run(
     identifier: Annotated[
