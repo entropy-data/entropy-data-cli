@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+## [0.3.13]
+
+- Add `entropy-data organization custom-team-roles list|get|put|delete` to manage organization-scoped custom team roles. `put` creates, updates, or renames a role and accepts repeated or comma-separated `--permissions`.
 - `entropy-data connection add` now also prompts for the host when the call is interactive (no `--api-key` given), defaulting to `https://api.entropy-data.com` when confirmed with enter. Previously the host silently fell back to the cloud default in the interactive flow, making it easy to store a connection to the wrong instance (e.g. when targeting a local Community Edition). Scripted calls that pass `--api-key` are unaffected and keep defaulting silently.
 
 ## [0.3.12]
