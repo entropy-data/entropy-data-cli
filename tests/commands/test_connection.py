@@ -37,6 +37,58 @@ def test_connection_add_and_list(tmp_path, monkeypatch):
 
 
 @responses.activate
+def test_connection_add_with_api_key_does_not_prompt_for_host(tmp_path, monkeypatch):
+    monkeypatch.setattr(cfg, "CONFIG_DIR", tmp_path)
+    monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
+    # scripted call: API key given, host omitted — silently defaults, no prompt
+    result = runner.invoke(app, ["connection", "add", "prod", "--api-key", "mykey123456"])
+    assert result.exit_code == 0
+    assert "saved" in result.output
+    assert "Host" not in result.output
+    result = runner.invoke(app, ["connection", "get", "prod", "-o", "json"])
+    assert json.loads(result.output)["host"] == cfg.DEFAULT_HOST
+
+
+@responses.activate
+def test_connection_add_interactive_confirms_host_default(tmp_path, monkeypatch):
+    monkeypatch.setattr(cfg, "CONFIG_DIR", tmp_path)
+    monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
+    # interactive call (no API key): prompts for key AND host; enter accepts the cloud default
+    result = runner.invoke(app, ["connection", "add", "prod"], input="mykey123456\n\n")
+    assert result.exit_code == 0
+    assert "saved" in result.output
+    assert f"Host [{cfg.DEFAULT_HOST}]" in result.output
+    result = runner.invoke(app, ["connection", "get", "prod", "-o", "json"])
+    assert json.loads(result.output)["host"] == cfg.DEFAULT_HOST
+
+
+@responses.activate
+def test_connection_add_interactive_overwrites_host(tmp_path, monkeypatch):
+    monkeypatch.setattr(cfg, "CONFIG_DIR", tmp_path)
+    monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
+    result = runner.invoke(app, ["connection", "add", "local"], input="mykey123456\nhttp://localhost:8081\n")
+    assert result.exit_code == 0
+    assert "saved" in result.output
+    result = runner.invoke(app, ["connection", "get", "local", "-o", "json"])
+    assert json.loads(result.output)["host"] == "http://localhost:8081"
+
+
+@responses.activate
+def test_connection_add_interactive_with_host_flag_does_not_prompt_for_host(tmp_path, monkeypatch):
+    monkeypatch.setattr(cfg, "CONFIG_DIR", tmp_path)
+    monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
+    # host given explicitly: only the API key is prompted
+    result = runner.invoke(
+        app, ["connection", "add", "local", "--host", "http://localhost:8081"], input="mykey123456\n"
+    )
+    assert result.exit_code == 0
+    assert "saved" in result.output
+    assert "Host" not in result.output
+    result = runner.invoke(app, ["connection", "get", "local", "-o", "json"])
+    assert json.loads(result.output)["host"] == "http://localhost:8081"
+
+
+@responses.activate
 def test_connection_add_fetches_vanity_url(tmp_path, monkeypatch):
     monkeypatch.setattr(cfg, "CONFIG_DIR", tmp_path)
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")

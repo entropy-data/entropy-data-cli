@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- `entropy-data connection add` now also prompts for the host when the call is interactive (no `--api-key` given), defaulting to `https://api.entropy-data.com` when confirmed with enter. Previously the host silently fell back to the cloud default in the interactive flow, making it easy to store a connection to the wrong instance (e.g. when targeting a local Community Edition). Scripted calls that pass `--api-key` are unaffected and keep defaulting silently.
+
 ## [0.3.12]
 
 - Add `entropy-data integrations runs-get <integration> <run-id>` to fetch a single ingestion run by id. Wraps `GET /api/integrations/{ingestionId}/runs/{ingestionRunId}`, the last documented API endpoint not yet exposed by the CLI. Like the other `integrations` commands, the integration argument accepts an `externalId`, display `name`, or UUID.

@@ -74,9 +74,7 @@ def get_connection(
         bool,
         typer.Option("--show-api-key", help="Print the API key in clear text (default: masked)."),
     ] = False,
-    output: Annotated[
-        Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")
-    ] = None,
+    output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
 ) -> None:
     """Get details of a named connection (use --show-api-key to reveal the key)."""
     from entropy_data.cli import get_output_format
@@ -86,10 +84,7 @@ def get_connection(
 
     resolved_name = name or config.get("default_connection_name")
     if resolved_name is None:
-        print_error(
-            "No connection specified and no default set. "
-            "Run: entropy-data connection set-default <name>"
-        )
+        print_error("No connection specified and no default set. Run: entropy-data connection set-default <name>")
         raise typer.Exit(1)
     if resolved_name not in connections:
         print_error(f"Connection '{resolved_name}' not found.")
@@ -132,10 +127,10 @@ def get_connection(
 @connection_app.command("add")
 def add_connection(
     name: Annotated[str, typer.Argument(help="Connection name.")],
-    api_key: Annotated[str, typer.Option("--api-key", prompt="API key", help="The API key.")] = None,
+    api_key: Annotated[Optional[str], typer.Option("--api-key", help="The API key.")] = None,
     host: Annotated[
-        str, typer.Option("--host", prompt="Host", prompt_required=False, help="API host URL.")
-    ] = cfg.DEFAULT_HOST,
+        Optional[str], typer.Option("--host", help=f"API host URL. Defaults to {cfg.DEFAULT_HOST}.")
+    ] = None,
 ) -> None:
     """Add or update a named connection.
 
@@ -143,6 +138,14 @@ def add_connection(
     provided API key. Fetching is best-effort: older servers or network errors
     fall back to no vanity URL on the stored connection.
     """
+    if api_key is None:
+        # No API key on the command line: the call is interactive anyway, so also
+        # confirm the host explicitly instead of silently storing the cloud default.
+        api_key = typer.prompt("API key")
+        if host is None:
+            host = typer.prompt("Host", default=cfg.DEFAULT_HOST)
+    if host is None:
+        host = cfg.DEFAULT_HOST
     try:
         vanity_url = _fetch_vanity_url(api_key, host)
         if vanity_url:
