@@ -97,7 +97,7 @@ entropy-data [--version] [--connection NAME] [--output table|json|yaml] [--debug
   tags            list | get | put | delete
   api-keys        create | delete
   connectors      list | get | put | delete
-  integrations    list | get | configuration | runs | runs-get | run | cancel
+  integrations    list | get | configuration | runs | runs-get | runs-latest | run | cancel
   organization    get | members ... | git-credentials ... | custom-team-roles ...
   settings        get-customization | put-customization | get-scim-mapping | put-scim-mapping
   events          poll

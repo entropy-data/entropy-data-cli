@@ -4,14 +4,12 @@ Manage native data-platform integrations (Snowflake, Databricks, BigQuery, …):
 list configured integrations, inspect their decrypted configuration as YAML,
 view run history, and trigger or cancel a manual ingestion run.
 
-The API path key uses the integration's UUID. For convenience these commands
-accept either a UUID or the integration's user-facing identifier (`externalId`
-or display `name`); the lookup happens client-side via list + filter.
+Integrations are addressed by their user-facing `externalId`. For convenience these
+commands also accept the integration's display `name`, resolved client-side via list + filter.
 """
 
 from __future__ import annotations
 
-import re
 import sys
 import time
 from datetime import datetime, timedelta
@@ -33,31 +31,27 @@ RESOURCE_PATH = "integrations"
 RESOURCE_TYPE = "integrations"
 RUN_RESOURCE_TYPE = "integration-runs"
 
-_UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE)
 
+def _resolve_external_id(client: EntropyDataClient, identifier: str) -> str:
+    """Accept an externalId or display name; return the integration's externalId.
 
-def _resolve_ingestion_id(client: EntropyDataClient, identifier: str) -> str:
-    """Accept a UUID, externalId, or display name; return the integration's UUID.
-
-    Lists once and filters in-process — fine because integrations are few per org
-    (typically a handful). If the identifier matches more than one integration,
-    raises with the candidate list so the user can disambiguate.
+    externalId is the API path key and is returned as-is. A display name is resolved
+    client-side via list + filter — fine because integrations are few per org. Raises
+    with the candidate list on ambiguity.
     """
-    if _UUID_RE.match(identifier):
-        return identifier
     integrations, _ = client.list_resources(RESOURCE_PATH)
-    matches = [i for i in integrations if i.get("externalId") == identifier or i.get("name") == identifier]
+    matches = [i for i in integrations if identifier in (i.get("externalId"), i.get("name"))]
     if not matches:
         raise typer.BadParameter(
             f"No integration found with externalId or name '{identifier}'. "
             f"Run 'entropy-data integrations list' to see configured integrations."
         )
     if len(matches) > 1:
-        listing = "\n".join(f"  - {i['externalId']} (name: '{i['name']}', id: {i['ingestionId']})" for i in matches)
+        listing = "\n".join(f"  - {i['externalId']} (name: '{i['name']}')" for i in matches)
         raise typer.BadParameter(
-            f"Identifier '{identifier}' matches multiple integrations; pass the ingestionId instead:\n{listing}"
+            f"Identifier '{identifier}' matches multiple integrations; pass the externalId instead:\n{listing}"
         )
-    return matches[0]["ingestionId"]
+    return matches[0]["externalId"]
 
 
 @integrations_app.command("list")
@@ -97,18 +91,18 @@ def list_integrations(
 def get_integration(
     identifier: Annotated[
         str,
-        typer.Argument(help="Integration UUID, externalId, or display name."),
+        typer.Argument(help="Integration externalId or display name."),
     ],
     output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
 ) -> None:
-    """Get a single integration with its most recent run."""
+    """Get a single integration, including its decrypted configuration."""
     from entropy_data.cli import get_client, get_output_format, handle_error
 
     fmt = output or get_output_format()
     try:
         client = get_client()
-        ingestion_id = _resolve_ingestion_id(client, identifier)
-        data = client.get_resource(RESOURCE_PATH, ingestion_id)
+        external_id = _resolve_external_id(client, identifier)
+        data = client.get_resource(RESOURCE_PATH, external_id)
         print_resource(data, RESOURCE_TYPE, fmt)
     except Exception as e:
         handle_error(e)
@@ -118,7 +112,7 @@ def get_integration(
 def get_configuration(
     identifier: Annotated[
         str,
-        typer.Argument(help="Integration UUID, externalId, or display name."),
+        typer.Argument(help="Integration externalId or display name."),
     ],
 ) -> None:
     """Print the integration's decrypted configuration as YAML.
@@ -129,11 +123,11 @@ def get_configuration(
 
     try:
         client = get_client()
-        ingestion_id = _resolve_ingestion_id(client, identifier)
-        # The configuration endpoint returns YAML (text/yaml). Use the session directly
+        external_id = _resolve_external_id(client, identifier)
+        # The configuration endpoint returns YAML (application/yaml). Use the session directly
         # since the typed helpers all assume JSON.
         response = client.session.get(
-            f"{client.base_url}/api/{RESOURCE_PATH}/{ingestion_id}/configuration",
+            f"{client.base_url}/api/{RESOURCE_PATH}/{external_id}/configuration",
             timeout=30,
         )
         response.raise_for_status()
@@ -148,7 +142,7 @@ def get_configuration(
 def list_runs(
     identifier: Annotated[
         str,
-        typer.Argument(help="Integration UUID, externalId, or display name."),
+        typer.Argument(help="Integration externalId or display name."),
     ],
     limit: Annotated[int, typer.Option("--limit", "-n", help="Maximum number of runs to return.")] = 50,
     status: Annotated[
@@ -163,11 +157,11 @@ def list_runs(
     fmt = output or get_output_format()
     try:
         client = get_client()
-        ingestion_id = _resolve_ingestion_id(client, identifier)
+        external_id = _resolve_external_id(client, identifier)
         params: dict = {"limit": limit}
         if status:
             params["status"] = status
-        data, _ = client.list_resources(f"{RESOURCE_PATH}/{ingestion_id}/runs", params=params)
+        data, _ = client.list_resources(f"{RESOURCE_PATH}/{external_id}/runs", params=params)
         print_resource_list(data, RUN_RESOURCE_TYPE, fmt)
     except Exception as e:
         handle_error(e)
@@ -177,7 +171,7 @@ def list_runs(
 def get_run(
     identifier: Annotated[
         str,
-        typer.Argument(help="Integration UUID, externalId, or display name."),
+        typer.Argument(help="Integration externalId or display name."),
     ],
     run_id: Annotated[
         str,
@@ -191,8 +185,29 @@ def get_run(
     fmt = output or get_output_format()
     try:
         client = get_client()
-        ingestion_id = _resolve_ingestion_id(client, identifier)
-        data = client.get_resource(f"{RESOURCE_PATH}/{ingestion_id}/runs", run_id)
+        external_id = _resolve_external_id(client, identifier)
+        data = client.get_resource(f"{RESOURCE_PATH}/{external_id}/runs", run_id)
+        print_resource(data, RUN_RESOURCE_TYPE, fmt)
+    except Exception as e:
+        handle_error(e)
+
+
+@integrations_app.command("runs-latest")
+def get_latest_run(
+    identifier: Annotated[
+        str,
+        typer.Argument(help="Integration externalId or display name."),
+    ],
+    output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
+) -> None:
+    """Get the most recent ingestion run for an integration."""
+    from entropy_data.cli import get_client, get_output_format, handle_error
+
+    fmt = output or get_output_format()
+    try:
+        client = get_client()
+        external_id = _resolve_external_id(client, identifier)
+        data = client.get_resource(f"{RESOURCE_PATH}/{external_id}/runs", "latest")
         print_resource(data, RUN_RESOURCE_TYPE, fmt)
     except Exception as e:
         handle_error(e)
@@ -202,7 +217,7 @@ def get_run(
 def trigger_run(
     identifier: Annotated[
         str,
-        typer.Argument(help="Integration UUID, externalId, or display name."),
+        typer.Argument(help="Integration externalId or display name."),
     ],
     wait: Annotated[
         bool,
@@ -236,8 +251,8 @@ def trigger_run(
 
     try:
         client = get_client()
-        ingestion_id = _resolve_ingestion_id(client, identifier)
-        result = client.post_action_json(RESOURCE_PATH, ingestion_id, "run")
+        external_id = _resolve_external_id(client, identifier)
+        result = client.post_action_json(RESOURCE_PATH, external_id, "run")
         scheduled_at = result.get("scheduledAt")
         deferred = result.get("deferred", False)
 
@@ -247,7 +262,7 @@ def trigger_run(
             print_success(f"Run scheduled at {scheduled_at}.")
 
         if wait:
-            _wait_for_run(client, ingestion_id, scheduled_at, timeout, poll_interval)
+            _wait_for_run(client, external_id, scheduled_at, timeout, poll_interval)
     except ApiError as e:
         if getattr(e, "status_code", None) == 409:
             error_console.print(
@@ -264,7 +279,7 @@ def trigger_run(
 def cancel_run(
     identifier: Annotated[
         str,
-        typer.Argument(help="Integration UUID, externalId, or display name."),
+        typer.Argument(help="Integration externalId or display name."),
     ],
 ) -> None:
     """Cancel the currently running ingestion."""
@@ -272,8 +287,8 @@ def cancel_run(
 
     try:
         client = get_client()
-        ingestion_id = _resolve_ingestion_id(client, identifier)
-        client.post_action(RESOURCE_PATH, ingestion_id, "cancel")
+        external_id = _resolve_external_id(client, identifier)
+        client.post_action(RESOURCE_PATH, external_id, "cancel")
         print_success("Cancellation requested.")
     except Exception as e:
         handle_error(e)
@@ -289,7 +304,7 @@ def _parse_instant(value: str) -> datetime:
 
 def _wait_for_run(
     client: EntropyDataClient,
-    ingestion_id: str,
+    external_id: str,
     scheduled_at: str,
     timeout_sec: int,
     poll_interval: int,
@@ -305,7 +320,7 @@ def _wait_for_run(
     last_status: Optional[str] = None
 
     while time.monotonic() < deadline:
-        runs, _ = client.list_resources(f"{RESOURCE_PATH}/{ingestion_id}/runs", params={"limit": 5})
+        runs, _ = client.list_resources(f"{RESOURCE_PATH}/{external_id}/runs", params={"limit": 5})
         target = next(
             (r for r in runs if _parse_instant(r["startedAt"]) >= threshold),
             None,
