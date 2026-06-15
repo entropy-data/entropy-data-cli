@@ -2,8 +2,8 @@
 
 ## [Unreleased]
 
-- **Breaking:** `integrations` commands now address an integration by its `externalId` only; the internal UUID is no longer accepted. The API is now externalId-native — every path keys on `externalId` (`GET /api/integrations/{externalId}`, `.../runs`, `.../run`, `.../cancel`) and responses no longer return the internal `ingestionId`. Run and trigger output reference their integration via `integrationExternalId`. Display `name` is still accepted and resolved client-side.
-- `entropy-data integrations get` now inlines the integration's decrypted `configuration` (credentials excluded), so a single call returns both metadata and configuration.
+- `integrations` commands now address an integration by its `externalId` only; the internal UUID is no longer accepted. The API is now externalId-native — every path keys on `externalId` (`GET /api/integrations/{externalId}`, `.../runs`, `.../run`, `.../cancel`) and responses no longer return the internal `ingestionId`. Run and trigger output reference their integration via `integrationExternalId`. Display `name` is still accepted and resolved client-side.
+- `entropy-data integrations get` inlines the integration's decrypted `configuration` (credentials excluded), so a single call returns both metadata and configuration; use `-o yaml` for a YAML view. The separate `integrations configuration` command is dropped as redundant.
 - Add `entropy-data integrations runs-latest <integration>` to fetch the most recent ingestion run. Wraps `GET /api/integrations/{externalId}/runs/latest`.
 
 ## [0.3.13]

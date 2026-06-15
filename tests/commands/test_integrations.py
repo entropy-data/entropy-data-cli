@@ -150,29 +150,6 @@ def test_integrations_get_name_ambiguous(monkeypatch, tmp_path):
     assert "demo-snowflake-2" in result.output
 
 
-@responses.activate
-def test_integrations_configuration_returns_yaml(monkeypatch, tmp_path):
-    _setup(monkeypatch, tmp_path)
-    _mock_list()
-    yaml_body = (
-        "externalId: demo-snowflake\n"
-        "source: snowflake\n"
-        "name: Demo Snowflake\n"
-        "scheduleExpression: '0 0 6 * * ?'\n"
-        "filters:\n  databases:\n  - DP_*\n"
-    )
-    responses.add(
-        responses.GET,
-        f"{BASE_URL}/api/integrations/{EXTERNAL_ID}/configuration",
-        body=yaml_body,
-        status=200,
-        content_type="application/yaml",
-    )
-    result = runner.invoke(app, ["integrations", "configuration", EXTERNAL_ID])
-    assert result.exit_code == 0, result.output
-    assert "externalId: demo-snowflake" in result.output
-    assert "source: snowflake" in result.output
-
 
 @responses.activate
 def test_integrations_runs_lists_history(monkeypatch, tmp_path):

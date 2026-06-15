@@ -1,8 +1,9 @@
 """Integrations commands.
 
 Manage native data-platform integrations (Snowflake, Databricks, BigQuery, …):
-list configured integrations, inspect their decrypted configuration as YAML,
-view run history, and trigger or cancel a manual ingestion run.
+list configured integrations, inspect a single integration (including its
+decrypted configuration), view run history, and trigger or cancel a manual
+ingestion run.
 
 Integrations are addressed by their user-facing `externalId`. For convenience these
 commands also accept the integration's display `name`, resolved client-side via list + filter.
@@ -10,7 +11,6 @@ commands also accept the integration's display `name`, resolved client-side via 
 
 from __future__ import annotations
 
-import sys
 import time
 from datetime import datetime, timedelta
 from typing import Annotated, Optional
@@ -104,36 +104,6 @@ def get_integration(
         external_id = _resolve_external_id(client, identifier)
         data = client.get_resource(RESOURCE_PATH, external_id)
         print_resource(data, RESOURCE_TYPE, fmt)
-    except Exception as e:
-        handle_error(e)
-
-
-@integrations_app.command("configuration")
-def get_configuration(
-    identifier: Annotated[
-        str,
-        typer.Argument(help="Integration externalId or display name."),
-    ],
-) -> None:
-    """Print the integration's decrypted configuration as YAML.
-
-    Credentials are stored separately and are never returned by this command.
-    """
-    from entropy_data.cli import get_client, handle_error
-
-    try:
-        client = get_client()
-        external_id = _resolve_external_id(client, identifier)
-        # The configuration endpoint returns YAML (application/yaml). Use the session directly
-        # since the typed helpers all assume JSON.
-        response = client.session.get(
-            f"{client.base_url}/api/{RESOURCE_PATH}/{external_id}/configuration",
-            timeout=30,
-        )
-        response.raise_for_status()
-        sys.stdout.write(response.text)
-        if not response.text.endswith("\n"):
-            sys.stdout.write("\n")
     except Exception as e:
         handle_error(e)
 
