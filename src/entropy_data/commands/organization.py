@@ -90,6 +90,7 @@ organization_app.add_typer(members_app, name="members", help="Manage organizatio
 
 from entropy_data.commands.custom_team_roles import custom_team_roles_app  # noqa: E402
 from entropy_data.commands.git_credentials import make_git_credentials_app  # noqa: E402
+from entropy_data.commands.team_roles_mode import team_roles_mode_app  # noqa: E402
 
 organization_app.add_typer(
     make_git_credentials_app("organization"),
@@ -101,4 +102,10 @@ organization_app.add_typer(
     custom_team_roles_app,
     name="custom-team-roles",
     help="Manage organization-level custom team roles.",
+)
+
+organization_app.add_typer(
+    team_roles_mode_app,
+    name="team-roles-mode",
+    help="Get or set whether the organization uses default or custom team roles.",
 )
