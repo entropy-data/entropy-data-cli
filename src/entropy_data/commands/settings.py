@@ -6,10 +6,13 @@ from pathlib import Path
 from typing import Annotated, Optional
 
 import typer
+from rich.table import Table
 
-from entropy_data.output import OutputFormat, console, print_success
+from entropy_data.output import OutputFormat, console, print_data, print_success
+from entropy_data.util import read_body
 
 settings_app = typer.Typer(no_args_is_help=True)
+team_roles_app = typer.Typer(no_args_is_help=True)
 
 
 @settings_app.command("get-customization")
@@ -109,3 +112,74 @@ def _put_yaml_or_json(client, path: str, file: Path) -> None:
         timeout=REQUEST_TIMEOUT,
     )
     _raise_for_status(response)
+
+
+@team_roles_app.command("get")
+def get_team_roles(
+    output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
+) -> None:
+    """Show the team roles configuration (default roles or the custom catalog)."""
+    from entropy_data.cli import get_client, get_output_format, handle_error
+    from entropy_data.client import REQUEST_TIMEOUT, _raise_for_status
+
+    fmt = output or get_output_format()
+    try:
+        client = get_client()
+        response = client.session.get(f"{client.base_url}/api/settings/team-roles", timeout=REQUEST_TIMEOUT)
+        _raise_for_status(response)
+        data = response.json()
+        if fmt != OutputFormat.table:
+            print_data(data, fmt)
+            return
+
+        console.print(f"mode: [cyan]{data.get('mode', '')}[/cyan]")
+        roles = data.get("team-roles") or []
+        if roles:
+            table = Table()
+            table.add_column("name", style="cyan")
+            table.add_column("rank")
+            table.add_column("permissions")
+            for role in roles:
+                table.add_row(
+                    str(role.get("name", "")),
+                    str(role.get("rank", "")),
+                    ", ".join(role.get("permissions", []) or []),
+                )
+            console.print(table)
+    except Exception as e:
+        handle_error(e)
+
+
+@team_roles_app.command("put")
+def put_team_roles(
+    file: Annotated[Path, typer.Option("--file", "-f", help="JSON or YAML file with the body (use - for stdin).")] = ...,
+) -> None:
+    """Set the team roles configuration.
+
+    The body is the aggregate payload, e.g. `{"mode": "default"}` or
+    `{"mode": "custom-team-roles", "team-roles": [ ... ]}`. With `custom-team-roles`
+    the listed roles replace the whole catalog; an empty list is rejected with 409.
+    """
+    from entropy_data.cli import get_client, handle_error
+    from entropy_data.client import REQUEST_TIMEOUT, _raise_for_status
+
+    try:
+        body = read_body(file)
+        client = get_client()
+        response = client.session.put(
+            f"{client.base_url}/api/settings/team-roles",
+            json=body,
+            timeout=REQUEST_TIMEOUT,
+        )
+        _raise_for_status(response)
+        mode = response.json().get("mode", "")
+        print_success(f"Team roles configuration saved (mode: {mode}).")
+    except Exception as e:
+        handle_error(e)
+
+
+settings_app.add_typer(
+    team_roles_app,
+    name="team-roles",
+    help="Get or set the organization's team roles configuration.",
+)
