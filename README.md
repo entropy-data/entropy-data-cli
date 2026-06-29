@@ -69,6 +69,10 @@ entropy-data datacontracts list --output json
 # Create or update a team from a YAML file
 entropy-data teams put marketing --file team.yaml
 
+# Show the team roles configuration, or switch to a custom role catalog
+entropy-data settings team-roles get
+entropy-data settings team-roles put --file team-roles.yaml
+
 # Approve an access agreement
 entropy-data access approve 640864de-83d4-4619-afba-ccea8037ed3a
 
@@ -98,8 +102,8 @@ entropy-data [--version] [--connection NAME] [--output table|json|yaml] [--debug
   api-keys        create | delete
   connectors      list | get | put | delete
   integrations    list | get | runs | runs-get | runs-latest | run | cancel
-  organization    get | members ... | git-credentials ... | custom-team-roles ...
-  settings        get-customization | put-customization | get-scim-mapping | put-scim-mapping
+  organization    get | members ... | git-credentials ...
+  settings        get-customization | put-customization | get-scim-mapping | put-scim-mapping | team-roles ...
   events          poll
   lineage         list | submit | delete
   search          query
