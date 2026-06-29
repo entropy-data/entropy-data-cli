@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.3.15]
+
 - Replace `entropy-data organization custom-team-roles ...` and the interim `organization team-roles-mode` command with `entropy-data settings team-roles get|put`. The configuration is now a single aggregate payload — `{mode: default}` or `{mode: custom-team-roles, team-roles: [...]}` — wrapping the new `GET`/`PUT /api/settings/team-roles`. `put` replaces the whole catalog when mode is `custom-team-roles`; an empty catalog or dropping a role still assigned to a member is rejected with 409.
 
 ## [0.3.14]
