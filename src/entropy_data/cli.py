@@ -57,6 +57,19 @@ def version_callback(value: bool) -> None:
         raise typer.Exit()
 
 
+def inject_system_truststore() -> None:
+    """Verify TLS using the operating system's certificate trust store instead of the
+    bundled CA certificates. This lets the CLI work behind corporate proxies or with
+    internal CAs whose root certificates are installed in the OS trust store but not in
+    the certifi bundle that requests uses by default."""
+    try:
+        import truststore
+    except ImportError:
+        error_console.print("[red]--system-truststore requires the 'truststore' package, which is not installed.[/red]")
+        raise typer.Exit(code=1)
+    truststore.inject_into_ssl()
+
+
 app = typer.Typer(
     name="entropy-data",
     help="CLI for Entropy Data.",
@@ -76,6 +89,15 @@ def main(
     host: Annotated[Optional[str], typer.Option("--host", help="API host URL (overrides config and env).")] = None,
     output: Annotated[OutputFormat, typer.Option("--output", "-o", help="Output format.")] = OutputFormat.table,
     debug: Annotated[bool, typer.Option("--debug", help="Enable debug output.")] = False,
+    system_truststore: Annotated[
+        bool,
+        typer.Option(
+            "--system-truststore",
+            help="Verify TLS using the operating system's certificate trust store "
+            "instead of the bundled CA certificates (e.g. behind a corporate proxy or internal CA).",
+            envvar="ENTROPY_DATA_SYSTEM_TRUSTSTORE",
+        ),
+    ] = False,
 ) -> None:
     """Entropy Data CLI — manage your data platform from the command line."""
     global _connection_name, _cli_api_key, _cli_host, _output_format, _debug
@@ -87,6 +109,8 @@ def main(
     _debug = debug
     if debug:
         logging.basicConfig(level=logging.DEBUG, stream=sys.stderr)
+    if system_truststore:
+        inject_system_truststore()
 
 
 # Register command groups
