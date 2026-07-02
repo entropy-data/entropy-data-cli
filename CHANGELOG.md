@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.3.16]
+
 - Add the global `--system-truststore` option (env `ENTROPY_DATA_SYSTEM_TRUSTSTORE`) to verify TLS using the operating system's certificate trust store instead of the bundled CA certificates, for use behind a corporate proxy or with an internal CA.
 
 ## [0.3.15]
