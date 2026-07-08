@@ -72,6 +72,8 @@ RESOURCE_COLUMNS: dict[str, list[tuple[str, str]]] = {
         ("Owner", "info.owner"),
     ],
     "tags": [("ID", "id"), ("Owner", "info.owner"), ("Description", "info.description")],
+    "star-status": [("Stars", "count"), ("Starred By Me", "starredByMe")],
+    "stargazers": [("User ID", "userId"), ("Name", "fullName")],
     "classification-schemes": [
         ("External ID", "externalId"),
         ("Name", "name"),

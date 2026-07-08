@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [0.3.18]
+
+- Add `entropy-data dataproducts star|unstar|star-status|stargazers` for GitHub-style stars on data products (`PUT|DELETE|GET /api/dataproducts/{id}/star`, `GET /api/dataproducts/{id}/stargazers`). `star`/`unstar` are idempotent and require a user-scoped API key; `star-status` shows the total star count and whether you starred it; `stargazers` lists the users who starred it (organization owners only).
+
 ## [0.3.17]
 
 - Add `entropy-data classifications list|get|put|delete` for managing classification schemes (`GET /api/classification-schemes`, `GET|PUT|DELETE /api/classification-schemes/{schemeExternalId}`). Classification schemes define sensitivity tiers (e.g. Public, Internal, Sensitive) that can be assigned to data products, data contracts, and semantic concepts; each scheme is addressed by its stable `externalId` and carries its tiers inline.

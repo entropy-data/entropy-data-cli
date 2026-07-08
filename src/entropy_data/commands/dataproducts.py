@@ -146,6 +146,94 @@ def import_dataproduct_from_git(
         handle_error(e)
 
 
+@dataproducts_app.command("star")
+def star_dataproduct(
+    id: Annotated[str, typer.Argument(help="Data product ID.")],
+) -> None:
+    """Star a data product (requires a user-scoped API key)."""
+    from entropy_data.cli import get_client, handle_error
+    from entropy_data.client import REQUEST_TIMEOUT, _raise_for_status, _validate_resource_id
+
+    try:
+        client = get_client()
+        _validate_resource_id(id)
+        response = client.session.put(
+            f"{client.base_url}/api/{RESOURCE_PATH}/{id}/star",
+            timeout=REQUEST_TIMEOUT,
+        )
+        _raise_for_status(response)
+        print_success(f"Starred data product '{id}'.")
+    except Exception as e:
+        handle_error(e)
+
+
+@dataproducts_app.command("unstar")
+def unstar_dataproduct(
+    id: Annotated[str, typer.Argument(help="Data product ID.")],
+) -> None:
+    """Remove your star from a data product (requires a user-scoped API key)."""
+    from entropy_data.cli import get_client, handle_error
+    from entropy_data.client import REQUEST_TIMEOUT, _raise_for_status, _validate_resource_id
+
+    try:
+        client = get_client()
+        _validate_resource_id(id)
+        response = client.session.delete(
+            f"{client.base_url}/api/{RESOURCE_PATH}/{id}/star",
+            timeout=REQUEST_TIMEOUT,
+        )
+        _raise_for_status(response)
+        print_success(f"Unstarred data product '{id}'.")
+    except Exception as e:
+        handle_error(e)
+
+
+@dataproducts_app.command("star-status")
+def star_status_dataproduct(
+    id: Annotated[str, typer.Argument(help="Data product ID.")],
+    output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
+) -> None:
+    """Show the star count and whether you starred a data product."""
+    from entropy_data.cli import get_client, get_output_format, handle_error
+    from entropy_data.client import REQUEST_TIMEOUT, _raise_for_status, _validate_resource_id
+
+    fmt = output or get_output_format()
+    try:
+        client = get_client()
+        _validate_resource_id(id)
+        response = client.session.get(
+            f"{client.base_url}/api/{RESOURCE_PATH}/{id}/star",
+            timeout=REQUEST_TIMEOUT,
+        )
+        _raise_for_status(response)
+        print_resource(response.json(), "star-status", fmt)
+    except Exception as e:
+        handle_error(e)
+
+
+@dataproducts_app.command("stargazers")
+def stargazers_dataproduct(
+    id: Annotated[str, typer.Argument(help="Data product ID.")],
+    output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
+) -> None:
+    """List the users who starred a data product (organization owners only)."""
+    from entropy_data.cli import get_client, get_output_format, handle_error
+    from entropy_data.client import REQUEST_TIMEOUT, _raise_for_status, _validate_resource_id
+
+    fmt = output or get_output_format()
+    try:
+        client = get_client()
+        _validate_resource_id(id)
+        response = client.session.get(
+            f"{client.base_url}/api/{RESOURCE_PATH}/{id}/stargazers",
+            timeout=REQUEST_TIMEOUT,
+        )
+        _raise_for_status(response)
+        print_resource_list(response.json(), "stargazers", fmt)
+    except Exception as e:
+        handle_error(e)
+
+
 from entropy_data.commands.gitconnections import make_gitconnection_app  # noqa: E402
 
 dataproducts_app.add_typer(
