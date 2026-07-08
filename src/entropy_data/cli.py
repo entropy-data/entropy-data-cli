@@ -118,6 +118,7 @@ from entropy_data.commands.access import access_app  # noqa: E402
 from entropy_data.commands.api_keys import api_keys_app  # noqa: E402
 from entropy_data.commands.assets import assets_app  # noqa: E402
 from entropy_data.commands.certifications import certifications_app  # noqa: E402
+from entropy_data.commands.classifications import classifications_app  # noqa: E402
 from entropy_data.commands.connection import connection_app  # noqa: E402
 from entropy_data.commands.connectors import connectors_app  # noqa: E402
 from entropy_data.commands.costs import costs_app  # noqa: E402
@@ -148,6 +149,7 @@ app.add_typer(access_app, name="access", help="Manage access (data usage agreeme
 app.add_typer(sourcesystems_app, name="sourcesystems", help="Manage source systems.")
 app.add_typer(definitions_app, name="definitions", help="Manage definitions.")
 app.add_typer(certifications_app, name="certifications", help="Manage certifications.")
+app.add_typer(classifications_app, name="classifications", help="Manage classification schemes.")
 app.add_typer(policies_app, name="policies", help="Manage policies.")
 app.add_typer(example_data_app, name="example-data", help="Manage example data.")
 app.add_typer(test_results_app, name="test-results", help="Manage test results.")

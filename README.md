@@ -93,6 +93,7 @@ entropy-data [--version] [--connection NAME] [--output table|json|yaml] [--debug
   sourcesystems   list | get | put | delete
   definitions     list | get | put | delete
   certifications  list | get | put | delete
+  classifications list | get | put | delete
   policies        list | get | put | delete
   example-data    list | get | put | delete
   test-results    list | get | publish | delete

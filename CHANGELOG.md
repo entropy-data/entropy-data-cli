@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [0.3.17]
+
+- Add `entropy-data classifications list|get|put|delete` for managing classification schemes (`GET /api/classification-schemes`, `GET|PUT|DELETE /api/classification-schemes/{schemeExternalId}`). Classification schemes define sensitivity tiers (e.g. Public, Internal, Sensitive) that can be assigned to data products, data contracts, and semantic concepts; each scheme is addressed by its stable `externalId` and carries its tiers inline.
+
 ## [0.3.16]
 
 - Add the global `--system-truststore` option (env `ENTROPY_DATA_SYSTEM_TRUSTSTORE`) to verify TLS using the operating system's certificate trust store instead of the bundled CA certificates, for use behind a corporate proxy or with an internal CA.

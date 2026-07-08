@@ -72,6 +72,12 @@ RESOURCE_COLUMNS: dict[str, list[tuple[str, str]]] = {
         ("Owner", "info.owner"),
     ],
     "tags": [("ID", "id"), ("Owner", "info.owner"), ("Description", "info.description")],
+    "classification-schemes": [
+        ("External ID", "externalId"),
+        ("Name", "name"),
+        ("Custom Property", "customProperty"),
+        ("Description", "description"),
+    ],
     "organization-members": [("Email", "emailAddress"), ("User ID", "userId"), ("Role", "role")],
     "custom-team-roles": [
         ("Name", "name"),
