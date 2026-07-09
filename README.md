@@ -36,7 +36,7 @@ entropy-data --help
 ### Docker
 
 ```bash
-docker run --rm entropy-data/cli --help
+docker run --rm entropydata/entropy-data-cli --help
 ```
 
 ## Getting Started
