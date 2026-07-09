@@ -56,6 +56,9 @@ def _has_next_page(response: requests.Response) -> bool:
 
 MAX_RESOURCE_ID_LENGTH = 256
 
+SCHEMA_SPECS = ("odcs", "odps")
+_SCHEMA_VERSION_PATTERN = re.compile(r"^\d+\.\d+\.\d+$")
+
 
 def _validate_resource_id(resource_id: str) -> None:
     """Reject empty, too-long, or path-traversal resource IDs."""
@@ -211,6 +214,20 @@ class EntropyDataClient:
         )
         _raise_for_status(response)
         return response.json()
+
+    def get_schema(self, spec: str, version: str | None = None, custom: bool = False) -> tuple[str, str | None]:
+        """GET /api/schemas/{spec}[-{version}][-custom].schema.json.
+
+        Returns (schema JSON text, served base version from the X-Schema-Version header).
+        """
+        if spec not in SCHEMA_SPECS:
+            raise ValueError(f"Unknown specification '{spec}'. Expected one of: {', '.join(SCHEMA_SPECS)}.")
+        if version is not None and not _SCHEMA_VERSION_PATTERN.match(version):
+            raise ValueError(f"Invalid schema version '{version}'. Expected a version like 3.1.0.")
+        filename = f"{spec}{f'-{version}' if version else ''}{'-custom' if custom else ''}.schema.json"
+        response = self.session.get(f"{self.base_url}/api/schemas/{filename}", timeout=REQUEST_TIMEOUT)
+        _raise_for_status(response)
+        return response.text, response.headers.get("X-Schema-Version")
 
     def search(self, query: str, **params) -> dict:
         """GET /api/search."""

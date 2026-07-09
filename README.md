@@ -107,6 +107,7 @@ entropy-data [--version] [--connection NAME] [--output table|json|yaml] [--debug
   settings        get-customization | put-customization | get-scim-mapping | put-scim-mapping | team-roles ...
   events          poll
   lineage         list | submit | delete
+  schemas         get
   search          query
   semantics       namespaces ... | concepts ... | relationships ... | search
   usage           list | submit | delete

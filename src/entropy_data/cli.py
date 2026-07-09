@@ -132,6 +132,7 @@ from entropy_data.commands.integrations import integrations_app  # noqa: E402
 from entropy_data.commands.lineage import lineage_app  # noqa: E402
 from entropy_data.commands.organization import organization_app  # noqa: E402
 from entropy_data.commands.policies import policies_app  # noqa: E402
+from entropy_data.commands.schemas import schemas_app  # noqa: E402
 from entropy_data.commands.search import search_app  # noqa: E402
 from entropy_data.commands.semantics import semantics_app  # noqa: E402
 from entropy_data.commands.settings import settings_app  # noqa: E402
@@ -163,6 +164,7 @@ app.add_typer(organization_app, name="organization", help="Get organization deta
 app.add_typer(settings_app, name="settings", help="Manage organization settings.")
 app.add_typer(events_app, name="events", help="Poll events.")
 app.add_typer(lineage_app, name="lineage", help="Manage lineage (OpenLineage events).")
+app.add_typer(schemas_app, name="schemas", help="Get the JSON Schemas that data contracts (ODCS) and data products (ODPS) validate against.")
 app.add_typer(search_app, name="search", help="Search across resources.")
 app.add_typer(semantics_app, name="semantics", help="EXPERIMENTAL semantics API.")
 app.add_typer(usage_app, name="usage", help="Manage usage (OpenTelemetry traces).")

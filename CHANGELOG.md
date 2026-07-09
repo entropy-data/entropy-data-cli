@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Add `entropy-data schemas get odcs|odps` to fetch the JSON Schemas that data contracts (ODCS) and data products (ODPS) validate against (`GET /api/schemas/{odcs|odps}[-<version>][-custom].schema.json`). By default the current base schema is printed to stdout; `--custom` composes the organization's customization overlay onto the base schema via `allOf` (the schema the data contract editor validates against), `--version` pins a specification version, and `--file` writes to a file, reporting the served base version from the `X-Schema-Version` header.
+
 ## [0.3.18]
 
 - Add `entropy-data dataproducts star|unstar|star-status|stargazers` for GitHub-style stars on data products (`PUT|DELETE|GET /api/dataproducts/{id}/star`, `GET /api/dataproducts/{id}/stargazers`). `star`/`unstar` are idempotent and require a user-scoped API key; `star-status` shows the total star count and whether you starred it; `stargazers` lists the users who starred it (organization owners only).
