@@ -143,7 +143,9 @@ ENTROPY_DATA_HOST=https://api.entropy-data.com
 
 Values from `.env` are loaded as environment variables and do **not** override already-set environment variables.
 
-Resolution precedence: CLI options > environment variables / `.env` > config file.
+Resolution precedence: CLI options (`--api-key`, `--host`) > the connection named with `--connection` > environment variables / `.env` > the default connection in the config file.
+
+An explicit `--connection` therefore overrides environment variables, while the default connection only applies when nothing else supplies a value. The API key and host are resolved independently.
 
 ### TLS behind a corporate proxy or internal CA
 
