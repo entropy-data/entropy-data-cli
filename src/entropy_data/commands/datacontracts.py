@@ -142,7 +142,7 @@ def yaml_datacontract(
         client = get_client()
         _validate_resource_id(id)
         response = client.session.get(
-            f"{client.base_url}/api/datacontracts/{id}.yaml",
+            f"{client.base_url}/api/datacontracts/{id}/datacontract.yaml",
             headers={"Accept": "application/yaml"},
             timeout=REQUEST_TIMEOUT,
         )

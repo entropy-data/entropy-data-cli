@@ -26,7 +26,7 @@ def test_datacontracts_yaml_stdout(monkeypatch, tmp_path):
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
     responses.add(
         responses.GET,
-        f"{BASE_URL}/api/datacontracts/search-queries.yaml",
+        f"{BASE_URL}/api/datacontracts/search-queries/datacontract.yaml",
         body=YAML_BODY,
         content_type="application/yaml",
         status=200,
@@ -43,7 +43,7 @@ def test_datacontracts_yaml_to_file(monkeypatch, tmp_path):
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
     responses.add(
         responses.GET,
-        f"{BASE_URL}/api/datacontracts/search-queries.yaml",
+        f"{BASE_URL}/api/datacontracts/search-queries/datacontract.yaml",
         body=YAML_BODY,
         content_type="application/yaml",
         status=200,
