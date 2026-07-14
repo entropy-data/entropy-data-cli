@@ -4,6 +4,11 @@ All three user-facing commands (`export dir`, `import dir`/`import zip`, `apply`
 are thin wrappers over the functions here so they share one enumeration, upsert
 and prune implementation and cannot drift. Everything is continue-on-error: a
 single resource failure is logged and counted, never aborts the run.
+
+Flat resources are `/api/{api_path}` (list-all) + `/api/{api_path}/{id}`. A nested
+resource (``Resource.parent`` set) is enumerated by first listing its parent, then
+listing children under each parent's expanded path; its artifact lives at
+``<name>/<parent_id>/<child_id>.yaml``.
 """
 
 from dataclasses import dataclass, field
@@ -19,7 +24,7 @@ from entropy_data.client import (
     _validate_resource_id,
 )
 from entropy_data.output import console, error_console
-from entropy_data.resources import Resource, sanitize_filename, strip_audit_fields
+from entropy_data.resources import RESOURCE_BY_NAME, Resource, sanitize_filename, strip_audit_fields
 
 
 @dataclass
@@ -46,16 +51,20 @@ class PlanCounts:
 # --- enumeration (source side) --------------------------------------------------
 
 
-def _list_all(client: EntropyDataClient, resource: Resource) -> list[dict]:
-    """Return every item of a resource, following ``Link: rel="next"`` if paginated."""
+def _list_all(client: EntropyDataClient, resource: Resource, parent_id: str | None = None) -> list[dict]:
+    """Return every item of a resource, following ``Link: rel="next"`` if paginated.
+
+    ``parent_id`` selects the parent for a nested resource; it is ignored for flat ones.
+    """
+    api_path = resource.path_for(parent_id)
     if not resource.paginated:
-        items, _ = client.list_resources(resource.api_path)
+        items, _ = client.list_resources(api_path)
         return list(items)
 
     items: list[dict] = []
     page = 0
     while True:
-        batch, has_next = client.list_resources(resource.api_path, params={"p": page})
+        batch, has_next = client.list_resources(api_path, params={"p": page})
         items.extend(batch)
         if not has_next:
             break
@@ -63,9 +72,17 @@ def _list_all(client: EntropyDataClient, resource: Resource) -> list[dict]:
     return items
 
 
-def _enumerate_ids(client: EntropyDataClient, resource: Resource) -> set[str]:
+def _enumerate_ids(client: EntropyDataClient, resource: Resource, parent_id: str | None = None) -> set[str]:
     """Return the set of resource ids currently on the target (for prune / dry-run)."""
-    return {str(item[resource.id_field]) for item in _list_all(client, resource) if item.get(resource.id_field)}
+    return {
+        str(item[resource.id_field]) for item in _list_all(client, resource, parent_id) if item.get(resource.id_field)
+    }
+
+
+def _parent_ids(client: EntropyDataClient, resource: Resource) -> list[str]:
+    """List the ids of a nested resource's parent (e.g. namespaces for concepts)."""
+    parent = RESOURCE_BY_NAME[resource.parent]
+    return [str(item[parent.id_field]) for item in _list_all(client, parent) if item.get(parent.id_field)]
 
 
 # --- assigned-tags sub-resource (assets) ---------------------------------------
@@ -121,42 +138,59 @@ def _apply_tag_assignments(client: EntropyDataClient, asset_id: str, body: dict)
 # --- export --------------------------------------------------------------------
 
 
+def _export_items(client: EntropyDataClient, resource: Resource, parent_id: str | None, target_dir: Path) -> SyncResult:
+    """Enumerate one (flat resource) or one parent's children (nested) into ``target_dir``."""
+    total = SyncResult()
+    api_path = resource.path_for(parent_id)
+    try:
+        items = _list_all(client, resource, parent_id)
+    except ApiError as e:
+        error_console.print(f"  [red]FAIL[/red] list {resource.name}: {e}")
+        total.fail += 1
+        return total
+
+    if not items:
+        return total
+
+    target_dir.mkdir(parents=True, exist_ok=True)
+    for item in items:
+        rid = item.get(resource.id_field)
+        if rid is None:
+            error_console.print(f"  [red]FAIL[/red] item without '{resource.id_field}'")
+            total.fail += 1
+            continue
+        rid = str(rid)
+        try:
+            body = client.get_resource(api_path, rid) if resource.detail else item
+            body = strip_audit_fields(body)
+            path = target_dir / f"{sanitize_filename(rid)}.yaml"
+            path.write_text(yaml.safe_dump(body, sort_keys=False, allow_unicode=True, width=4096))
+            label = f"{parent_id}/{rid}" if parent_id else rid
+            console.print(f"  [green]OK[/green]   {label}")
+            total.ok += 1
+        except ApiError as e:
+            error_console.print(f"  [red]FAIL[/red] {rid}: {e}")
+            total.fail += 1
+    return total
+
+
 def export_dir(client: EntropyDataClient, dest: Path, resources: list[Resource]) -> SyncResult:
     """Enumerate the source and write one YAML file per resource under ``dest``."""
     total = SyncResult()
     for resource in resources:
         console.print(f"\n[bold]{resource.name}[/bold]")
+        if resource.parent is None:
+            total.add(_export_items(client, resource, None, dest / resource.name))
+            continue
+
         try:
-            items = _list_all(client, resource)
+            parent_ids = _parent_ids(client, resource)
         except ApiError as e:
-            error_console.print(f"  [red]FAIL[/red] list {resource.name}: {e}")
+            error_console.print(f"  [red]FAIL[/red] list parents for {resource.name}: {e}")
             total.fail += 1
             continue
-
-        if not items:
-            console.print("  (none)")
-            continue
-
-        target_dir = dest / resource.name
-        target_dir.mkdir(parents=True, exist_ok=True)
-
-        for item in items:
-            rid = item.get(resource.id_field)
-            if rid is None:
-                error_console.print(f"  [red]FAIL[/red] item without '{resource.id_field}'")
-                total.fail += 1
-                continue
-            rid = str(rid)
-            try:
-                body = client.get_resource(resource.api_path, rid) if resource.detail else item
-                body = strip_audit_fields(body)
-                path = target_dir / f"{sanitize_filename(rid)}.yaml"
-                path.write_text(yaml.safe_dump(body, sort_keys=False, allow_unicode=True, width=4096))
-                console.print(f"  [green]OK[/green]   {rid}")
-                total.ok += 1
-            except ApiError as e:
-                error_console.print(f"  [red]FAIL[/red] {rid}: {e}")
-                total.fail += 1
+        for pid in parent_ids:
+            total.add(_export_items(client, resource, pid, dest / resource.name / sanitize_filename(pid)))
     return total
 
 
@@ -177,7 +211,9 @@ def _load_dir(resource_dir: Path, resource: Resource) -> list[tuple[str, dict]]:
     return entries
 
 
-def _upsert_teams(client: EntropyDataClient, resource: Resource, entries: list[tuple[str, dict]]) -> SyncResult:
+def _upsert_teams(
+    client: EntropyDataClient, resource: Resource, api_path: str, entries: list[tuple[str, dict]]
+) -> SyncResult:
     """Upsert teams parents-first, stripping members."""
     result = SyncResult()
     teams = {rid: {"data": {**body, "members": []}, "parent": body.get("parent")} for rid, body in entries}
@@ -190,7 +226,7 @@ def _upsert_teams(client: EntropyDataClient, resource: Resource, entries: list[t
                 continue
             if t["parent"] is None or t["parent"] in imported:
                 try:
-                    client.put_resource(resource.api_path, tid, t["data"])
+                    client.put_resource(api_path, tid, t["data"])
                     console.print(f"  [green]OK[/green]   {tid}")
                     result.ok += 1
                 except ApiError as e:
@@ -206,57 +242,29 @@ def _upsert_teams(client: EntropyDataClient, resource: Resource, entries: list[t
     return result
 
 
-def _upsert(client: EntropyDataClient, resource: Resource, entries: list[tuple[str, dict]]) -> SyncResult:
+def _upsert(
+    client: EntropyDataClient,
+    resource: Resource,
+    api_path: str,
+    entries: list[tuple[str, dict]],
+    label_prefix: str = "",
+) -> SyncResult:
     """Upsert one resource type via PUT-by-id (idempotent), continue-on-error."""
     if resource.topo_sort_parents:
-        return _upsert_teams(client, resource, entries)
+        return _upsert_teams(client, resource, api_path, entries)
 
     result = SyncResult()
     for rid, body in entries:
         payload = {**body, "members": []} if resource.strip_members else body
         try:
-            client.put_resource(resource.api_path, rid, payload)
-            console.print(f"  [green]OK[/green]   {rid}")
+            client.put_resource(api_path, rid, payload)
+            console.print(f"  [green]OK[/green]   {label_prefix}{rid}")
             result.ok += 1
             if resource.tag_assignments:
                 result.add(_apply_tag_assignments(client, rid, payload))
         except ApiError as e:
-            error_console.print(f"  [red]FAIL[/red] {rid}: {e}")
+            error_console.print(f"  [red]FAIL[/red] {label_prefix}{rid}: {e}")
             result.fail += 1
-    return result
-
-
-def _prune(
-    client: EntropyDataClient,
-    resources: list[Resource],
-    imported_ids: dict[str, set[str]],
-) -> SyncResult:
-    """Delete target resources absent from the import set, in reverse dependency order."""
-    result = SyncResult()
-    for resource in reversed(resources):
-        keep = imported_ids.get(resource.name, set())
-        try:
-            existing = _list_all(client, resource)
-        except ApiError as e:
-            error_console.print(f"  [red]FAIL[/red] list {resource.name}: {e}")
-            result.fail += 1
-            continue
-
-        to_delete = [item for item in existing if str(item.get(resource.id_field)) not in keep]
-        if not to_delete:
-            continue
-
-        console.print(f"\n[bold]prune {resource.name}[/bold]")
-        ordered = _order_for_deletion(resource, to_delete)
-        for item in ordered:
-            rid = str(item[resource.id_field])
-            try:
-                client.delete_resource(resource.api_path, rid)
-                console.print(f"  [green]DEL[/green]  {rid}")
-                result.ok += 1
-            except ApiError as e:
-                error_console.print(f"  [red]FAIL[/red] {rid}: {e}")
-                result.fail += 1
     return result
 
 
@@ -278,11 +286,85 @@ def _order_for_deletion(resource: Resource, items: list[dict]) -> list[dict]:
     return ordered
 
 
+def _prune_one(
+    client: EntropyDataClient,
+    resource: Resource,
+    api_path: str,
+    keep: set[str],
+    parent_id: str | None,
+) -> SyncResult:
+    """Delete target items of one (flat resource) or one parent scope (nested) absent from ``keep``."""
+    result = SyncResult()
+    try:
+        existing = _list_all(client, resource, parent_id)
+    except ApiError as e:
+        error_console.print(f"  [red]FAIL[/red] list {resource.name}: {e}")
+        result.fail += 1
+        return result
+
+    to_delete = [item for item in existing if str(item.get(resource.id_field)) not in keep]
+    if not to_delete:
+        return result
+
+    label = f"{resource.name} [{parent_id}]" if parent_id else resource.name
+    console.print(f"\n[bold]prune {label}[/bold]")
+    for item in _order_for_deletion(resource, to_delete):
+        rid = str(item[resource.id_field])
+        try:
+            client.delete_resource(api_path, rid)
+            console.print(f"  [green]DEL[/green]  {rid}")
+            result.ok += 1
+        except ApiError as e:
+            error_console.print(f"  [red]FAIL[/red] {rid}: {e}")
+            result.fail += 1
+    return result
+
+
+def _prune(
+    client: EntropyDataClient,
+    resources: list[Resource],
+    imported_ids: dict[str, object],
+) -> SyncResult:
+    """Delete target resources absent from the import set, in reverse dependency order.
+
+    For flat resources ``imported_ids[name]`` is a ``set[str]``; for nested resources it
+    is a ``dict[parent_id, set[child_id]]``.
+    """
+    result = SyncResult()
+    for resource in reversed(resources):
+        if resource.parent is None:
+            keep = imported_ids.get(resource.name) or set()
+            result.add(_prune_one(client, resource, resource.api_path, keep, None))
+            continue
+
+        pairs: dict = imported_ids.get(resource.name) or {}
+        try:
+            parent_ids = _parent_ids(client, resource)
+        except ApiError as e:
+            error_console.print(f"  [red]FAIL[/red] list parents for {resource.name}: {e}")
+            result.fail += 1
+            continue
+        for pid in parent_ids:
+            result.add(_prune_one(client, resource, resource.path_for(pid), pairs.get(pid, set()), pid))
+    return result
+
+
 @dataclass
 class ImportPlan:
     """Result of a dry-run: per-resource create/update/prune counts."""
 
     counts: dict[str, PlanCounts] = field(default_factory=dict)
+
+
+def _load_nested(source_dir: Path, resource: Resource) -> dict[str, set[str]]:
+    """Load a nested resource's artifact into ``{parent_id: {child_id, ...}}``."""
+    pairs: dict[str, set[str]] = {}
+    if not source_dir.is_dir():
+        return pairs
+    for parent_dir in sorted(p for p in source_dir.iterdir() if p.is_dir()):
+        entries = _load_dir(parent_dir, resource)
+        pairs[parent_dir.name] = {rid for rid, _ in entries}
+    return pairs
 
 
 def plan_import(
@@ -295,20 +377,37 @@ def plan_import(
     plan = ImportPlan()
     for resource in resources:
         resource_dir = source / resource.name
-        entries = _load_dir(resource_dir, resource) if resource_dir.is_dir() else []
-        imported_ids = {rid for rid, _ in entries}
 
-        try:
-            existing_ids = _enumerate_ids(client, resource)
-        except ApiError as e:
-            error_console.print(f"[red]FAIL[/red] list {resource.name}: {e}")
-            existing_ids = set()
+        if resource.parent is None:
+            entries = _load_dir(resource_dir, resource) if resource_dir.is_dir() else []
+            imported = {rid for rid, _ in entries}
+            try:
+                existing = _enumerate_ids(client, resource)
+            except ApiError as e:
+                error_console.print(f"[red]FAIL[/red] list {resource.name}: {e}")
+                existing = set()
+            counts = PlanCounts(
+                create=len(imported - existing),
+                update=len(imported & existing),
+                prune=len(existing - imported) if prune else 0,
+            )
+        else:
+            imported_pairs = _load_nested(resource_dir, resource)
+            existing_pairs: dict[str, set[str]] = {}
+            try:
+                for pid in _parent_ids(client, resource):
+                    existing_pairs[pid] = _enumerate_ids(client, resource, pid)
+            except ApiError as e:
+                error_console.print(f"[red]FAIL[/red] list {resource.name}: {e}")
+            counts = PlanCounts()
+            for pid in set(imported_pairs) | set(existing_pairs):
+                imp = imported_pairs.get(pid, set())
+                exi = existing_pairs.get(pid, set())
+                counts.create += len(imp - exi)
+                counts.update += len(imp & exi)
+                if prune:
+                    counts.prune += len(exi - imp)
 
-        counts = PlanCounts(
-            create=len(imported_ids - existing_ids),
-            update=len(imported_ids & existing_ids),
-            prune=len(existing_ids - imported_ids) if prune else 0,
-        )
         if counts.create or counts.update or counts.prune:
             plan.counts[resource.name] = counts
     return plan
@@ -322,18 +421,35 @@ def import_dir(
 ) -> SyncResult:
     """Upsert every resource under ``source`` in dependency order, optionally pruning."""
     total = SyncResult()
-    imported_ids: dict[str, set[str]] = {}
+    imported_ids: dict[str, object] = {}
 
     for resource in resources:
         resource_dir = source / resource.name
         if not resource_dir.is_dir():
             continue
-        entries = _load_dir(resource_dir, resource)
-        imported_ids[resource.name] = {rid for rid, _ in entries}
-        if not entries:
+
+        if resource.parent is None:
+            entries = _load_dir(resource_dir, resource)
+            imported_ids[resource.name] = {rid for rid, _ in entries}
+            if not entries:
+                continue
+            console.print(f"\n[bold]{resource.name}[/bold]")
+            total.add(_upsert(client, resource, resource.api_path, entries))
             continue
-        console.print(f"\n[bold]{resource.name}[/bold]")
-        total.add(_upsert(client, resource, entries))
+
+        pairs: dict[str, set[str]] = {}
+        header_printed = False
+        for parent_dir in sorted(p for p in resource_dir.iterdir() if p.is_dir()):
+            pid = parent_dir.name
+            entries = _load_dir(parent_dir, resource)
+            pairs[pid] = {rid for rid, _ in entries}
+            if not entries:
+                continue
+            if not header_printed:
+                console.print(f"\n[bold]{resource.name}[/bold]")
+                header_printed = True
+            total.add(_upsert(client, resource, resource.path_for(pid), entries, label_prefix=f"{pid}/"))
+        imported_ids[resource.name] = pairs
 
     if prune:
         total.add(_prune(client, resources, imported_ids))
