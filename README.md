@@ -156,8 +156,10 @@ Notes:
 
 - Team members are stripped on import (users are per-instance identities); the export
   keeps them so the artifact is a faithful snapshot.
-- The semantics graph is nested: namespaces are copied first, then concepts and
-  relationships per namespace. Its artifact lives at `semantic-<kind>/<namespace>/<id>.yaml`.
+- The semantics graph is copied as one OSI ontology YAML document per namespace
+  (`semantic-ontology/<namespace>.yaml`) via the app's `.../{ns}/ontology.yaml` endpoint,
+  which imports it in the correct internal dependency order. The namespace row is copied
+  first as a normal resource. Requires that endpoint on the target instance.
 - The organization feature configuration is an org-level singleton
   (`organization-features/organization-features.yaml`), applied last and never pruned. It
   requires the app's `GET`/`PUT /api/organization/features` endpoint (entropy-data#1521),

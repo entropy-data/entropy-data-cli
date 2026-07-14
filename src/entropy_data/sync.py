@@ -5,10 +5,9 @@ are thin wrappers over the functions here so they share one enumeration, upsert
 and prune implementation and cannot drift. Everything is continue-on-error: a
 single resource failure is logged and counted, never aborts the run.
 
-Flat resources are `/api/{api_path}` (list-all) + `/api/{api_path}/{id}`. A nested
-resource (``Resource.parent`` set) is enumerated by first listing its parent, then
-listing children under each parent's expanded path; its artifact lives at
-``<name>/<parent_id>/<child_id>.yaml``.
+Flat resources are `/api/{api_path}` (list-all) + `/api/{api_path}/{id}`. A document
+resource (``Resource.document`` set) is one raw-YAML document per parent, GET/PUT at
+the expanded ``{parent}`` path; its artifact lives at ``<name>/<parent_id>.yaml``.
 """
 
 from dataclasses import dataclass, field
@@ -104,6 +103,51 @@ def _put_singleton(client: EntropyDataClient, resource: Resource, body: dict) ->
 
 def _singleton_file(root: Path, resource: Resource) -> Path:
     return root / resource.name / f"{resource.name}.yaml"
+
+
+# --- document (one raw-YAML document per parent) --------------------------------
+
+
+def _get_document(client: EntropyDataClient, resource: Resource, parent_id: str) -> str:
+    """GET the raw YAML document at the expanded ``{parent}`` path."""
+    response = client.session.get(
+        f"{client.base_url}/api/{resource.path_for(parent_id)}",
+        headers={"Accept": "application/yaml"},
+        timeout=REQUEST_TIMEOUT,
+    )
+    _raise_for_status(response)
+    return response.text
+
+
+def _put_document(client: EntropyDataClient, resource: Resource, parent_id: str, text: str) -> None:
+    """PUT the raw YAML document to the expanded ``{parent}`` path."""
+    response = client.session.put(
+        f"{client.base_url}/api/{resource.path_for(parent_id)}",
+        data=text.encode("utf-8"),
+        headers={"Content-Type": "application/yaml"},
+        timeout=REQUEST_TIMEOUT,
+    )
+    _raise_for_status(response)
+
+
+def _export_document(client: EntropyDataClient, resource: Resource, parent_id: str, target_dir: Path) -> SyncResult:
+    """Fetch one parent's YAML document and write it to ``<name>/<parent_id>.yaml`` (skips when empty)."""
+    total = SyncResult()
+    try:
+        text = _get_document(client, resource, parent_id)
+    except ApiError as e:
+        error_console.print(f"  [red]FAIL[/red] {parent_id}: {e}")
+        total.fail += 1
+        return total
+
+    if not text.strip():  # empty document; nothing to copy
+        return total
+
+    target_dir.mkdir(parents=True, exist_ok=True)
+    (target_dir / f"{sanitize_filename(parent_id)}.yaml").write_text(text)
+    console.print(f"  [green]OK[/green]   {parent_id}")
+    total.ok += 1
+    return total
 
 
 # --- assigned-tags sub-resource (assets) ---------------------------------------
@@ -225,18 +269,17 @@ def export_dir(client: EntropyDataClient, dest: Path, resources: list[Resource])
         if resource.singleton:
             total.add(_export_singleton(client, resource, dest / resource.name))
             continue
-        if resource.parent is None:
-            total.add(_export_items(client, resource, None, dest / resource.name))
+        if resource.document:
+            try:
+                parent_ids = _parent_ids(client, resource)
+            except ApiError as e:
+                error_console.print(f"  [red]FAIL[/red] list parents for {resource.name}: {e}")
+                total.fail += 1
+                continue
+            for pid in parent_ids:
+                total.add(_export_document(client, resource, pid, dest / resource.name))
             continue
-
-        try:
-            parent_ids = _parent_ids(client, resource)
-        except ApiError as e:
-            error_console.print(f"  [red]FAIL[/red] list parents for {resource.name}: {e}")
-            total.fail += 1
-            continue
-        for pid in parent_ids:
-            total.add(_export_items(client, resource, pid, dest / resource.name / sanitize_filename(pid)))
+        total.add(_export_items(client, resource, None, dest / resource.name))
     return total
 
 
@@ -373,27 +416,14 @@ def _prune(
 ) -> SyncResult:
     """Delete target resources absent from the import set, in reverse dependency order.
 
-    For flat resources ``imported_ids[name]`` is a ``set[str]``; for nested resources it
-    is a ``dict[parent_id, set[child_id]]``.
+    ``imported_ids[name]`` is a ``set[str]`` of the flat resource's imported ids.
     """
     result = SyncResult()
     for resource in reversed(resources):
-        if resource.singleton:
-            continue  # a singleton is one object, not a collection — nothing to prune
-        if resource.parent is None:
-            keep = imported_ids.get(resource.name) or set()
-            result.add(_prune_one(client, resource, resource.api_path, keep, None))
-            continue
-
-        pairs: dict = imported_ids.get(resource.name) or {}
-        try:
-            parent_ids = _parent_ids(client, resource)
-        except ApiError as e:
-            error_console.print(f"  [red]FAIL[/red] list parents for {resource.name}: {e}")
-            result.fail += 1
-            continue
-        for pid in parent_ids:
-            result.add(_prune_one(client, resource, resource.path_for(pid), pairs.get(pid, set()), pid))
+        if resource.singleton or resource.document:
+            continue  # one object / one document — not a prunable collection
+        keep = imported_ids.get(resource.name) or set()
+        result.add(_prune_one(client, resource, resource.api_path, keep, None))
     return result
 
 
@@ -402,17 +432,6 @@ class ImportPlan:
     """Result of a dry-run: per-resource create/update/prune counts."""
 
     counts: dict[str, PlanCounts] = field(default_factory=dict)
-
-
-def _load_nested(source_dir: Path, resource: Resource) -> dict[str, set[str]]:
-    """Load a nested resource's artifact into ``{parent_id: {child_id, ...}}``."""
-    pairs: dict[str, set[str]] = {}
-    if not source_dir.is_dir():
-        return pairs
-    for parent_dir in sorted(p for p in source_dir.iterdir() if p.is_dir()):
-        entries = _load_dir(parent_dir, resource)
-        pairs[parent_dir.name] = {rid for rid, _ in entries}
-    return pairs
 
 
 def plan_import(
@@ -429,7 +448,11 @@ def plan_import(
         if resource.singleton:
             # A singleton is one in-place PUT; count it as an update when the artifact has it.
             counts = PlanCounts(update=1) if _singleton_file(source, resource).is_file() else PlanCounts()
-        elif resource.parent is None:
+        elif resource.document:
+            # One in-place PUT per parent document present in the artifact.
+            n = len(list(resource_dir.glob("*.yaml"))) if resource_dir.is_dir() else 0
+            counts = PlanCounts(update=n)
+        else:
             entries = _load_dir(resource_dir, resource) if resource_dir.is_dir() else []
             imported = {rid for rid, _ in entries}
             try:
@@ -442,22 +465,6 @@ def plan_import(
                 update=len(imported & existing),
                 prune=len(existing - imported) if prune else 0,
             )
-        else:
-            imported_pairs = _load_nested(resource_dir, resource)
-            existing_pairs: dict[str, set[str]] = {}
-            try:
-                for pid in _parent_ids(client, resource):
-                    existing_pairs[pid] = _enumerate_ids(client, resource, pid)
-            except ApiError as e:
-                error_console.print(f"[red]FAIL[/red] list {resource.name}: {e}")
-            counts = PlanCounts()
-            for pid in set(imported_pairs) | set(existing_pairs):
-                imp = imported_pairs.get(pid, set())
-                exi = existing_pairs.get(pid, set())
-                counts.create += len(imp - exi)
-                counts.update += len(imp & exi)
-                if prune:
-                    counts.prune += len(exi - imp)
 
         if counts.create or counts.update or counts.prune:
             plan.counts[resource.name] = counts
@@ -494,28 +501,28 @@ def import_dir(
                 total.fail += 1
             continue
 
-        if resource.parent is None:
-            entries = _load_dir(resource_dir, resource)
-            imported_ids[resource.name] = {rid for rid, _ in entries}
-            if not entries:
-                continue
-            console.print(f"\n[bold]{resource.name}[/bold]")
-            total.add(_upsert(client, resource, resource.api_path, entries))
+        if resource.document:
+            header_printed = False
+            for f in sorted(resource_dir.glob("*.yaml")):
+                parent_id = f.stem
+                if not header_printed:
+                    console.print(f"\n[bold]{resource.name}[/bold]")
+                    header_printed = True
+                try:
+                    _put_document(client, resource, parent_id, f.read_text())
+                    console.print(f"  [green]OK[/green]   {parent_id}")
+                    total.ok += 1
+                except ApiError as e:
+                    error_console.print(f"  [red]FAIL[/red] {parent_id}: {e}")
+                    total.fail += 1
             continue
 
-        pairs: dict[str, set[str]] = {}
-        header_printed = False
-        for parent_dir in sorted(p for p in resource_dir.iterdir() if p.is_dir()):
-            pid = parent_dir.name
-            entries = _load_dir(parent_dir, resource)
-            pairs[pid] = {rid for rid, _ in entries}
-            if not entries:
-                continue
-            if not header_printed:
-                console.print(f"\n[bold]{resource.name}[/bold]")
-                header_printed = True
-            total.add(_upsert(client, resource, resource.path_for(pid), entries, label_prefix=f"{pid}/"))
-        imported_ids[resource.name] = pairs
+        entries = _load_dir(resource_dir, resource)
+        imported_ids[resource.name] = {rid for rid, _ in entries}
+        if not entries:
+            continue
+        console.print(f"\n[bold]{resource.name}[/bold]")
+        total.add(_upsert(client, resource, resource.api_path, entries))
 
     if prune:
         total.add(_prune(client, resources, imported_ids))

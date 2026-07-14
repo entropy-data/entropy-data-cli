@@ -59,8 +59,7 @@ def test_new_resources_present_in_order():
         "example-data",
         "access",
         "semantic-namespaces",
-        "semantic-concepts",
-        "semantic-relationships",
+        "semantic-ontology",
         "organization-features",
     ]
 
@@ -74,16 +73,15 @@ def test_organization_features_is_singleton_and_last():
     assert RESOURCE_ORDER[-1].name == "organization-features"
 
 
-def test_semantics_nested_under_namespaces():
+def test_semantic_ontology_is_document_under_namespaces():
     by_name = {r.name: r for r in RESOURCE_ORDER}
-    # Concepts and relationships are nested under namespaces and come after them.
-    assert by_name["semantic-concepts"].parent == "semantic-namespaces"
-    assert by_name["semantic-relationships"].parent == "semantic-namespaces"
+    onto = by_name["semantic-ontology"]
+    # The whole ontology is one YAML document per namespace, imported after the namespace row.
+    assert onto.document is True
+    assert onto.parent == "semantic-namespaces"
     names = [r.name for r in RESOURCE_ORDER]
-    assert names.index("semantic-namespaces") < names.index("semantic-concepts")
-    assert names.index("semantic-namespaces") < names.index("semantic-relationships")
-    # The api_path is a parent template expanded per namespace.
-    assert by_name["semantic-concepts"].path_for("core") == "semantics/experimental/namespaces/core/concepts"
+    assert names.index("semantic-namespaces") < names.index("semantic-ontology")
+    assert onto.path_for("core") == "semantics/experimental/namespaces/core/ontology.yaml"
 
 
 def test_select_resources_include_exclude():
@@ -419,100 +417,63 @@ def test_import_help_lists_dir_and_zip():
     assert "dir" in result.output
 
 
-# --- semantics (nested) ---------------------------------------------------------
+# --- semantics (ontology document per namespace) --------------------------------
 
 NS = f"{BASE_URL}/api/semantics/experimental/namespaces"
 
 
 @responses.activate
-def test_export_semantics_nested(monkeypatch, tmp_path):
+def test_export_semantics_ontology_document(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
 
-    # One namespace, one concept in it (concept body fetched per-item via detail).
+    ontology = "version: 0.2.0.dev0\nname: core\nontology:\n  - concept:\n      id: customer\n"
     responses.add(responses.GET, NS, json=[{"namespace": "core", "label": "Core"}], status=200)
-    responses.add(responses.GET, f"{NS}/core/concepts", json=[{"id": "customer"}], status=200)
     responses.add(
         responses.GET,
-        f"{NS}/core/concepts/customer",
-        json={"id": "customer", "name": "Customer", "kind": "entity"},
+        f"{NS}/core/ontology.yaml",
+        body=ontology,
         status=200,
+        content_type="application/yaml",
     )
-    responses.add(responses.GET, f"{NS}/core/relationships", json=[], status=200)
 
     dest = tmp_path / "export"
-    result = runner.invoke(
-        app,
-        ["export", "dir", str(dest), "--include", "semantic-namespaces,semantic-concepts,semantic-relationships"],
-    )
+    result = runner.invoke(app, ["export", "dir", str(dest), "--include", "semantic-namespaces,semantic-ontology"])
     assert result.exit_code == 0, result.output
 
     assert yaml.safe_load((dest / "semantic-namespaces" / "core.yaml").read_text())["namespace"] == "core"
-    # Nested layout: <name>/<namespace>/<child>.yaml, full body from the detail GET.
-    concept = yaml.safe_load((dest / "semantic-concepts" / "core" / "customer.yaml").read_text())
-    assert concept["name"] == "Customer"
+    # The whole ontology is one document per namespace, written verbatim (no re-serialization).
+    assert (dest / "semantic-ontology" / "core.yaml").read_text() == ontology
 
 
 @responses.activate
-def test_import_semantics_nested_namespace_before_concept(monkeypatch, tmp_path):
+def test_import_semantics_ontology_document(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
 
+    ontology = "version: 0.2.0.dev0\nname: core\nontology: []\n"
     src = tmp_path / "tree"
     (src / "semantic-namespaces").mkdir(parents=True)
     (src / "semantic-namespaces" / "core.yaml").write_text(yaml.safe_dump({"namespace": "core", "label": "Core"}))
-    (src / "semantic-concepts" / "core").mkdir(parents=True)
-    (src / "semantic-concepts" / "core" / "customer.yaml").write_text(
-        yaml.safe_dump({"id": "customer", "name": "Customer"})
-    )
+    (src / "semantic-ontology").mkdir(parents=True)
+    (src / "semantic-ontology" / "core.yaml").write_text(ontology)
 
-    puts = []
+    captured = {}
 
-    def _record(request):
-        puts.append(request.url)
+    def _record_ontology(request):
+        body = request.body
+        captured["body"] = body.decode("utf-8") if isinstance(body, bytes) else body
+        captured["content_type"] = request.headers.get("Content-Type")
         return (200, {}, "")
-
-    responses.add_callback(responses.PUT, f"{NS}/core", callback=_record)
-    responses.add_callback(responses.PUT, f"{NS}/core/concepts/customer", callback=_record)
-
-    result = runner.invoke(app, ["import", "dir", str(src), "--include", "semantic-namespaces,semantic-concepts"])
-    assert result.exit_code == 0, result.output
-    # Namespace is created before the concept nested under it.
-    assert puts == [f"{NS}/core", f"{NS}/core/concepts/customer"]
-
-
-@responses.activate
-def test_prune_semantics_nested_deletes_absent_concept(monkeypatch, tmp_path):
-    monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
-    monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-
-    src = tmp_path / "tree"
-    (src / "semantic-namespaces").mkdir(parents=True)
-    (src / "semantic-namespaces" / "core.yaml").write_text(yaml.safe_dump({"namespace": "core"}))
-    (src / "semantic-concepts" / "core").mkdir(parents=True)
-    (src / "semantic-concepts" / "core" / "keep.yaml").write_text(yaml.safe_dump({"id": "keep"}))
 
     responses.add(responses.PUT, f"{NS}/core", status=200)
-    responses.add(responses.PUT, f"{NS}/core/concepts/keep", status=200)
-    # Prune enumerates parents (namespaces) then children per namespace on the target.
-    responses.add(responses.GET, NS, json=[{"namespace": "core"}], status=200)
-    responses.add(responses.GET, f"{NS}/core/concepts", json=[{"id": "keep"}, {"id": "drop"}], status=200)
+    responses.add_callback(responses.PUT, f"{NS}/core/ontology.yaml", callback=_record_ontology)
 
-    deletes = []
-
-    def _record_delete(request):
-        deletes.append(request.url)
-        return (200, {}, "")
-
-    responses.add_callback(responses.DELETE, f"{NS}/core/concepts/drop", callback=_record_delete)
-
-    result = runner.invoke(
-        app,
-        ["import", "dir", str(src), "--include", "semantic-namespaces,semantic-concepts", "--prune", "--yes"],
-    )
+    result = runner.invoke(app, ["import", "dir", str(src), "--include", "semantic-namespaces,semantic-ontology"])
     assert result.exit_code == 0, result.output
-    # Only the concept absent from the import is deleted, addressed under its namespace.
-    assert deletes == [f"{NS}/core/concepts/drop"]
+    # The ontology document is PUT verbatim as application/yaml — the app orders it internally.
+    assert captured["body"] == ontology
+    assert captured["content_type"] == "application/yaml"
 
 
 # --- organization features (singleton) -----------------------------------------

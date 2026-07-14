@@ -10,8 +10,7 @@ The canonical dependency order is:
     teams -> tags -> definitions -> policies -> sourcesystems ->
     certifications -> classification-schemes -> assets ->
     datacontracts -> dataproducts -> example-data -> access ->
-    semantic-namespaces -> semantic-concepts -> semantic-relationships ->
-    organization-features
+    semantic-namespaces -> semantic-ontology -> organization-features
 
 Pruning walks this list in reverse so dependents are removed before their
 dependencies.
@@ -20,9 +19,12 @@ Three resource shapes:
 
 * Flat — ``/api/{api_path}`` lists the whole organization and
   ``/api/{api_path}/{id}`` addresses one. Artifact: ``<name>/<id>.yaml``.
-* Nested (``parent`` set) — lives under a parent's path; ``api_path`` is a
-  ``{parent}`` template expanded per parent id, enumerated by listing the parent
-  then children per parent. Artifact: ``<name>/<parent_id>/<child_id>.yaml``.
+* Document (``document`` set, with a ``{parent}`` ``api_path``) — one raw-YAML
+  document per parent, GET/PUT directly at the expanded path. Enumerated by
+  listing the parent. Artifact: ``<name>/<parent_id>.yaml``. Not prunable. Used
+  for the semantic ontology: the app imports the whole namespace document in the
+  correct internal order (groups before members), so the client needs no
+  per-concept ordering of its own.
 * Singleton (``singleton`` set) — one org-level object read/written directly at
   ``/api/{api_path}`` (no id, no list). Artifact: ``<name>/<name>.yaml``. Not
   prunable. ``organization-features`` is applied last so a restrictive policy it
@@ -54,9 +56,11 @@ class Resource:
     tag_assignments     after PUT, replay ``assignedTags`` via the sub-resource
                         endpoint ``PUT /assets/{id}/assigned-tags/{tagId}``
     parent      name of the parent resource; when set, ``api_path`` is a
-                ``{parent}`` template expanded per parent id (nested resource)
+                ``{parent}`` template expanded per parent id
     singleton   one org-level object at ``/api/{api_path}`` (no id, no list, not
                 prunable) rather than a collection
+    document    one raw-YAML document per parent, GET/PUT directly at the expanded
+                ``{parent}`` path (not prunable); requires ``parent``
     """
 
     name: str
@@ -69,13 +73,14 @@ class Resource:
     tag_assignments: bool = False
     parent: str | None = None
     singleton: bool = False
+    document: bool = False
 
     def path_for(self, parent_id: str | None = None) -> str:
         """Resolve ``api_path`` for a given parent id (identity for flat resources)."""
         if self.parent is None:
             return self.api_path
         if parent_id is None:
-            raise ValueError(f"Resource '{self.name}' is nested under '{self.parent}' and needs a parent id.")
+            raise ValueError(f"Resource '{self.name}' is under '{self.parent}' and needs a parent id.")
         return self.api_path.format(parent=parent_id)
 
 
@@ -94,21 +99,15 @@ RESOURCE_ORDER: list[Resource] = [
     Resource("dataproducts", "dataproducts", detail=True),
     Resource("example-data", "example-data"),
     Resource("access", "access", paginated=True),
-    # Semantics is nested: concepts and relationships live under a namespace path
-    # and are enumerated per namespace. They carry their identity in `id` (which may
-    # contain "/"); the list endpoints may return partial bodies, so fetch each.
+    # Semantics: the namespace row carries the metadata; the whole ontology (concepts +
+    # relationships) is copied as one OSI YAML document per namespace via the app's
+    # ontology.yaml endpoint, which imports it in the correct internal dependency order.
     Resource("semantic-namespaces", "semantics/experimental/namespaces", id_field="namespace"),
     Resource(
-        "semantic-concepts",
-        "semantics/experimental/namespaces/{parent}/concepts",
+        "semantic-ontology",
+        "semantics/experimental/namespaces/{parent}/ontology.yaml",
         parent="semantic-namespaces",
-        detail=True,
-    ),
-    Resource(
-        "semantic-relationships",
-        "semantics/experimental/namespaces/{parent}/relationships",
-        parent="semantic-namespaces",
-        detail=True,
+        document=True,
     ),
     # Org-level singleton. Applied last: it may carry a restrictive managedTagsPolicy
     # that would otherwise reject tag/asset imports running earlier in the same apply.
