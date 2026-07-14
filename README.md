@@ -111,8 +111,51 @@ entropy-data [--version] [--connection NAME] [--output table|json|yaml] [--debug
   search          query
   semantics       namespaces ... | concepts ... | relationships ... | search
   usage           list | submit | delete
-  import          zip
+  export          dir
+  import          zip | dir
+  apply           --to TARGET [--source SRC] [--prune] [--dry-run] [--include] [--exclude] [--keep DIR]
 ```
+
+## Copying organization state between instances
+
+`export`, `import` and `apply` move the portable declarative state of an organization
+(teams, tags, definitions, policies, source systems, certifications, classification
+schemes, assets, data contracts, data products, example data, access agreements)
+between Entropy Data instances — for example to promote a test environment to prod.
+Only state reachable through the public `/api/**` API and portable across instances is
+copied (no secrets, telemetry, or environment-specific identity). Every write is an
+idempotent PUT-by-id, so runs converge and are safe to repeat.
+
+```bash
+# Export a source instance to a local YAML tree (one file per resource).
+entropy-data -c source export dir ./state
+
+# Import that tree into a target instance.
+entropy-data -c target import dir ./state
+
+# Copy directly from one connection to another (export -> stage -> import).
+entropy-data apply --source source --to target
+
+# Preview the changes without writing anything.
+entropy-data apply --source source --to target --dry-run
+
+# Mirror: also delete target resources that are absent from the source.
+entropy-data apply --source source --to target --prune
+```
+
+Useful options:
+
+- `--include a,b` / `--exclude a,b` — restrict the resource set (names as listed above).
+- `--prune` — after upserts, delete target resources absent from the source, in reverse
+  dependency order. Guarded by a confirmation prompt unless `--yes` is passed.
+- `--dry-run` — print per-resource create/update/(prune) counts; no writes.
+- `--keep DIR` (apply) — retain the staged export instead of using a temporary directory.
+
+Notes:
+
+- Team members are stripped on import (users are per-instance identities); the export
+  keeps them so the artifact is a faithful snapshot.
+- The semantics (experimental) API is not yet part of the copy set.
 
 ## Connection Management
 

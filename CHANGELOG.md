@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+- Add `entropy-data export dir <path>` to enumerate an organization's portable state into a local YAML tree (one directory per resource, one file per resource named by its id), mirroring the app's organization-export layout so the artifacts interchange.
+- Extend `entropy-data import` with an `import dir <path>` subcommand alongside `import zip` (the zip form now extracts to a temp directory and reuses the same dir-import logic). Both gain `--prune` to delete target resources absent from the import (in reverse dependency order, guarded by a confirmation prompt unless `--yes`), plus `--include`/`--exclude` filters; `import dir` also supports `--dry-run`.
+- Add `entropy-data apply --source <conn> --to <conn>` to copy portable organization state from one connection to another by exporting the source into a staged directory and importing it into the target. Supports `--prune`, `--dry-run` (per-resource create/update/prune counts), `--include`/`--exclude`, and `--keep <dir>` to retain the staged export.
+- Fix `import` silently dropping `sourcesystems/` from an organization export — source systems are now imported in their correct dependency position (after policies, before assets).
+- `export`/`import`/`apply` now also copy `certifications`, `classification-schemes`, and `example-data`. All writes are idempotent PUT-by-id, team members are stripped on import, asset tag assignments are replayed, and audit fields are stripped before PUT. The experimental `semantics` API is not yet included.
+
 ## [0.3.19]
 
 - Fix `entropy-data datacontracts yaml <id>` requesting `/api/datacontracts/{id}.yaml`, which does not exist on the server, resulting in a 404. It now requests the documented `/api/datacontracts/{id}/datacontract.yaml`.

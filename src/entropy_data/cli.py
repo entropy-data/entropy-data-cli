@@ -33,6 +33,16 @@ def get_client() -> EntropyDataClient:
     return EntropyDataClient(config)
 
 
+def client_for_connection(name: str) -> EntropyDataClient:
+    """Create an API client for a specific named connection (for `apply --to/--source`).
+
+    Resolves the connection by name only — the global --api-key/--host overrides
+    target the primary connection and must not bleed into a second endpoint.
+    """
+    config = resolve_connection(connection_name=name)
+    return EntropyDataClient(config)
+
+
 def get_output_format() -> OutputFormat:
     return _output_format
 
@@ -116,6 +126,7 @@ def main(
 # Register command groups
 from entropy_data.commands.access import access_app  # noqa: E402
 from entropy_data.commands.api_keys import api_keys_app  # noqa: E402
+from entropy_data.commands.apply import apply_command  # noqa: E402
 from entropy_data.commands.assets import assets_app  # noqa: E402
 from entropy_data.commands.certifications import certifications_app  # noqa: E402
 from entropy_data.commands.classifications import classifications_app  # noqa: E402
@@ -127,7 +138,7 @@ from entropy_data.commands.dataproducts import dataproducts_app  # noqa: E402
 from entropy_data.commands.definitions import definitions_app  # noqa: E402
 from entropy_data.commands.events import events_app  # noqa: E402
 from entropy_data.commands.example_data import example_data_app  # noqa: E402
-from entropy_data.commands.import_export import import_app  # noqa: E402
+from entropy_data.commands.import_export import export_app, import_app  # noqa: E402
 from entropy_data.commands.integrations import integrations_app  # noqa: E402
 from entropy_data.commands.lineage import lineage_app  # noqa: E402
 from entropy_data.commands.organization import organization_app  # noqa: E402
@@ -164,8 +175,14 @@ app.add_typer(organization_app, name="organization", help="Get organization deta
 app.add_typer(settings_app, name="settings", help="Manage organization settings.")
 app.add_typer(events_app, name="events", help="Poll events.")
 app.add_typer(lineage_app, name="lineage", help="Manage lineage (OpenLineage events).")
-app.add_typer(schemas_app, name="schemas", help="Get the JSON Schemas that data contracts (ODCS) and data products (ODPS) validate against.")
+app.add_typer(
+    schemas_app,
+    name="schemas",
+    help="Get the JSON Schemas that data contracts (ODCS) and data products (ODPS) validate against.",
+)
 app.add_typer(search_app, name="search", help="Search across resources.")
 app.add_typer(semantics_app, name="semantics", help="EXPERIMENTAL semantics API.")
 app.add_typer(usage_app, name="usage", help="Manage usage (OpenTelemetry traces).")
 app.add_typer(import_app, name="import", help="Import organization exports.")
+app.add_typer(export_app, name="export", help="Export organization state to a local YAML tree.")
+app.command(name="apply", help="Copy portable organization state from a source to a target connection.")(apply_command)

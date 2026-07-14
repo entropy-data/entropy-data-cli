@@ -1,93 +1,52 @@
-"""Import command for organization exports."""
+"""Import and export commands for organization state.
+
+`export dir` enumerates a source instance into a local YAML tree; `import dir`
+upserts such a tree into a target instance; `import zip` extracts an app-produced
+org-export zip and imports it the same way. All share the engine in
+``entropy_data.sync`` and the resource definitions in ``entropy_data.resources``.
+"""
 
 import tempfile
 import zipfile
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Optional
 
 import typer
-import yaml
 
-from entropy_data.client import ApiError
 from entropy_data.output import console, error_console
+from entropy_data.resources import select_resources
+from entropy_data.sync import export_dir, import_dir, plan_import
 
 import_app = typer.Typer(no_args_is_help=True)
-
-# Import order respects resource dependencies:
-# teams (parent→child), tags (→teams), definitions (→teams),
-# policies (independent), assets (→teams), datacontracts (→teams, assets),
-# dataproducts (→teams, datacontracts, assets), access (→dataproducts)
-RESOURCE_ORDER = [
-    ("teams", "teams"),
-    ("tags", "tags"),
-    ("definitions", "definitions"),
-    ("policies", "policies"),
-    ("assets", "assets"),
-    ("datacontracts", "datacontracts"),
-    ("dataproducts", "dataproducts"),
-    ("access", "access"),
-]
+export_app = typer.Typer(no_args_is_help=True)
 
 
-def _import_teams(teams_dir: Path, client) -> tuple[int, int]:
-    """Import teams in topological order (parents before children), stripping members."""
-    teams = {}
-    for f in sorted(teams_dir.glob("*.yaml")):
-        data = yaml.safe_load(f.read_text())
-        data["members"] = []
-        teams[data["id"]] = {"data": data, "parent": data.get("parent")}
-
-    imported: set[str] = set()
-    success_count = 0
-    error_count = 0
-
-    while len(imported) < len(teams):
-        progress = False
-        for tid, t in teams.items():
-            if tid in imported:
-                continue
-            if t["parent"] is None or t["parent"] in imported:
-                try:
-                    client.put_resource("teams", tid, t["data"])
-                    console.print(f"  [green]OK[/green]   {tid}")
-                    success_count += 1
-                except ApiError as e:
-                    error_console.print(f"  [red]FAIL[/red] {tid}: {e}")
-                    error_count += 1
-                imported.add(tid)
-                progress = True
-
-        if not progress:
-            remaining = set(teams.keys()) - imported
-            error_console.print(f"  [red]ERROR: circular or broken parent references: {remaining}[/red]")
-            error_count += len(remaining)
-            break
-
-    return success_count, error_count
+def _parse_csv(value: str | None) -> list[str] | None:
+    if not value:
+        return None
+    return [item.strip() for item in value.split(",") if item.strip()]
 
 
-def _import_simple(resource_dir: Path, api_path: str, client) -> tuple[int, int]:
-    """Import resources from a directory using PUT."""
-    success_count = 0
-    error_count = 0
-
-    for f in sorted(resource_dir.glob("*.yaml")):
-        data = yaml.safe_load(f.read_text())
-        resource_id = data["id"]
-        try:
-            client.put_resource(api_path, resource_id, data)
-            console.print(f"  [green]OK[/green]   {resource_id}")
-            success_count += 1
-        except ApiError as e:
-            error_console.print(f"  [red]FAIL[/red] {resource_id}: {e}")
-            error_count += 1
-
-    return success_count, error_count
+def print_plan(plan) -> None:
+    """Print a dry-run plan table of create/update/(prune) counts per resource."""
+    if not plan.counts:
+        console.print("Nothing to do.")
+        return
+    console.print("\n[bold]Dry run — planned changes:[/bold]")
+    for name, counts in plan.counts.items():
+        parts = [f"create={counts.create}", f"update={counts.update}"]
+        if counts.prune:
+            parts.append(f"prune={counts.prune}")
+        console.print(f"  {name}: {', '.join(parts)}")
 
 
 @import_app.command("zip")
 def import_zip(
     file: Annotated[Path, typer.Argument(help="Path to the export zip file.")],
+    prune: Annotated[bool, typer.Option("--prune", help="Delete target resources absent from the import.")] = False,
+    yes: Annotated[bool, typer.Option("--yes", "-y", help="Skip the prune confirmation prompt.")] = False,
+    include: Annotated[Optional[str], typer.Option("--include", help="Comma-separated resources to include.")] = None,
+    exclude: Annotated[Optional[str], typer.Option("--exclude", help="Comma-separated resources to exclude.")] = None,
 ) -> None:
     """Import an organization export zip file."""
     from entropy_data.cli import get_client, handle_error
@@ -101,35 +60,85 @@ def import_zip(
         raise typer.Exit(1)
 
     try:
+        resources = select_resources(_parse_csv(include), _parse_csv(exclude))
         client = get_client()
     except Exception as e:
         handle_error(e)
         return
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        export_dir = Path(tmpdir)
+        extracted = Path(tmpdir)
         console.print(f"Extracting {file}...")
         with zipfile.ZipFile(file) as zf:
-            zf.extractall(export_dir)
+            zf.extractall(extracted)
 
-        total_ok = 0
-        total_fail = 0
+        _run_import(client, extracted, resources, prune, yes)
 
-        for directory, api_path in RESOURCE_ORDER:
-            resource_dir = export_dir / directory
-            if not resource_dir.is_dir():
-                continue
 
-            console.print(f"\n[bold]{api_path}[/bold]")
+@import_app.command("dir")
+def import_dir_command(
+    path: Annotated[Path, typer.Argument(help="Directory holding the export YAML tree.")],
+    prune: Annotated[bool, typer.Option("--prune", help="Delete target resources absent from the import.")] = False,
+    yes: Annotated[bool, typer.Option("--yes", "-y", help="Skip the prune confirmation prompt.")] = False,
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run", help="Print planned create/update/(prune) counts; write nothing.")
+    ] = False,
+    include: Annotated[Optional[str], typer.Option("--include", help="Comma-separated resources to include.")] = None,
+    exclude: Annotated[Optional[str], typer.Option("--exclude", help="Comma-separated resources to exclude.")] = None,
+) -> None:
+    """Import an organization export directory tree."""
+    from entropy_data.cli import get_client, handle_error
 
-            if directory == "teams":
-                ok, fail = _import_teams(resource_dir, client)
-            else:
-                ok, fail = _import_simple(resource_dir, api_path, client)
+    if not path.is_dir():
+        error_console.print(f"[red]Error: {path} is not a directory[/red]")
+        raise typer.Exit(1)
 
-            total_ok += ok
-            total_fail += fail
+    try:
+        resources = select_resources(_parse_csv(include), _parse_csv(exclude))
+        client = get_client()
+    except Exception as e:
+        handle_error(e)
+        return
 
-        console.print(f"\n[bold]Summary:[/bold] {total_ok} succeeded, {total_fail} failed")
-        if total_fail > 0:
+    if dry_run:
+        print_plan(plan_import(client, path, resources, prune=prune))
+        return
+
+    _run_import(client, path, resources, prune, yes)
+
+
+def _run_import(client, source: Path, resources, prune: bool, yes: bool) -> None:
+    """Shared import driver for both ``zip`` and ``dir``; prompts before pruning."""
+    if prune and not yes:
+        console.print("[yellow]--prune will DELETE target resources absent from the import.[/yellow]")
+        if not typer.confirm("Proceed with prune?"):
+            console.print("Aborted.")
             raise typer.Exit(1)
+
+    result = import_dir(client, source, resources, prune=prune)
+    console.print(f"\n[bold]Summary:[/bold] {result.ok} succeeded, {result.fail} failed")
+    if result.fail > 0:
+        raise typer.Exit(1)
+
+
+@export_app.command("dir")
+def export_dir_command(
+    path: Annotated[Path, typer.Argument(help="Destination directory for the export YAML tree.")],
+    include: Annotated[Optional[str], typer.Option("--include", help="Comma-separated resources to include.")] = None,
+    exclude: Annotated[Optional[str], typer.Option("--exclude", help="Comma-separated resources to exclude.")] = None,
+) -> None:
+    """Export organization state to a local YAML tree (one file per resource)."""
+    from entropy_data.cli import get_client, handle_error
+
+    try:
+        resources = select_resources(_parse_csv(include), _parse_csv(exclude))
+        client = get_client()
+    except Exception as e:
+        handle_error(e)
+        return
+
+    path.mkdir(parents=True, exist_ok=True)
+    result = export_dir(client, path, resources)
+    console.print(f"\n[bold]Summary:[/bold] {result.ok} exported, {result.fail} failed")
+    if result.fail > 0:
+        raise typer.Exit(1)
