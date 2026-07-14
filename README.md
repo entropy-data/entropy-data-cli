@@ -120,8 +120,9 @@ entropy-data [--version] [--connection NAME] [--output table|json|yaml] [--debug
 
 `export`, `import` and `apply` move the portable declarative state of an organization
 (teams, tags, definitions, policies, source systems, certifications, classification
-schemes, assets, data contracts, data products, example data, access agreements, and the
-semantics graph) between Entropy Data instances — for example to promote a test environment to prod.
+schemes, assets, data contracts, data products, example data, access agreements, the
+semantics graph, and the organization feature configuration) between Entropy Data
+instances — for example to promote a test environment to prod.
 Only state reachable through the public `/api/**` API and portable across instances is
 copied (no secrets, telemetry, or environment-specific identity). Every write is an
 idempotent PUT-by-id, so runs converge and are safe to repeat.
@@ -157,6 +158,10 @@ Notes:
   keeps them so the artifact is a faithful snapshot.
 - The semantics graph is nested: namespaces are copied first, then concepts and
   relationships per namespace. Its artifact lives at `semantic-<kind>/<namespace>/<id>.yaml`.
+- The organization feature configuration is an org-level singleton
+  (`organization-features/organization-features.yaml`), applied last and never pruned. It
+  requires the app's `GET`/`PUT /api/organization/features` endpoint (entropy-data#1521),
+  which must be merged and deployed to the target instance first.
 
 ## Connection Management
 

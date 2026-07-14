@@ -85,6 +85,27 @@ def _parent_ids(client: EntropyDataClient, resource: Resource) -> list[str]:
     return [str(item[parent.id_field]) for item in _list_all(client, parent) if item.get(parent.id_field)]
 
 
+# --- singleton (org-level object, no id) ---------------------------------------
+
+
+def _get_singleton(client: EntropyDataClient, resource: Resource) -> dict:
+    """GET the singleton object at ``/api/{api_path}`` (returns ``{}`` when unset)."""
+    response = client.session.get(f"{client.base_url}/api/{resource.api_path}", timeout=REQUEST_TIMEOUT)
+    _raise_for_status(response)
+    body = response.json()
+    return body if isinstance(body, dict) else {}
+
+
+def _put_singleton(client: EntropyDataClient, resource: Resource, body: dict) -> None:
+    """PUT the singleton object at ``/api/{api_path}`` (no id segment)."""
+    response = client.session.put(f"{client.base_url}/api/{resource.api_path}", json=body, timeout=REQUEST_TIMEOUT)
+    _raise_for_status(response)
+
+
+def _singleton_file(root: Path, resource: Resource) -> Path:
+    return root / resource.name / f"{resource.name}.yaml"
+
+
 # --- assigned-tags sub-resource (assets) ---------------------------------------
 
 
@@ -174,11 +195,36 @@ def _export_items(client: EntropyDataClient, resource: Resource, parent_id: str 
     return total
 
 
+def _export_singleton(client: EntropyDataClient, resource: Resource, target_dir: Path) -> SyncResult:
+    """Fetch the singleton object and write it to ``<name>/<name>.yaml`` (skips when unset)."""
+    total = SyncResult()
+    try:
+        body = strip_audit_fields(_get_singleton(client, resource))
+    except ApiError as e:
+        error_console.print(f"  [red]FAIL[/red] {resource.name}: {e}")
+        total.fail += 1
+        return total
+
+    if not body:  # nothing configured on the source; nothing to copy
+        return total
+
+    target_dir.mkdir(parents=True, exist_ok=True)
+    (target_dir / f"{resource.name}.yaml").write_text(
+        yaml.safe_dump(body, sort_keys=False, allow_unicode=True, width=4096)
+    )
+    console.print(f"  [green]OK[/green]   {resource.name}")
+    total.ok += 1
+    return total
+
+
 def export_dir(client: EntropyDataClient, dest: Path, resources: list[Resource]) -> SyncResult:
     """Enumerate the source and write one YAML file per resource under ``dest``."""
     total = SyncResult()
     for resource in resources:
         console.print(f"\n[bold]{resource.name}[/bold]")
+        if resource.singleton:
+            total.add(_export_singleton(client, resource, dest / resource.name))
+            continue
         if resource.parent is None:
             total.add(_export_items(client, resource, None, dest / resource.name))
             continue
@@ -332,6 +378,8 @@ def _prune(
     """
     result = SyncResult()
     for resource in reversed(resources):
+        if resource.singleton:
+            continue  # a singleton is one object, not a collection — nothing to prune
         if resource.parent is None:
             keep = imported_ids.get(resource.name) or set()
             result.add(_prune_one(client, resource, resource.api_path, keep, None))
@@ -378,7 +426,10 @@ def plan_import(
     for resource in resources:
         resource_dir = source / resource.name
 
-        if resource.parent is None:
+        if resource.singleton:
+            # A singleton is one in-place PUT; count it as an update when the artifact has it.
+            counts = PlanCounts(update=1) if _singleton_file(source, resource).is_file() else PlanCounts()
+        elif resource.parent is None:
             entries = _load_dir(resource_dir, resource) if resource_dir.is_dir() else []
             imported = {rid for rid, _ in entries}
             try:
@@ -426,6 +477,21 @@ def import_dir(
     for resource in resources:
         resource_dir = source / resource.name
         if not resource_dir.is_dir():
+            continue
+
+        if resource.singleton:
+            f = _singleton_file(source, resource)
+            if not f.is_file():
+                continue
+            body = strip_audit_fields(yaml.safe_load(f.read_text()) or {})
+            console.print(f"\n[bold]{resource.name}[/bold]")
+            try:
+                _put_singleton(client, resource, body)
+                console.print(f"  [green]OK[/green]   {resource.name}")
+                total.ok += 1
+            except ApiError as e:
+                error_console.print(f"  [red]FAIL[/red] {resource.name}: {e}")
+                total.fail += 1
             continue
 
         if resource.parent is None:

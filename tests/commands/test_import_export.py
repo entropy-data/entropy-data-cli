@@ -61,7 +61,17 @@ def test_new_resources_present_in_order():
         "semantic-namespaces",
         "semantic-concepts",
         "semantic-relationships",
+        "organization-features",
     ]
+
+
+def test_organization_features_is_singleton_and_last():
+    by_name = {r.name: r for r in RESOURCE_ORDER}
+    feat = by_name["organization-features"]
+    assert feat.singleton is True
+    assert feat.api_path == "organization/features"
+    # Applied last so a restrictive policy it carries cannot reject earlier imports.
+    assert RESOURCE_ORDER[-1].name == "organization-features"
 
 
 def test_semantics_nested_under_namespaces():
@@ -503,3 +513,91 @@ def test_prune_semantics_nested_deletes_absent_concept(monkeypatch, tmp_path):
     assert result.exit_code == 0, result.output
     # Only the concept absent from the import is deleted, addressed under its namespace.
     assert deletes == [f"{NS}/core/concepts/drop"]
+
+
+# --- organization features (singleton) -----------------------------------------
+
+FEATURES = f"{BASE_URL}/api/organization/features"
+
+
+@responses.activate
+def test_export_organization_features_singleton(monkeypatch, tmp_path):
+    monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
+    monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
+
+    responses.add(
+        responses.GET,
+        FEATURES,
+        json={"changeProcessMode": "approval-required", "intelligenceEnabled": True, "createdAt": "2020-01-01"},
+        status=200,
+    )
+
+    dest = tmp_path / "export"
+    result = runner.invoke(app, ["export", "dir", str(dest), "--include", "organization-features"])
+    assert result.exit_code == 0, result.output
+
+    # Singleton layout: <name>/<name>.yaml, audit fields stripped.
+    body = yaml.safe_load((dest / "organization-features" / "organization-features.yaml").read_text())
+    assert body["changeProcessMode"] == "approval-required"
+    assert "createdAt" not in body
+
+
+@responses.activate
+def test_export_organization_features_skips_when_empty(monkeypatch, tmp_path):
+    monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
+    monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
+
+    # Nothing configured on the source -> empty object -> no file written.
+    responses.add(responses.GET, FEATURES, json={}, status=200)
+
+    dest = tmp_path / "export"
+    result = runner.invoke(app, ["export", "dir", str(dest), "--include", "organization-features"])
+    assert result.exit_code == 0, result.output
+    assert not (dest / "organization-features").exists()
+
+
+@responses.activate
+def test_import_organization_features_singleton_put(monkeypatch, tmp_path):
+    monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
+    monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
+
+    src = tmp_path / "tree"
+    (src / "organization-features").mkdir(parents=True)
+    (src / "organization-features" / "organization-features.yaml").write_text(
+        yaml.safe_dump({"changeProcessMode": "approval-required", "openInOptions": ["snowflake"]})
+    )
+
+    captured = {}
+
+    def _capture(request):
+        import json as _json
+
+        captured["body"] = _json.loads(request.body)
+        return (200, {}, "")
+
+    # PUT to the bare singleton path (no id segment).
+    responses.add_callback(responses.PUT, FEATURES, callback=_capture)
+
+    result = runner.invoke(app, ["import", "dir", str(src), "--include", "organization-features"])
+    assert result.exit_code == 0, result.output
+    assert captured["body"]["changeProcessMode"] == "approval-required"
+    assert captured["body"]["openInOptions"] == ["snowflake"]
+
+
+@responses.activate
+def test_prune_skips_singleton(monkeypatch, tmp_path):
+    monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
+    monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
+
+    src = tmp_path / "tree"
+    (src / "organization-features").mkdir(parents=True)
+    (src / "organization-features" / "organization-features.yaml").write_text(
+        yaml.safe_dump({"changeProcessMode": "direct-editing-allowed"})
+    )
+
+    responses.add(responses.PUT, FEATURES, status=200)
+
+    # --prune must not attempt to list or delete the singleton (no GET/DELETE registered);
+    # a stray call would raise ConnectionError and fail the run.
+    result = runner.invoke(app, ["import", "dir", str(src), "--include", "organization-features", "--prune", "--yes"])
+    assert result.exit_code == 0, result.output

@@ -10,16 +10,23 @@ The canonical dependency order is:
     teams -> tags -> definitions -> policies -> sourcesystems ->
     certifications -> classification-schemes -> assets ->
     datacontracts -> dataproducts -> example-data -> access ->
-    semantic-namespaces -> semantic-concepts -> semantic-relationships
+    semantic-namespaces -> semantic-concepts -> semantic-relationships ->
+    organization-features
 
 Pruning walks this list in reverse so dependents are removed before their
 dependencies.
 
-Most resources are flat: ``/api/{api_path}`` lists the whole organization and
-``/api/{api_path}/{id}`` addresses one. A nested resource (``parent`` set) lives
-under a parent's path — its ``api_path`` is a ``{parent}`` template expanded per
-parent id, and it is enumerated by listing the parent, then listing children for
-each parent. Its artifact layout is ``<name>/<parent_id>/<child_id>.yaml``.
+Three resource shapes:
+
+* Flat — ``/api/{api_path}`` lists the whole organization and
+  ``/api/{api_path}/{id}`` addresses one. Artifact: ``<name>/<id>.yaml``.
+* Nested (``parent`` set) — lives under a parent's path; ``api_path`` is a
+  ``{parent}`` template expanded per parent id, enumerated by listing the parent
+  then children per parent. Artifact: ``<name>/<parent_id>/<child_id>.yaml``.
+* Singleton (``singleton`` set) — one org-level object read/written directly at
+  ``/api/{api_path}`` (no id, no list). Artifact: ``<name>/<name>.yaml``. Not
+  prunable. ``organization-features`` is applied last so a restrictive policy it
+  carries cannot reject the resources imported before it.
 """
 
 from dataclasses import dataclass
@@ -48,6 +55,8 @@ class Resource:
                         endpoint ``PUT /assets/{id}/assigned-tags/{tagId}``
     parent      name of the parent resource; when set, ``api_path`` is a
                 ``{parent}`` template expanded per parent id (nested resource)
+    singleton   one org-level object at ``/api/{api_path}`` (no id, no list, not
+                prunable) rather than a collection
     """
 
     name: str
@@ -59,6 +68,7 @@ class Resource:
     topo_sort_parents: bool = False
     tag_assignments: bool = False
     parent: str | None = None
+    singleton: bool = False
 
     def path_for(self, parent_id: str | None = None) -> str:
         """Resolve ``api_path`` for a given parent id (identity for flat resources)."""
@@ -100,6 +110,10 @@ RESOURCE_ORDER: list[Resource] = [
         parent="semantic-namespaces",
         detail=True,
     ),
+    # Org-level singleton. Applied last: it may carry a restrictive managedTagsPolicy
+    # that would otherwise reject tag/asset imports running earlier in the same apply.
+    # Requires the app-side GET/PUT /api/organization/features endpoint (entropy-data#1521).
+    Resource("organization-features", "organization/features", singleton=True),
 ]
 
 RESOURCE_BY_NAME: dict[str, Resource] = {r.name: r for r in RESOURCE_ORDER}
