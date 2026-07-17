@@ -1,8 +1,11 @@
-"""`apply` — copy portable org state from a source instance to a target instance.
+"""`sync` — copy selected portable org state from a source instance to a target instance.
 
 Mechanism: export the source into a staged directory, then import that directory
 into the target. Both halves reuse the ``export dir`` / ``import dir`` engine, so
 the staged artifact is auditable and identical to a manual ``export`` + ``import``.
+
+``sync`` copies nothing by default: the resources to copy must be named explicitly
+via ``--include`` so a run only touches what the operator intends.
 """
 
 import shutil
@@ -14,15 +17,19 @@ import typer
 
 from entropy_data.commands.import_export import _parse_csv, print_plan
 from entropy_data.output import console, error_console
-from entropy_data.resources import select_resources
+from entropy_data.resources import RESOURCE_ORDER, select_resources
 from entropy_data.sync import export_dir, import_dir, plan_import
 
 
-def apply_command(
-    to: Annotated[str, typer.Option("--to", help="Target named connection to apply state onto.")],
-    source: Annotated[
+def sync_command(
+    source: Annotated[str, typer.Option("--source", help="Source named connection to copy state from.")],
+    target: Annotated[str, typer.Option("--target", help="Target named connection to write state onto.")],
+    include: Annotated[
         Optional[str],
-        typer.Option("--source", help="Source named connection (defaults to the global -c/--connection)."),
+        typer.Option("--include", help="Comma-separated resources to sync (required; sync copies nothing by default)."),
+    ] = None,
+    exclude: Annotated[
+        Optional[str], typer.Option("--exclude", help="Comma-separated resources to drop from --include.")
     ] = None,
     prune: Annotated[bool, typer.Option("--prune", help="Delete target resources absent from the source.")] = False,
     yes: Annotated[bool, typer.Option("--yes", "-y", help="Skip the prune confirmation prompt.")] = False,
@@ -32,16 +39,23 @@ def apply_command(
     keep: Annotated[
         Optional[Path], typer.Option("--keep", help="Retain the staged export in this directory (else a temp dir).")
     ] = None,
-    include: Annotated[Optional[str], typer.Option("--include", help="Comma-separated resources to include.")] = None,
-    exclude: Annotated[Optional[str], typer.Option("--exclude", help="Comma-separated resources to exclude.")] = None,
 ) -> None:
-    """Copy portable organization state from a source connection to a target connection."""
-    from entropy_data.cli import client_for_connection, get_client, handle_error
+    """Copy the selected portable organization state from a source connection to a target connection."""
+    from entropy_data.cli import client_for_connection, handle_error
+
+    included = _parse_csv(include)
+    if not included:
+        known = ", ".join(r.name for r in RESOURCE_ORDER)
+        error_console.print(
+            "[red]Nothing to sync: --include is required (sync copies nothing by default).[/red]\n"
+            f"Name the resources to sync, e.g. --include teams,policies. Known resources: {known}"
+        )
+        raise typer.Exit(2)
 
     try:
-        resources = select_resources(_parse_csv(include), _parse_csv(exclude))
-        source_client = client_for_connection(source) if source else get_client()
-        target_client = client_for_connection(to)
+        resources = select_resources(included, _parse_csv(exclude))
+        source_client = client_for_connection(source)
+        target_client = client_for_connection(target)
     except Exception as e:
         handle_error(e)
         return
@@ -51,7 +65,7 @@ def apply_command(
         staged.mkdir(parents=True, exist_ok=True)
         cleanup = False
     else:
-        staged = Path(tempfile.mkdtemp(prefix="entropy-data-apply-"))
+        staged = Path(tempfile.mkdtemp(prefix="entropy-data-sync-"))
         cleanup = True
 
     try:

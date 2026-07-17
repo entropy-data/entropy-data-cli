@@ -1,4 +1,4 @@
-"""Tests for export / import dir / apply commands and the shared sync engine."""
+"""Tests for export / import dir / sync commands and the shared sync engine."""
 
 import responses
 import yaml
@@ -360,19 +360,15 @@ def test_import_dir_prune_prompt_abort(monkeypatch, tmp_path):
     assert "Aborted" in result.output
 
 
-# --- apply ----------------------------------------------------------------------
+# --- sync -----------------------------------------------------------------------
 
 
 @responses.activate
-def test_apply_orchestrates_export_import(monkeypatch, tmp_path):
+def test_sync_orchestrates_export_import(monkeypatch, tmp_path):
     _config_with_two_connections(tmp_path, monkeypatch)
 
-    # Source export: one certification, everything else empty.
+    # Only the included resource is exported.
     responses.add(responses.GET, f"{BASE_URL}/api/certifications", json=[{"id": "gold", "name": "Gold"}], status=200)
-    for r in RESOURCE_ORDER:
-        if r.name == "certifications":
-            continue
-        responses.add(responses.GET, f"{BASE_URL}/api/{r.api_path}", json=[], status=200)
 
     # Target import: capture the PUT.
     target_puts = []
@@ -384,7 +380,10 @@ def test_apply_orchestrates_export_import(monkeypatch, tmp_path):
     responses.add_callback(responses.PUT, f"{TARGET_URL}/api/certifications/gold", callback=_record)
 
     keep = tmp_path / "staged"
-    result = runner.invoke(app, ["apply", "--to", "target", "--keep", str(keep)])
+    result = runner.invoke(
+        app,
+        ["sync", "--source", "source", "--target", "target", "--include", "certifications", "--keep", str(keep)],
+    )
     assert result.exit_code == 0, result.output
     assert target_puts == [f"{TARGET_URL}/api/certifications/gold"]
     # Staged artifact retained.
@@ -392,22 +391,27 @@ def test_apply_orchestrates_export_import(monkeypatch, tmp_path):
 
 
 @responses.activate
-def test_apply_dry_run_no_target_writes(monkeypatch, tmp_path):
+def test_sync_dry_run_no_target_writes(monkeypatch, tmp_path):
     _config_with_two_connections(tmp_path, monkeypatch)
 
     responses.add(responses.GET, f"{BASE_URL}/api/certifications", json=[{"id": "gold", "name": "Gold"}], status=200)
-    for r in RESOURCE_ORDER:
-        if r.name == "certifications":
-            continue
-        responses.add(responses.GET, f"{BASE_URL}/api/{r.api_path}", json=[], status=200)
-
     # Target enumeration for the plan (read-only); no certifications yet -> create.
-    for r in RESOURCE_ORDER:
-        responses.add(responses.GET, f"{TARGET_URL}/api/{r.api_path}", json=[], status=200)
+    responses.add(responses.GET, f"{TARGET_URL}/api/certifications", json=[], status=200)
 
-    result = runner.invoke(app, ["apply", "--to", "target", "--dry-run"])
+    result = runner.invoke(
+        app, ["sync", "--source", "source", "--target", "target", "--include", "certifications", "--dry-run"]
+    )
     assert result.exit_code == 0, result.output
     assert "create=1" in result.output
+
+
+def test_sync_requires_include(monkeypatch, tmp_path):
+    _config_with_two_connections(tmp_path, monkeypatch)
+
+    # Without --include, sync copies nothing and must fail loudly instead of running.
+    result = runner.invoke(app, ["sync", "--source", "source", "--target", "target"])
+    assert result.exit_code == 2, result.output
+    assert "include" in result.output.lower()
 
 
 def test_import_help_lists_dir_and_zip():

@@ -113,44 +113,53 @@ entropy-data [--version] [--connection NAME] [--output table|json|yaml] [--debug
   usage           list | submit | delete
   export          dir
   import          zip | dir
-  apply           --to TARGET [--source SRC] [--prune] [--dry-run] [--include] [--exclude] [--keep DIR]
+  sync            --source SRC --target TGT --include a,b [--exclude] [--prune] [--dry-run] [--keep DIR]
 ```
 
-## Copying organization state between instances
+## Syncing organization state between instances
 
-`export`, `import` and `apply` move the portable declarative state of an organization
-(teams, tags, definitions, policies, source systems, certifications, classification
-schemes, assets, data contracts, data products, example data, access agreements, the
-semantics graph, and the organization feature configuration) between Entropy Data
-instances — for example to promote a test environment to prod.
-Only state reachable through the public `/api/**` API and portable across instances is
-copied (no secrets, telemetry, or environment-specific identity). Every write is an
+`sync` copies the portable declarative state of an organization from one Entropy Data
+instance to another — for example to promote a test environment to prod. It exports the
+source and imports it into the target in one step (`export`/`import dir` do the same in
+two). Only state reachable through the public `/api/**` API and portable across instances
+is copied (no secrets, telemetry, or environment-specific identity). Every write is an
 idempotent PUT-by-id, so runs converge and are safe to repeat.
 
+`sync` copies **nothing by default** — name the resources to sync with `--include`.
+
+**Supported resources** (in dependency order): `teams`, `tags`, `definitions`, `policies`,
+`sourcesystems`, `certifications`, `classification-schemes`, `assets`, `datacontracts`,
+`dataproducts`, `example-data`, `access`, `semantic-namespaces`, `semantic-ontology`,
+`organization-features`.
+
+**Not synced:** users & team members, API keys, git credentials, integration and connector
+credentials, usage, costs, test results, events, and lineage (per-instance identity,
+secrets, or telemetry). Organization customization, SCIM mapping, team-roles configuration,
+notification channels, connectors, and integrations are **not supported yet**.
+
 ```bash
-# Export a source instance to a local YAML tree (one file per resource).
-entropy-data -c source export dir ./state
+# Preview a test -> prod sync of selected resources without writing anything.
+entropy-data sync --source test --target prod --include teams,policies,datacontracts,dataproducts --dry-run
 
-# Import that tree into a target instance.
-entropy-data -c target import dir ./state
-
-# Copy directly from one connection to another (export -> stage -> import).
-entropy-data apply --source source --to target
-
-# Preview the changes without writing anything.
-entropy-data apply --source source --to target --dry-run
+# Sync those resources.
+entropy-data sync --source test --target prod --include teams,policies,datacontracts,dataproducts
 
 # Mirror: also delete target resources that are absent from the source.
-entropy-data apply --source source --to target --prune
+entropy-data sync --source test --target prod --include datacontracts --prune
+
+# The two-step equivalent, with a reviewable YAML tree in between.
+entropy-data -c test export dir ./state
+entropy-data -c prod import dir ./state
 ```
 
 Useful options:
 
-- `--include a,b` / `--exclude a,b` — restrict the resource set (names as listed above).
+- `--include a,b` — **required**; the resources to sync (names from the supported list above).
+- `--exclude a,b` — drop resources from the `--include` set.
 - `--prune` — after upserts, delete target resources absent from the source, in reverse
   dependency order. Guarded by a confirmation prompt unless `--yes` is passed.
 - `--dry-run` — print per-resource create/update/(prune) counts; no writes.
-- `--keep DIR` (apply) — retain the staged export instead of using a temporary directory.
+- `--keep DIR` — retain the staged export instead of using a temporary directory.
 
 Notes:
 

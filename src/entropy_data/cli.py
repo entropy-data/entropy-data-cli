@@ -34,7 +34,7 @@ def get_client() -> EntropyDataClient:
 
 
 def client_for_connection(name: str) -> EntropyDataClient:
-    """Create an API client for a specific named connection (for `apply --to/--source`).
+    """Create an API client for a specific named connection (for `sync --source/--target`).
 
     Resolves the connection by name only — the global --api-key/--host overrides
     target the primary connection and must not bleed into a second endpoint.
@@ -126,7 +126,6 @@ def main(
 # Register command groups
 from entropy_data.commands.access import access_app  # noqa: E402
 from entropy_data.commands.api_keys import api_keys_app  # noqa: E402
-from entropy_data.commands.apply import apply_command  # noqa: E402
 from entropy_data.commands.assets import assets_app  # noqa: E402
 from entropy_data.commands.certifications import certifications_app  # noqa: E402
 from entropy_data.commands.classifications import classifications_app  # noqa: E402
@@ -148,6 +147,7 @@ from entropy_data.commands.search import search_app  # noqa: E402
 from entropy_data.commands.semantics import semantics_app  # noqa: E402
 from entropy_data.commands.settings import settings_app  # noqa: E402
 from entropy_data.commands.sourcesystems import sourcesystems_app  # noqa: E402
+from entropy_data.commands.sync import sync_command  # noqa: E402
 from entropy_data.commands.tags import tags_app  # noqa: E402
 from entropy_data.commands.teams import teams_app  # noqa: E402
 from entropy_data.commands.test_results import test_results_app  # noqa: E402
@@ -185,4 +185,16 @@ app.add_typer(semantics_app, name="semantics", help="EXPERIMENTAL semantics API.
 app.add_typer(usage_app, name="usage", help="Manage usage (OpenTelemetry traces).")
 app.add_typer(import_app, name="import", help="Import organization exports.")
 app.add_typer(export_app, name="export", help="Export organization state to a local YAML tree.")
-app.command(name="apply", help="Copy portable organization state from a source to a target connection.")(apply_command)
+
+from entropy_data.resources import RESOURCE_ORDER as _RESOURCE_ORDER  # noqa: E402
+
+_SYNC_HELP = (
+    "Sync selected portable organization state from a source to a target connection.\n\n"
+    "Nothing is copied unless named with --include (sync copies nothing by default).\n\n"
+    "Supported resources: " + ", ".join(r.name for r in _RESOURCE_ORDER) + ".\n\n"
+    "Not synced — users & team members, API keys, git credentials, integration and connector "
+    "credentials, usage, costs, test results, events, and lineage (per-instance identity, secrets, "
+    "or telemetry); organization customization, SCIM mapping, team-roles config, notification "
+    "channels, connectors, and integrations are not supported yet."
+)
+app.command(name="sync", help=_SYNC_HELP)(sync_command)

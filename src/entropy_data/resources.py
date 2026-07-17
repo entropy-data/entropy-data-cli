@@ -1,9 +1,9 @@
 """Shared definition of the portable resource set and its dependency order.
 
-`export`, `import` and `apply` all consume :data:`RESOURCE_ORDER` so they cannot
+`export`, `import` and `sync` all consume :data:`RESOURCE_ORDER` so they cannot
 drift: the same directory names, API paths, identity fields and per-resource
 handling flags drive enumeration (export), upsert (import) and orchestration
-(apply).
+(sync).
 
 The canonical dependency order is:
 
@@ -110,7 +110,7 @@ RESOURCE_ORDER: list[Resource] = [
         document=True,
     ),
     # Org-level singleton. Applied last: it may carry a restrictive managedTagsPolicy
-    # that would otherwise reject tag/asset imports running earlier in the same apply.
+    # that would otherwise reject tag/asset imports running earlier in the same sync.
     # Requires the app-side GET/PUT /api/organization/features endpoint (entropy-data#1521).
     Resource("organization-features", "organization/features", singleton=True),
 ]

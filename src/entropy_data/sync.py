@@ -1,6 +1,6 @@
 """Export / import / prune engine for the portable resource set.
 
-All three user-facing commands (`export dir`, `import dir`/`import zip`, `apply`)
+All three user-facing commands (`export dir`, `import dir`/`import zip`, `sync`)
 are thin wrappers over the functions here so they share one enumeration, upsert
 and prune implementation and cannot drift. Everything is continue-on-error: a
 single resource failure is logged and counted, never aborts the run.
