@@ -111,8 +111,97 @@ entropy-data [--version] [--connection NAME] [--output table|json|yaml] [--debug
   search          query
   semantics       namespaces ... | concepts ... | relationships ... | search
   usage           list | submit | delete
+  export          dir
+  apply           dir [--include] [--exclude] [--prune] [--dry-run]
   import          zip
+  sync            --source SRC --target TGT --include a,b [--exclude] [--prune] [--dry-run] [--keep DIR]
 ```
+
+## Syncing organization state between instances
+
+`sync` copies the portable declarative state of an organization from one Entropy Data
+instance to another — for example to promote a test environment to prod. It exports the
+source and applies it to the target in one step (`export dir` + `apply dir` do the same in
+two). Only state reachable through the public `/api/**` API and portable across instances
+is copied (no secrets, telemetry, or environment-specific identity). Every write is an
+idempotent PUT-by-id, so runs converge and are safe to repeat.
+
+`sync` copies **nothing by default** — name the resources to sync with `--include`.
+
+**Supported resources** (in dependency order): `teams`, `tags`, `definitions`, `policies`,
+`sourcesystems`, `certifications`, `classification-schemes`, `assets`, `datacontracts`,
+`dataproducts`, `example-data`, `access`, `semantic-namespaces`, `semantic-ontology`,
+`organization-features`.
+
+**Not synced:** users & team members, API keys, git credentials, integration and connector
+credentials, usage, costs, test results, events, and lineage (per-instance identity,
+secrets, or telemetry). Organization customization, SCIM mapping, team-roles configuration,
+notification channels, connectors, and integrations are **not supported yet**.
+
+```bash
+# Preview a test -> prod sync of selected resources without writing anything.
+entropy-data sync --source test --target prod --include teams,policies,datacontracts,dataproducts --dry-run
+
+# Sync those resources.
+entropy-data sync --source test --target prod --include teams,policies,datacontracts,dataproducts
+
+# Mirror: also delete target resources that are absent from the source.
+entropy-data sync --source test --target prod --include datacontracts --prune
+
+# The two-step equivalent, with a reviewable YAML tree in between.
+entropy-data -c test export dir ./state
+entropy-data -c prod apply dir ./state
+```
+
+### `apply dir` — apply a local export tree
+
+`apply dir <path>` reconciles a local export directory into the connected instance, in the
+spirit of `kubectl apply -f <dir>`. The tree follows a **folder-as-kind** convention: the
+directory name is the resource kind and each YAML file below it is one resource, addressed
+by the id in its body.
+
+```
+state/
+  teams/                          # folder name = resource kind
+    marketing.yaml                # one file per resource (filename is cosmetic)
+  policies/
+    pii-policy.yaml
+  datacontracts/
+    orders-1-orders.yaml
+  semantic-ontology/
+    main.yaml                     # document resources: one YAML doc per namespace
+  organization-features/
+    organization-features.yaml    # singleton: <name>/<name>.yaml
+```
+
+Unlike `kubectl`, the files carry no `kind:` field — the enclosing folder is authoritative,
+so a file only means what its folder says. Folders that are not a known resource kind are
+ignored. Unlike `sync`, `apply dir` applies the **whole tree by default** (the directory is
+your selection); use `--include`/`--exclude` to narrow it, `--dry-run` to preview, and
+`--prune` to also delete instance resources absent from the tree. This layout matches the
+app's own organization export, so an `export dir` tree and an in-app export zip interchange.
+
+Useful options:
+
+- `--include a,b` — **required**; the resources to sync (names from the supported list above).
+- `--exclude a,b` — drop resources from the `--include` set.
+- `--prune` — after upserts, delete target resources absent from the source, in reverse
+  dependency order. Guarded by a confirmation prompt unless `--yes` is passed.
+- `--dry-run` — print per-resource create/update/(prune) counts; no writes.
+- `--keep DIR` — retain the staged export instead of using a temporary directory.
+
+Notes:
+
+- Team members are stripped on import (users are per-instance identities); the export
+  keeps them so the artifact is a faithful snapshot.
+- The semantics graph is copied as one OSI ontology YAML document per namespace
+  (`semantic-ontology/<namespace>.yaml`) via the app's `.../{ns}/ontology.yaml` endpoint,
+  which imports it in the correct internal dependency order. The namespace row is copied
+  first as a normal resource. Requires that endpoint on the target instance.
+- The organization feature configuration is an org-level singleton
+  (`organization-features/organization-features.yaml`), applied last and never pruned. It
+  requires the app's `GET`/`PUT /api/organization/features` endpoint (entropy-data#1521),
+  which must be merged and deployed to the target instance first.
 
 ## Connection Management
 

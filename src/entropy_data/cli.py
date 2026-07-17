@@ -33,6 +33,16 @@ def get_client() -> EntropyDataClient:
     return EntropyDataClient(config)
 
 
+def client_for_connection(name: str) -> EntropyDataClient:
+    """Create an API client for a specific named connection (for `sync --source/--target`).
+
+    Resolves the connection by name only — the global --api-key/--host overrides
+    target the primary connection and must not bleed into a second endpoint.
+    """
+    config = resolve_connection(connection_name=name)
+    return EntropyDataClient(config)
+
+
 def get_output_format() -> OutputFormat:
     return _output_format
 
@@ -127,7 +137,7 @@ from entropy_data.commands.dataproducts import dataproducts_app  # noqa: E402
 from entropy_data.commands.definitions import definitions_app  # noqa: E402
 from entropy_data.commands.events import events_app  # noqa: E402
 from entropy_data.commands.example_data import example_data_app  # noqa: E402
-from entropy_data.commands.import_export import import_app  # noqa: E402
+from entropy_data.commands.import_export import apply_app, export_app, import_app  # noqa: E402
 from entropy_data.commands.integrations import integrations_app  # noqa: E402
 from entropy_data.commands.lineage import lineage_app  # noqa: E402
 from entropy_data.commands.organization import organization_app  # noqa: E402
@@ -137,6 +147,7 @@ from entropy_data.commands.search import search_app  # noqa: E402
 from entropy_data.commands.semantics import semantics_app  # noqa: E402
 from entropy_data.commands.settings import settings_app  # noqa: E402
 from entropy_data.commands.sourcesystems import sourcesystems_app  # noqa: E402
+from entropy_data.commands.sync import sync_command  # noqa: E402
 from entropy_data.commands.tags import tags_app  # noqa: E402
 from entropy_data.commands.teams import teams_app  # noqa: E402
 from entropy_data.commands.test_results import test_results_app  # noqa: E402
@@ -164,8 +175,31 @@ app.add_typer(organization_app, name="organization", help="Get organization deta
 app.add_typer(settings_app, name="settings", help="Manage organization settings.")
 app.add_typer(events_app, name="events", help="Poll events.")
 app.add_typer(lineage_app, name="lineage", help="Manage lineage (OpenLineage events).")
-app.add_typer(schemas_app, name="schemas", help="Get the JSON Schemas that data contracts (ODCS) and data products (ODPS) validate against.")
+app.add_typer(
+    schemas_app,
+    name="schemas",
+    help="Get the JSON Schemas that data contracts (ODCS) and data products (ODPS) validate against.",
+)
 app.add_typer(search_app, name="search", help="Search across resources.")
 app.add_typer(semantics_app, name="semantics", help="EXPERIMENTAL semantics API.")
 app.add_typer(usage_app, name="usage", help="Manage usage (OpenTelemetry traces).")
 app.add_typer(import_app, name="import", help="Import organization exports.")
+app.add_typer(export_app, name="export", help="Export organization state to a local YAML tree.")
+app.add_typer(
+    apply_app,
+    name="apply",
+    help="Apply a local export directory tree to an instance (folder name = resource kind).",
+)
+
+from entropy_data.resources import RESOURCE_ORDER as _RESOURCE_ORDER  # noqa: E402
+
+_SYNC_HELP = (
+    "Sync selected portable organization state from a source to a target connection.\n\n"
+    "Nothing is copied unless named with --include (sync copies nothing by default).\n\n"
+    "Supported resources: " + ", ".join(r.name for r in _RESOURCE_ORDER) + ".\n\n"
+    "Not synced — users & team members, API keys, git credentials, integration and connector "
+    "credentials, usage, costs, test results, events, and lineage (per-instance identity, secrets, "
+    "or telemetry); organization customization, SCIM mapping, team-roles config, notification "
+    "channels, connectors, and integrations are not supported yet."
+)
+app.command(name="sync", help=_SYNC_HELP)(sync_command)
