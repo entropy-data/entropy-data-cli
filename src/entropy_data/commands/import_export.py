@@ -15,12 +15,22 @@ from typing import Annotated, Optional
 import typer
 
 from entropy_data.output import console, error_console
-from entropy_data.resources import select_resources
+from entropy_data.resources import RESOURCE_ORDER, select_resources
 from entropy_data.sync import apply_dir, export_dir, plan_apply
 
 import_app = typer.Typer(no_args_is_help=True)
 export_app = typer.Typer(no_args_is_help=True)
 apply_app = typer.Typer(no_args_is_help=True)
+
+_APPLY_DIR_HELP = (
+    "Apply an organization export directory tree to the connected instance, like "
+    "`kubectl apply -f <dir>`.\n\n"
+    "The folder name is the resource kind and each YAML file below it is one resource "
+    "(addressed by the id in its body). Files carry no kind: field, so the enclosing folder "
+    "is authoritative, and folders that are not a known kind are ignored. By default the whole "
+    "tree is applied; narrow it with --include / --exclude.\n\n"
+    "Resource kinds (folder names): " + ", ".join(r.name for r in RESOURCE_ORDER) + "."
+)
 
 
 def _parse_csv(value: str | None) -> list[str] | None:
@@ -77,7 +87,7 @@ def import_zip(
         _apply_tree(client, extracted, resources, prune, yes)
 
 
-@apply_app.command("dir")
+@apply_app.command("dir", help=_APPLY_DIR_HELP)
 def apply_dir_command(
     path: Annotated[Path, typer.Argument(help="Directory holding the export YAML tree.")],
     prune: Annotated[bool, typer.Option("--prune", help="Delete target resources absent from the directory.")] = False,
@@ -88,13 +98,7 @@ def apply_dir_command(
     include: Annotated[Optional[str], typer.Option("--include", help="Comma-separated resources to include.")] = None,
     exclude: Annotated[Optional[str], typer.Option("--exclude", help="Comma-separated resources to exclude.")] = None,
 ) -> None:
-    """Apply an organization export directory tree to the target instance.
-
-    The folder name is the resource kind (e.g. 'teams/', 'policies/'); every YAML file
-    below a recognized folder is upserted by its own id, and folders that are not a known
-    resource kind are ignored. By default the whole tree is applied; narrow it with
-    --include / --exclude.
-    """
+    """Apply a local export directory tree to the connected instance (kubectl-apply style)."""
     from entropy_data.cli import get_client, handle_error
 
     if not path.is_dir():

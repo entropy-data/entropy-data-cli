@@ -428,6 +428,14 @@ def test_apply_help_lists_dir():
     assert "dir" in result.output
 
 
+def test_apply_dir_help_lists_resource_kinds():
+    result = runner.invoke(app, ["apply", "dir", "--help"])
+    assert result.exit_code == 0
+    # The full set of folder names (kinds) must be discoverable from the command itself.
+    for kind in ("teams", "datacontracts", "semantic-ontology", "organization-features"):
+        assert kind in result.output
+
+
 # --- semantics (ontology document per namespace) --------------------------------
 
 NS = f"{BASE_URL}/api/semantics/experimental/namespaces"
