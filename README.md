@@ -112,7 +112,8 @@ entropy-data [--version] [--connection NAME] [--output table|json|yaml] [--debug
   semantics       namespaces ... | concepts ... | relationships ... | search
   usage           list | submit | delete
   export          dir
-  import          zip | dir
+  apply           dir [--include] [--exclude] [--prune] [--dry-run]
+  import          zip
   sync            --source SRC --target TGT --include a,b [--exclude] [--prune] [--dry-run] [--keep DIR]
 ```
 
@@ -120,7 +121,7 @@ entropy-data [--version] [--connection NAME] [--output table|json|yaml] [--debug
 
 `sync` copies the portable declarative state of an organization from one Entropy Data
 instance to another — for example to promote a test environment to prod. It exports the
-source and imports it into the target in one step (`export`/`import dir` do the same in
+source and applies it to the target in one step (`export dir` + `apply dir` do the same in
 two). Only state reachable through the public `/api/**` API and portable across instances
 is copied (no secrets, telemetry, or environment-specific identity). Every write is an
 idempotent PUT-by-id, so runs converge and are safe to repeat.
@@ -149,8 +150,36 @@ entropy-data sync --source test --target prod --include datacontracts --prune
 
 # The two-step equivalent, with a reviewable YAML tree in between.
 entropy-data -c test export dir ./state
-entropy-data -c prod import dir ./state
+entropy-data -c prod apply dir ./state
 ```
+
+### `apply dir` — apply a local export tree
+
+`apply dir <path>` reconciles a local export directory into the connected instance, in the
+spirit of `kubectl apply -f <dir>`. The tree follows a **folder-as-kind** convention: the
+directory name is the resource kind and each YAML file below it is one resource, addressed
+by the id in its body.
+
+```
+state/
+  teams/                          # folder name = resource kind
+    marketing.yaml                # one file per resource (filename is cosmetic)
+  policies/
+    pii-policy.yaml
+  datacontracts/
+    orders-1-orders.yaml
+  semantic-ontology/
+    main.yaml                     # document resources: one YAML doc per namespace
+  organization-features/
+    organization-features.yaml    # singleton: <name>/<name>.yaml
+```
+
+Unlike `kubectl`, the files carry no `kind:` field — the enclosing folder is authoritative,
+so a file only means what its folder says. Folders that are not a known resource kind are
+ignored. Unlike `sync`, `apply dir` applies the **whole tree by default** (the directory is
+your selection); use `--include`/`--exclude` to narrow it, `--dry-run` to preview, and
+`--prune` to also delete instance resources absent from the tree. This layout matches the
+app's own organization export, so an `export dir` tree and an in-app export zip interchange.
 
 Useful options:
 

@@ -1,6 +1,6 @@
-"""Export / import / prune engine for the portable resource set.
+"""Export / apply / prune engine for the portable resource set.
 
-All three user-facing commands (`export dir`, `import dir`/`import zip`, `sync`)
+All user-facing commands (`export dir`, `apply dir`, `import zip`, `sync`)
 are thin wrappers over the functions here so they share one enumeration, upsert
 and prune implementation and cannot drift. Everything is continue-on-error: a
 single resource failure is logged and counted, never aborts the run.
@@ -283,7 +283,7 @@ def export_dir(client: EntropyDataClient, dest: Path, resources: list[Resource])
     return total
 
 
-# --- import --------------------------------------------------------------------
+# --- apply ---------------------------------------------------------------------
 
 
 def _load_dir(resource_dir: Path, resource: Resource) -> list[tuple[str, dict]]:
@@ -434,7 +434,7 @@ class ImportPlan:
     counts: dict[str, PlanCounts] = field(default_factory=dict)
 
 
-def plan_import(
+def plan_apply(
     client: EntropyDataClient,
     source: Path,
     resources: list[Resource],
@@ -471,7 +471,7 @@ def plan_import(
     return plan
 
 
-def import_dir(
+def apply_dir(
     client: EntropyDataClient,
     source: Path,
     resources: list[Resource],

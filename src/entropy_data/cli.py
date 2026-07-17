@@ -137,7 +137,7 @@ from entropy_data.commands.dataproducts import dataproducts_app  # noqa: E402
 from entropy_data.commands.definitions import definitions_app  # noqa: E402
 from entropy_data.commands.events import events_app  # noqa: E402
 from entropy_data.commands.example_data import example_data_app  # noqa: E402
-from entropy_data.commands.import_export import export_app, import_app  # noqa: E402
+from entropy_data.commands.import_export import apply_app, export_app, import_app  # noqa: E402
 from entropy_data.commands.integrations import integrations_app  # noqa: E402
 from entropy_data.commands.lineage import lineage_app  # noqa: E402
 from entropy_data.commands.organization import organization_app  # noqa: E402
@@ -185,6 +185,11 @@ app.add_typer(semantics_app, name="semantics", help="EXPERIMENTAL semantics API.
 app.add_typer(usage_app, name="usage", help="Manage usage (OpenTelemetry traces).")
 app.add_typer(import_app, name="import", help="Import organization exports.")
 app.add_typer(export_app, name="export", help="Export organization state to a local YAML tree.")
+app.add_typer(
+    apply_app,
+    name="apply",
+    help="Apply a local export directory tree to an instance (folder name = resource kind).",
+)
 
 from entropy_data.resources import RESOURCE_ORDER as _RESOURCE_ORDER  # noqa: E402
 

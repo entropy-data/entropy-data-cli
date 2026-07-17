@@ -1,9 +1,10 @@
-"""Import and export commands for organization state.
+"""Import, export, and apply commands for organization state.
 
-`export dir` enumerates a source instance into a local YAML tree; `import dir`
-upserts such a tree into a target instance; `import zip` extracts an app-produced
-org-export zip and imports it the same way. All share the engine in
-``entropy_data.sync`` and the resource definitions in ``entropy_data.resources``.
+`export dir` enumerates a source instance into a local YAML tree; `apply dir`
+reconciles such a tree into a target instance (kubectl-apply style: the folder name
+is the resource kind); `import zip` extracts an app-produced org-export zip and
+applies it the same way. All share the engine in ``entropy_data.sync`` and the
+resource definitions in ``entropy_data.resources``.
 """
 
 import tempfile
@@ -15,10 +16,11 @@ import typer
 
 from entropy_data.output import console, error_console
 from entropy_data.resources import select_resources
-from entropy_data.sync import export_dir, import_dir, plan_import
+from entropy_data.sync import apply_dir, export_dir, plan_apply
 
 import_app = typer.Typer(no_args_is_help=True)
 export_app = typer.Typer(no_args_is_help=True)
+apply_app = typer.Typer(no_args_is_help=True)
 
 
 def _parse_csv(value: str | None) -> list[str] | None:
@@ -72,13 +74,13 @@ def import_zip(
         with zipfile.ZipFile(file) as zf:
             zf.extractall(extracted)
 
-        _run_import(client, extracted, resources, prune, yes)
+        _apply_tree(client, extracted, resources, prune, yes)
 
 
-@import_app.command("dir")
-def import_dir_command(
+@apply_app.command("dir")
+def apply_dir_command(
     path: Annotated[Path, typer.Argument(help="Directory holding the export YAML tree.")],
-    prune: Annotated[bool, typer.Option("--prune", help="Delete target resources absent from the import.")] = False,
+    prune: Annotated[bool, typer.Option("--prune", help="Delete target resources absent from the directory.")] = False,
     yes: Annotated[bool, typer.Option("--yes", "-y", help="Skip the prune confirmation prompt.")] = False,
     dry_run: Annotated[
         bool, typer.Option("--dry-run", help="Print planned create/update/(prune) counts; write nothing.")
@@ -86,7 +88,13 @@ def import_dir_command(
     include: Annotated[Optional[str], typer.Option("--include", help="Comma-separated resources to include.")] = None,
     exclude: Annotated[Optional[str], typer.Option("--exclude", help="Comma-separated resources to exclude.")] = None,
 ) -> None:
-    """Import an organization export directory tree."""
+    """Apply an organization export directory tree to the target instance.
+
+    The folder name is the resource kind (e.g. 'teams/', 'policies/'); every YAML file
+    below a recognized folder is upserted by its own id, and folders that are not a known
+    resource kind are ignored. By default the whole tree is applied; narrow it with
+    --include / --exclude.
+    """
     from entropy_data.cli import get_client, handle_error
 
     if not path.is_dir():
@@ -101,21 +109,21 @@ def import_dir_command(
         return
 
     if dry_run:
-        print_plan(plan_import(client, path, resources, prune=prune))
+        print_plan(plan_apply(client, path, resources, prune=prune))
         return
 
-    _run_import(client, path, resources, prune, yes)
+    _apply_tree(client, path, resources, prune, yes)
 
 
-def _run_import(client, source: Path, resources, prune: bool, yes: bool) -> None:
-    """Shared import driver for both ``zip`` and ``dir``; prompts before pruning."""
+def _apply_tree(client, source: Path, resources, prune: bool, yes: bool) -> None:
+    """Shared apply driver for both ``apply dir`` and ``import zip``; prompts before pruning."""
     if prune and not yes:
-        console.print("[yellow]--prune will DELETE target resources absent from the import.[/yellow]")
+        console.print("[yellow]--prune will DELETE target resources absent from the source.[/yellow]")
         if not typer.confirm("Proceed with prune?"):
             console.print("Aborted.")
             raise typer.Exit(1)
 
-    result = import_dir(client, source, resources, prune=prune)
+    result = apply_dir(client, source, resources, prune=prune)
     console.print(f"\n[bold]Summary:[/bold] {result.ok} succeeded, {result.fail} failed")
     if result.fail > 0:
         raise typer.Exit(1)

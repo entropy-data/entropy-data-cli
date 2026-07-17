@@ -1,7 +1,7 @@
 """`sync` — copy selected portable org state from a source instance to a target instance.
 
 Mechanism: export the source into a staged directory, then import that directory
-into the target. Both halves reuse the ``export dir`` / ``import dir`` engine, so
+into the target. Both halves reuse the ``export dir`` / ``apply dir`` engine, so
 the staged artifact is auditable and identical to a manual ``export`` + ``import``.
 
 ``sync`` copies nothing by default: the resources to copy must be named explicitly
@@ -18,7 +18,7 @@ import typer
 from entropy_data.commands.import_export import _parse_csv, print_plan
 from entropy_data.output import console, error_console
 from entropy_data.resources import RESOURCE_ORDER, select_resources
-from entropy_data.sync import export_dir, import_dir, plan_import
+from entropy_data.sync import apply_dir, export_dir, plan_apply
 
 
 def sync_command(
@@ -74,7 +74,7 @@ def sync_command(
         console.print(f"\n[bold]Export:[/bold] {export_result.ok} exported, {export_result.fail} failed")
 
         if dry_run:
-            print_plan(plan_import(target_client, staged, resources, prune=prune))
+            print_plan(plan_apply(target_client, staged, resources, prune=prune))
             if export_result.fail > 0:
                 raise typer.Exit(1)
             return
@@ -86,7 +86,7 @@ def sync_command(
                 raise typer.Exit(1)
 
         console.print("\n[bold]Applying to target[/bold]")
-        import_result = import_dir(target_client, staged, resources, prune=prune)
+        import_result = apply_dir(target_client, staged, resources, prune=prune)
         console.print(
             f"\n[bold]Summary:[/bold] {import_result.ok} succeeded, {import_result.fail} failed "
             f"({export_result.fail} export failures)"

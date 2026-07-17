@@ -1,4 +1,4 @@
-"""Tests for export / import dir / sync commands and the shared sync engine."""
+"""Tests for export / apply dir / import zip / sync commands and the shared sync engine."""
 
 import responses
 import yaml
@@ -166,7 +166,7 @@ def test_export_detail_fetches_each_item(monkeypatch, tmp_path):
     assert body["info"]["title"] == "Full body"
 
 
-# --- import dir -----------------------------------------------------------------
+# --- apply dir ------------------------------------------------------------------
 
 
 def _write_tree(root, tree):
@@ -178,7 +178,7 @@ def _write_tree(root, tree):
 
 
 @responses.activate
-def test_import_dir_upserts_in_order(monkeypatch, tmp_path):
+def test_apply_dir_upserts_in_order(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
 
@@ -204,7 +204,7 @@ def test_import_dir_upserts_in_order(monkeypatch, tmp_path):
     responses.add_callback(responses.PUT, f"{BASE_URL}/api/teams/child-team", callback=_record)
     responses.add_callback(responses.PUT, f"{BASE_URL}/api/certifications/gold", callback=_record)
 
-    result = runner.invoke(app, ["import", "dir", str(src)])
+    result = runner.invoke(app, ["apply", "dir", str(src)])
     assert result.exit_code == 0, result.output
     # Parent team upserted before its child.
     assert puts.index(f"{BASE_URL}/api/teams/parent-team") < puts.index(f"{BASE_URL}/api/teams/child-team")
@@ -212,7 +212,7 @@ def test_import_dir_upserts_in_order(monkeypatch, tmp_path):
 
 
 @responses.activate
-def test_import_dir_strips_team_members(monkeypatch, tmp_path):
+def test_apply_dir_strips_team_members(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
 
@@ -229,13 +229,13 @@ def test_import_dir_strips_team_members(monkeypatch, tmp_path):
 
     responses.add_callback(responses.PUT, f"{BASE_URL}/api/teams/t1", callback=_capture)
 
-    result = runner.invoke(app, ["import", "dir", str(src), "--include", "teams"])
+    result = runner.invoke(app, ["apply", "dir", str(src), "--include", "teams"])
     assert result.exit_code == 0, result.output
     assert captured["body"]["members"] == []
 
 
 @responses.activate
-def test_import_dir_assigns_asset_tags(monkeypatch, tmp_path):
+def test_apply_dir_assigns_asset_tags(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
 
@@ -258,13 +258,13 @@ def test_import_dir_assigns_asset_tags(monkeypatch, tmp_path):
         responses.PUT, f"{BASE_URL}/api/assets/asset-1/assigned-tags/governance/PII", callback=_record_tag
     )
 
-    result = runner.invoke(app, ["import", "dir", str(src), "--include", "assets"])
+    result = runner.invoke(app, ["apply", "dir", str(src), "--include", "assets"])
     assert result.exit_code == 0, result.output
     assert tag_puts == [f"{BASE_URL}/api/assets/asset-1/assigned-tags/governance/PII"]
 
 
 @responses.activate
-def test_import_dir_dry_run_no_writes(monkeypatch, tmp_path):
+def test_apply_dir_dry_run_no_writes(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
 
@@ -277,7 +277,7 @@ def test_import_dir_dry_run_no_writes(monkeypatch, tmp_path):
     # Target already has "gold" -> gold is an update, silver is a create.
     responses.add(responses.GET, f"{BASE_URL}/api/certifications", json=[{"id": "gold"}], status=200)
 
-    result = runner.invoke(app, ["import", "dir", str(src), "--include", "certifications", "--dry-run"])
+    result = runner.invoke(app, ["apply", "dir", str(src), "--include", "certifications", "--dry-run"])
     assert result.exit_code == 0, result.output
     assert "create=1" in result.output
     assert "update=1" in result.output
@@ -288,7 +288,7 @@ def test_import_dir_dry_run_no_writes(monkeypatch, tmp_path):
 
 
 @responses.activate
-def test_import_dir_prune_deletes_absent(monkeypatch, tmp_path):
+def test_apply_dir_prune_deletes_absent(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
 
@@ -311,14 +311,14 @@ def test_import_dir_prune_deletes_absent(monkeypatch, tmp_path):
 
     responses.add_callback(responses.DELETE, f"{BASE_URL}/api/certifications/bronze", callback=_record_delete)
 
-    result = runner.invoke(app, ["import", "dir", str(src), "--include", "certifications", "--prune", "--yes"])
+    result = runner.invoke(app, ["apply", "dir", str(src), "--include", "certifications", "--prune", "--yes"])
     assert result.exit_code == 0, result.output
     # Only the absent resource is deleted.
     assert deletes == [f"{BASE_URL}/api/certifications/bronze"]
 
 
 @responses.activate
-def test_import_dir_prune_deletes_teams_children_first(monkeypatch, tmp_path):
+def test_apply_dir_prune_deletes_teams_children_first(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
 
@@ -341,13 +341,13 @@ def test_import_dir_prune_deletes_teams_children_first(monkeypatch, tmp_path):
     responses.add_callback(responses.DELETE, f"{BASE_URL}/api/teams/parent", callback=_record)
     responses.add_callback(responses.DELETE, f"{BASE_URL}/api/teams/child", callback=_record)
 
-    result = runner.invoke(app, ["import", "dir", str(src), "--include", "teams", "--prune", "--yes"])
+    result = runner.invoke(app, ["apply", "dir", str(src), "--include", "teams", "--prune", "--yes"])
     assert result.exit_code == 0, result.output
     assert deletes == ["child", "parent"]
 
 
 @responses.activate
-def test_import_dir_prune_prompt_abort(monkeypatch, tmp_path):
+def test_apply_dir_prune_prompt_abort(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
 
@@ -355,7 +355,7 @@ def test_import_dir_prune_prompt_abort(monkeypatch, tmp_path):
     _write_tree(src, {"certifications": {"gold": {"id": "gold", "name": "Gold"}}})
 
     # Decline the confirmation prompt -> abort, no HTTP calls.
-    result = runner.invoke(app, ["import", "dir", str(src), "--include", "certifications", "--prune"], input="n\n")
+    result = runner.invoke(app, ["apply", "dir", str(src), "--include", "certifications", "--prune"], input="n\n")
     assert result.exit_code == 1
     assert "Aborted" in result.output
 
@@ -414,10 +414,17 @@ def test_sync_requires_include(monkeypatch, tmp_path):
     assert "include" in result.output.lower()
 
 
-def test_import_help_lists_dir_and_zip():
+def test_import_help_lists_zip_only():
     result = runner.invoke(app, ["import", "--help"])
     assert result.exit_code == 0
     assert "zip" in result.output
+    # The directory path moved to `apply dir`; import only handles the zip form now.
+    assert "dir" not in result.output
+
+
+def test_apply_help_lists_dir():
+    result = runner.invoke(app, ["apply", "--help"])
+    assert result.exit_code == 0
     assert "dir" in result.output
 
 
@@ -473,7 +480,7 @@ def test_import_semantics_ontology_document(monkeypatch, tmp_path):
     responses.add(responses.PUT, f"{NS}/core", status=200)
     responses.add_callback(responses.PUT, f"{NS}/core/ontology.yaml", callback=_record_ontology)
 
-    result = runner.invoke(app, ["import", "dir", str(src), "--include", "semantic-namespaces,semantic-ontology"])
+    result = runner.invoke(app, ["apply", "dir", str(src), "--include", "semantic-namespaces,semantic-ontology"])
     assert result.exit_code == 0, result.output
     # The ontology document is PUT verbatim as application/yaml — the app orders it internally.
     assert captured["body"] == ontology
@@ -543,7 +550,7 @@ def test_import_organization_features_singleton_put(monkeypatch, tmp_path):
     # PUT to the bare singleton path (no id segment).
     responses.add_callback(responses.PUT, FEATURES, callback=_capture)
 
-    result = runner.invoke(app, ["import", "dir", str(src), "--include", "organization-features"])
+    result = runner.invoke(app, ["apply", "dir", str(src), "--include", "organization-features"])
     assert result.exit_code == 0, result.output
     assert captured["body"]["changeProcessMode"] == "approval-required"
     assert captured["body"]["openInOptions"] == ["snowflake"]
@@ -564,5 +571,5 @@ def test_prune_skips_singleton(monkeypatch, tmp_path):
 
     # --prune must not attempt to list or delete the singleton (no GET/DELETE registered);
     # a stray call would raise ConnectionError and fail the run.
-    result = runner.invoke(app, ["import", "dir", str(src), "--include", "organization-features", "--prune", "--yes"])
+    result = runner.invoke(app, ["apply", "dir", str(src), "--include", "organization-features", "--prune", "--yes"])
     assert result.exit_code == 0, result.output
