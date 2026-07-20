@@ -24,7 +24,12 @@ Three resource shapes:
   listing the parent. Artifact: ``<name>/<parent_id>.yaml``. Not prunable. Used
   for the semantic ontology: the app imports the whole namespace document in the
   correct internal order (groups before members), so the client needs no
-  per-concept ordering of its own.
+  per-concept ordering of its own. Applying it also provisions the namespace from
+  the metadata in the document's root ``custom_properties``, so ``semantic-namespaces``
+  writes no artifact of its own (``artifact=False``): it is enumerated to drive the
+  ontology export and still pruned, but its identity is the ontology filenames. A
+  legacy tree that still carries a ``semantic-namespaces/`` directory is applied as a
+  flat resource, unchanged.
 * Singleton (``singleton`` set) — one org-level object read/written directly at
   ``/api/{api_path}`` (no id, no list). Artifact: ``<name>/<name>.yaml``. Not
   prunable. ``organization-features`` is applied last so a restrictive policy it
@@ -61,6 +66,12 @@ class Resource:
                 prunable) rather than a collection
     document    one raw-YAML document per parent, GET/PUT directly at the expanded
                 ``{parent}`` path (not prunable); requires ``parent``
+    artifact    whether this resource is written to / read from its own directory in
+                the artifact tree. ``False`` for a parent whose metadata now travels
+                inside its document child (``semantic-namespaces``): it is still listed
+                so the child can be enumerated and still pruned, but its identity comes
+                from the child's filenames rather than a directory of its own. A legacy
+                tree that still carries the directory is applied as before.
     """
 
     name: str
@@ -74,6 +85,7 @@ class Resource:
     parent: str | None = None
     singleton: bool = False
     document: bool = False
+    artifact: bool = True
 
     def path_for(self, parent_id: str | None = None) -> str:
         """Resolve ``api_path`` for a given parent id (identity for flat resources)."""
@@ -99,10 +111,12 @@ RESOURCE_ORDER: list[Resource] = [
     Resource("dataproducts", "dataproducts", detail=True),
     Resource("example-data", "example-data"),
     Resource("access", "access", paginated=True),
-    # Semantics: the namespace row carries the metadata; the whole ontology (concepts +
-    # relationships) is copied as one OSI YAML document per namespace via the app's
-    # ontology.yaml endpoint, which imports it in the correct internal dependency order.
-    Resource("semantic-namespaces", "semantics/experimental/namespaces", id_field="namespace"),
+    # Semantics: one artifact per namespace. The whole ontology (concepts + relationships) is copied
+    # as one OSI YAML document per namespace via the app's ontology.yaml endpoint, which imports it in
+    # the correct internal dependency order and provisions the namespace from the metadata carried in
+    # the document's root custom_properties. The namespace is still listed (to enumerate ontologies)
+    # and still pruned, but writes no artifact of its own — its identity is the ontology filenames.
+    Resource("semantic-namespaces", "semantics/experimental/namespaces", id_field="namespace", artifact=False),
     Resource(
         "semantic-ontology",
         "semantics/experimental/namespaces/{parent}/ontology.yaml",

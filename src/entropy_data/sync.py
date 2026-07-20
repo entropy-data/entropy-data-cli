@@ -84,6 +84,23 @@ def _parent_ids(client: EntropyDataClient, resource: Resource) -> list[str]:
     return [str(item[parent.id_field]) for item in _list_all(client, parent) if item.get(parent.id_field)]
 
 
+def _child_document_ids(source: Path, resources: list[Resource], parent_name: str) -> set[str]:
+    """Identity of a parent whose own artifact was dropped: the stems of its document child's files.
+
+    ``semantic-namespaces`` writes no directory, so the set of namespaces an import carries is the set
+    of ``semantic-ontology/<ns>.yaml`` filenames — the same stems ``apply`` already PUTs as parent ids.
+    Used as the prune keep-set so pruning removes exactly the namespaces the import does not carry,
+    never all of them for lack of a directory to read.
+    """
+    child = next((r for r in resources if r.parent == parent_name and r.document), None)
+    if child is None:
+        return set()
+    child_dir = source / child.name
+    if not child_dir.is_dir():
+        return set()
+    return {f.stem for f in child_dir.glob("*.yaml")}
+
+
 # --- singleton (org-level object, no id) ---------------------------------------
 
 
@@ -265,6 +282,9 @@ def export_dir(client: EntropyDataClient, dest: Path, resources: list[Resource])
     """Enumerate the source and write one YAML file per resource under ``dest``."""
     total = SyncResult()
     for resource in resources:
+        # Enumerated (so its document child can be listed) but materialized only through that child.
+        if not resource.artifact:
+            continue
         console.print(f"\n[bold]{resource.name}[/bold]")
         if resource.singleton:
             total.add(_export_singleton(client, resource, dest / resource.name))
@@ -456,8 +476,12 @@ def plan_apply(
             n = len(list(resource_dir.glob("*.yaml"))) if resource_dir.is_dir() else 0
             counts = PlanCounts(update=n)
         else:
-            entries = _load_dir(resource_dir, resource) if resource_dir.is_dir() else []
-            imported = {rid for rid, _ in entries}
+            if not resource.artifact and not resource_dir.is_dir():
+                # Identity comes from the document child's files, not a directory of this resource's own.
+                imported = _child_document_ids(source, resources, resource.name)
+            else:
+                entries = _load_dir(resource_dir, resource) if resource_dir.is_dir() else []
+                imported = {rid for rid, _ in entries}
             try:
                 existing = _enumerate_ids(client, resource)
             except ApiError as e:
@@ -487,6 +511,14 @@ def apply_dir(
 
     for resource in resources:
         resource_dir = source / resource.name
+
+        # Artifact dropped and no legacy directory to fall back on: the document child provisions the
+        # resource, so issue no writes here — but still record its ids so a --prune keeps exactly the
+        # namespaces the import carries rather than deleting all of them.
+        if not resource.artifact and not resource_dir.is_dir():
+            imported_ids[resource.name] = _child_document_ids(source, resources, resource.name)
+            continue
+
         if not resource_dir.is_dir():
             continue
 

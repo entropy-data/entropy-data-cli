@@ -196,8 +196,11 @@ Notes:
   keeps them so the artifact is a faithful snapshot.
 - The semantics graph is copied as one OSI ontology YAML document per namespace
   (`semantic-ontology/<namespace>.yaml`) via the app's `.../{ns}/ontology.yaml` endpoint,
-  which imports it in the correct internal dependency order. The namespace row is copied
-  first as a normal resource. Requires that endpoint on the target instance.
+  which imports it in the correct internal dependency order and provisions the namespace
+  from the metadata (uri, read-only flag, owning team) carried in the document's root
+  `custom_properties` — so there is no separate namespace artifact. Requires that endpoint
+  on the target instance. A tree exported by an older version that still carries a
+  `semantic-namespaces/` folder is applied as before.
 - The organization feature configuration is an org-level singleton
   (`organization-features/organization-features.yaml`), applied last and never pruned. It
   requires the app's `GET`/`PUT /api/organization/features` endpoint (entropy-data#1521),
