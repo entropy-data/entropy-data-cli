@@ -284,6 +284,21 @@ def test_apply_dir_dry_run_no_writes(monkeypatch, tmp_path):
     # No PUT was registered; a write would have raised ConnectionError.
 
 
+@responses.activate
+def test_apply_dir_dry_run_fails_when_target_cannot_be_listed(monkeypatch, tmp_path):
+    monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
+    monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
+
+    src = tmp_path / "tree"
+    _write_tree(src, {"certifications": {"gold": {"id": "gold", "name": "Gold"}}})
+
+    responses.add(responses.GET, f"{BASE_URL}/api/certifications", status=403)
+
+    result = runner.invoke(app, ["apply", "dir", str(src), "--include", "certifications", "--dry-run"])
+    # The plan degrades to an empty target, so it must not report a clean run.
+    assert result.exit_code == 1, result.output
+
+
 # --- prune ----------------------------------------------------------------------
 
 

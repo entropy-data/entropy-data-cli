@@ -432,6 +432,9 @@ class ImportPlan:
     """Result of a dry-run: per-resource create/update/prune counts."""
 
     counts: dict[str, PlanCounts] = field(default_factory=dict)
+    # Resources whose target state could not be listed. Their counts are computed against an
+    # empty target, so they overstate creates and understate prunes — the plan is not trustworthy.
+    fail: int = 0
 
 
 def plan_apply(
@@ -460,6 +463,7 @@ def plan_apply(
             except ApiError as e:
                 error_console.print(f"[red]FAIL[/red] list {resource.name}: {e}")
                 existing = set()
+                plan.fail += 1
             counts = PlanCounts(
                 create=len(imported - existing),
                 update=len(imported & existing),

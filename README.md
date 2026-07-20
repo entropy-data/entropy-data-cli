@@ -183,12 +183,12 @@ app's own organization export, so an `export dir` tree and an in-app export zip 
 
 Useful options:
 
-- `--include a,b` — **required**; the resources to sync (names from the supported list above).
-- `--exclude a,b` — drop resources from the `--include` set.
-- `--prune` — after upserts, delete target resources absent from the source, in reverse
+- `--include a,b` — narrow the apply to these resources (names from the supported list
+  above). Optional; the whole tree is applied when omitted.
+- `--exclude a,b` — drop resources from the applied set.
+- `--prune` — after upserts, delete target resources absent from the directory, in reverse
   dependency order. Guarded by a confirmation prompt unless `--yes` is passed.
 - `--dry-run` — print per-resource create/update/(prune) counts; no writes.
-- `--keep DIR` — retain the staged export instead of using a temporary directory.
 
 Notes:
 

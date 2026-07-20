@@ -74,8 +74,9 @@ def sync_command(
         console.print(f"\n[bold]Export:[/bold] {export_result.ok} exported, {export_result.fail} failed")
 
         if dry_run:
-            print_plan(plan_apply(target_client, staged, resources, prune=prune))
-            if export_result.fail > 0:
+            plan = plan_apply(target_client, staged, resources, prune=prune)
+            print_plan(plan)
+            if export_result.fail > 0 or plan.fail > 0:
                 raise typer.Exit(1)
             return
 

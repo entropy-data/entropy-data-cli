@@ -43,13 +43,19 @@ def print_plan(plan) -> None:
     """Print a dry-run plan table of create/update/(prune) counts per resource."""
     if not plan.counts:
         console.print("Nothing to do.")
-        return
-    console.print("\n[bold]Dry run — planned changes:[/bold]")
-    for name, counts in plan.counts.items():
-        parts = [f"create={counts.create}", f"update={counts.update}"]
-        if counts.prune:
-            parts.append(f"prune={counts.prune}")
-        console.print(f"  {name}: {', '.join(parts)}")
+    else:
+        console.print("\n[bold]Dry run — planned changes:[/bold]")
+        for name, counts in plan.counts.items():
+            parts = [f"create={counts.create}", f"update={counts.update}"]
+            if counts.prune:
+                parts.append(f"prune={counts.prune}")
+            console.print(f"  {name}: {', '.join(parts)}")
+
+    if plan.fail:
+        error_console.print(
+            f"\n[red]{plan.fail} resource(s) could not be listed on the target; "
+            "the counts above are computed against an empty target and are not reliable.[/red]"
+        )
 
 
 @import_app.command("zip")
@@ -113,7 +119,10 @@ def apply_dir_command(
         return
 
     if dry_run:
-        print_plan(plan_apply(client, path, resources, prune=prune))
+        plan = plan_apply(client, path, resources, prune=prune)
+        print_plan(plan)
+        if plan.fail > 0:
+            raise typer.Exit(1)
         return
 
     _apply_tree(client, path, resources, prune, yes)
