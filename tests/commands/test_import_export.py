@@ -475,8 +475,9 @@ def test_export_semantics_ontology_document(monkeypatch, tmp_path):
     result = runner.invoke(app, ["export", "dir", str(dest), "--include", "semantic-namespaces,semantic-ontology"])
     assert result.exit_code == 0, result.output
 
-    assert yaml.safe_load((dest / "semantic-namespaces" / "core.yaml").read_text())["namespace"] == "core"
-    # The whole ontology is one document per namespace, written verbatim (no re-serialization).
+    # One artifact per namespace: the ontology document carries the namespace metadata, so no separate
+    # semantic-namespaces file is written. The document is verbatim (no re-serialization).
+    assert not (dest / "semantic-namespaces").exists()
     assert (dest / "semantic-ontology" / "core.yaml").read_text() == ontology
 
 
@@ -487,8 +488,6 @@ def test_import_semantics_ontology_document(monkeypatch, tmp_path):
 
     ontology = "version: 0.2.0.dev0\nname: core\nontology: []\n"
     src = tmp_path / "tree"
-    (src / "semantic-namespaces").mkdir(parents=True)
-    (src / "semantic-namespaces" / "core.yaml").write_text(yaml.safe_dump({"namespace": "core", "label": "Core"}))
     (src / "semantic-ontology").mkdir(parents=True)
     (src / "semantic-ontology" / "core.yaml").write_text(ontology)
 
@@ -500,7 +499,7 @@ def test_import_semantics_ontology_document(monkeypatch, tmp_path):
         captured["content_type"] = request.headers.get("Content-Type")
         return (200, {}, "")
 
-    responses.add(responses.PUT, f"{NS}/core", status=200)
+    # No PUT to the namespace endpoint: applying the ontology provisions the namespace.
     responses.add_callback(responses.PUT, f"{NS}/core/ontology.yaml", callback=_record_ontology)
 
     result = runner.invoke(app, ["apply", "dir", str(src), "--include", "semantic-namespaces,semantic-ontology"])
@@ -508,6 +507,56 @@ def test_import_semantics_ontology_document(monkeypatch, tmp_path):
     # The ontology document is PUT verbatim as application/yaml — the app orders it internally.
     assert captured["body"] == ontology
     assert captured["content_type"] == "application/yaml"
+
+
+@responses.activate
+def test_apply_semantics_legacy_namespace_dir_still_applied(monkeypatch, tmp_path):
+    """A tree exported before the single-artifact change still carries semantic-namespaces/; apply it."""
+    monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
+    monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
+
+    ontology = "version: 0.2.0.dev0\nname: core\nontology: []\n"
+    src = tmp_path / "tree"
+    (src / "semantic-namespaces").mkdir(parents=True)
+    (src / "semantic-namespaces" / "core.yaml").write_text(yaml.safe_dump({"namespace": "core", "label": "Core"}))
+    (src / "semantic-ontology").mkdir(parents=True)
+    (src / "semantic-ontology" / "core.yaml").write_text(ontology)
+
+    puts = []
+    responses.add_callback(responses.PUT, f"{NS}/core", callback=lambda r: (puts.append(r.url) or (200, {}, "")))
+    responses.add(responses.PUT, f"{NS}/core/ontology.yaml", status=200)
+
+    result = runner.invoke(app, ["apply", "dir", str(src), "--include", "semantic-namespaces,semantic-ontology"])
+    assert result.exit_code == 0, result.output
+    # The legacy namespace row is still PUT, preserving fidelity for pre-existing artifact trees.
+    assert puts == [f"{NS}/core"]
+
+
+@responses.activate
+def test_apply_semantics_prune_keeps_namespaces_from_ontology_filenames(monkeypatch, tmp_path):
+    """With no semantic-namespaces/ dir, the prune keep-set must come from the ontology filenames —
+    otherwise every namespace on the target would be deleted for lack of a directory to read."""
+    monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
+    monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
+
+    src = tmp_path / "tree"
+    (src / "semantic-ontology").mkdir(parents=True)
+    (src / "semantic-ontology" / "core.yaml").write_text("version: 0.2.0.dev0\nname: core\nontology: []\n")
+
+    responses.add(responses.PUT, f"{NS}/core/ontology.yaml", status=200)
+    # Target has core (kept, present in the import) and legacy (absent -> pruned).
+    responses.add(responses.GET, NS, json=[{"namespace": "core"}, {"namespace": "legacy"}], status=200)
+    deletes = []
+    responses.add_callback(
+        responses.DELETE, f"{NS}/legacy", callback=lambda r: (deletes.append(r.url) or (200, {}, ""))
+    )
+
+    result = runner.invoke(
+        app,
+        ["apply", "dir", str(src), "--include", "semantic-namespaces,semantic-ontology", "--prune", "--yes"],
+    )
+    assert result.exit_code == 0, result.output
+    assert deletes == [f"{NS}/legacy"]
 
 
 # --- organization features (singleton) -----------------------------------------
