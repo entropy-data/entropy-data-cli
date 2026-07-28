@@ -14,7 +14,7 @@ dependencies = [
     "typer>=0.15.0,<1.0",
     "rich>=14.0,<16.0",
     "pydantic>=2.10,<3.0",
-    "requests>=2.32,<3.0",
+    "requests>=2.33,<3.0",
     "tomli_w>=1.0,<2.0",
     "pyyaml>=6.0,<7.0",
     "python-dotenv>=1.0,<2.0",
@@ -31,9 +31,10 @@ entropy-data = "entropy_data.cli:app"
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8.0",
+    "pytest>=9.0.3",
     "responses>=0.25",
-    "ruff>=0.8",
+    # 0.16 changes the default lint rule set and the formatter style; adopting it is a separate migration.
+    "ruff>=0.8,<0.16",
     "pre-commit>=3.7",
 ]
 
