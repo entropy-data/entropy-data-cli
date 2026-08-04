@@ -5,7 +5,7 @@ ENV UV_COMPILE_BYTECODE=1
 
 COPY --from=ghcr.io/astral-sh/uv:0.11.29 /uv /uvx /bin/
 
-COPY pyproject.toml uv.lock /app/
+COPY pyproject.toml uv.lock README.md /app/
 COPY src/ /app/src/
 
 RUN cd /app && uv pip --no-cache-dir install --system .

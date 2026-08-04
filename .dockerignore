@@ -15,7 +15,8 @@ tests/
 .editorconfig
 
 # Docs & project meta
-README.md
+# README.md is not ignored: pyproject.toml declares it as the project readme,
+# so the build backend needs it present to install the package.
 CHANGELOG.md
 CLAUDE.md
 LICENSE
