@@ -9,6 +9,16 @@ name: Release
 jobs:
   test:
     uses: ./.github/workflows/ci.yaml
+    # A called workflow cannot be granted more than its caller holds, and the
+    # workflow-level default above is `contents: read`. ci.yaml's `docker` job
+    # requests `id-token: write` for keyless cosign signing, so without this the
+    # whole run fails at startup before any job executes — permissions are
+    # validated up front, regardless of the `if:` conditions that would actually
+    # skip the signing steps on a tag. Granted on this job only, not raised to
+    # the workflow level.
+    permissions:
+      contents: read
+      id-token: write
     secrets: inherit
 
   check_version:
