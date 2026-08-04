@@ -136,6 +136,9 @@ jobs:
     needs:
       - test
       - check_version
+    permissions:
+      contents: read
+      id-token: write # Mint the OIDC token that keyless cosign signing exchanges for a Fulcio certificate.
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -158,6 +161,7 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Build and push
+        id: build
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -166,6 +170,20 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           sbom: true
+          provenance: mode=max
+
+      # cosign-installer publishes no floating major tag, so this must name an
+      # exact version.
+      - uses: sigstore/cosign-installer@v4.1.2
+
+      # Sign the index digest rather than a tag: the index commits to the
+      # platform manifests and the SBOM/provenance attestations, so one
+      # signature covers all of them, and the binding cannot be moved by
+      # retagging.
+      - name: Sign image
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: cosign sign --yes "entropydata/entropy-data-cli@${DIGEST}"
 
   publish-to-testpypi:
     name: Publish Python distribution to TestPyPI

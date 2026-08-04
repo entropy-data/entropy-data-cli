@@ -60,6 +60,9 @@ jobs:
     needs:
       - test
     if: github.event_name != 'pull_request' && github.repository == 'entropy-data/entropy-data-cli'
+    permissions:
+      contents: read
+      id-token: write # Mint the OIDC token that keyless cosign signing exchanges for a Fulcio certificate.
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -82,6 +85,7 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Build and push
+        id: build
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -90,3 +94,20 @@ jobs:
           tags: entropydata/entropy-data-cli:snapshot-latest
           labels: ${{ steps.meta.outputs.labels }}
           sbom: true
+          provenance: mode=max
+
+      # cosign-installer publishes no floating major tag, so this must name an
+      # exact version.
+      - uses: sigstore/cosign-installer@v4.1.2
+        if: github.ref == 'refs/heads/main'
+
+      # Sign the index digest rather than a tag: the index commits to the
+      # platform manifests and the SBOM/provenance attestations, so one
+      # signature covers all of them, and the binding cannot be moved by
+      # retagging. Only reachable when the image was actually pushed — the
+      # release workflow calls this workflow on a tag, where push is false.
+      - name: Sign image
+        if: github.ref == 'refs/heads/main'
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: cosign sign --yes "entropydata/entropy-data-cli@${DIGEST}"
