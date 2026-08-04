@@ -1,6 +1,6 @@
 [project]
 name = "entropy-data"
-version = "0.3.19"
+version = "0.3.20"
 description = "CLI for Entropy Data"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -10,6 +10,19 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+keywords = [
+    "entropy-data",
+    "data-product",
+    "data-contract",
+    "odcs",
+    "odps",
+    "data-marketplace",
+    "data-mesh",
+    "data-governance",
+    "data-catalog",
+    "cli",
 ]
 dependencies = [
     "typer>=0.15.0,<1.0",
@@ -26,6 +39,8 @@ dependencies = [
 Homepage = "https://entropy-data.com"
 Documentation = "https://docs.entropy-data.com"
 Repository = "https://github.com/entropy-data/entropy-data-cli"
+Issues = "https://github.com/entropy-data/entropy-data-cli/issues"
+Changelog = "https://github.com/entropy-data/entropy-data-cli/blob/main/CHANGELOG.md"
 
 [project.scripts]
 entropy-data = "entropy_data.cli:app"
