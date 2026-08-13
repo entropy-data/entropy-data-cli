@@ -1,0 +1,33 @@
+# Auto-merge Dependabot PRs that only touch development dependencies — the
+# `[project.optional-dependencies] dev` extra (pytest, responses, ruff,
+# pre-commit). Production dependencies and GitHub Actions bumps are always
+# reported as `direct:production` by fetch-metadata, so they stay manual.
+on: pull_request_target
+
+# pull_request_target is required because the GITHUB_TOKEN is read-only on
+# `pull_request` runs from Dependabot. This workflow never checks out or
+# executes the PR's code, so the elevated token is not exposed to it.
+permissions:
+  contents: write # enable auto-merge on the PR
+  pull-requests: write
+
+name: Dependabot auto-merge
+jobs:
+  auto-merge:
+    runs-on: ubuntu-latest
+    if: github.actor == 'dependabot[bot]'
+    steps:
+      - name: Fetch Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # For grouped PRs, dependency-type reports the highest type present, so a
+      # group mixing dev and production dependencies does not match here.
+      - name: Enable auto-merge
+        if: steps.metadata.outputs.dependency-type == 'direct:development'
+        run: gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
