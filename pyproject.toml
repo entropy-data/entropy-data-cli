@@ -65,6 +65,11 @@ packages = ["src/entropy_data"]
 line-length = 120
 
 [tool.ruff.lint]
+# Ruff's own defaults through 0.15, stated explicitly: 0.16 widens the default
+# rule set, and inheriting that silently would turn a routine version bump into
+# a 410-finding cleanup. Adopting the wider set is a deliberate change to make
+# here, not a side effect of upgrading.
+select = ["E4", "E7", "E9", "F"]
 extend-select = ["I"]
 
 [tool.pytest.ini_options]
