@@ -1,9 +1,14 @@
+# Named stage rather than an inline `COPY --from=ghcr.io/astral-sh/uv:...`:
+# Dependabot's Docker parser only reads FROM lines, so an inline image
+# reference is never updated.
+FROM ghcr.io/astral-sh/uv:0.11.29 AS uv
+
 FROM python:3.12-slim
 
 ENV PYTHONUNBUFFERED=1
 ENV UV_COMPILE_BYTECODE=1
 
-COPY --from=ghcr.io/astral-sh/uv:0.11.29 /uv /uvx /bin/
+COPY --from=uv /uv /uvx /bin/
 
 COPY pyproject.toml uv.lock README.md /app/
 COPY src/ /app/src/
