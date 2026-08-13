@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.3.21]
+
+- The published Docker image now runs on Python 3.14 (`python:3.14-slim`), up from 3.12. The CLI itself is unchanged — 3.14 has been in the CI test matrix since 0.3.20 — and installs from PyPI are unaffected, which still support 3.11 and newer.
+
 ## [0.3.20]
 
 - Support Python 3.14, now covered by the CI test matrix alongside 3.11, 3.12, and 3.13.
