@@ -152,7 +152,9 @@ def get_team_roles(
 
 @team_roles_app.command("put")
 def put_team_roles(
-    file: Annotated[Path, typer.Option("--file", "-f", help="JSON or YAML file with the body (use - for stdin).")] = ...,
+    file: Annotated[
+        Path, typer.Option("--file", "-f", help="JSON or YAML file with the body (use - for stdin).")
+    ] = ...,
 ) -> None:
     """Set the team roles configuration.
 

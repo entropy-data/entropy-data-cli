@@ -247,9 +247,7 @@ def test_semantics_search_substring(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
     responses.add(responses.GET, f"{NS_URL}/main/concepts", json=CONCEPTS_FOR_SEARCH, status=200)
-    result = runner.invoke(
-        app, ["semantics", "search", "main", "customer", "--output", "json"]
-    )
+    result = runner.invoke(app, ["semantics", "search", "main", "customer", "--output", "json"])
     assert result.exit_code == 0
     data = json.loads(result.output)
     ids = {c["id"] for c in data}

@@ -523,7 +523,7 @@ def test_apply_semantics_legacy_namespace_dir_still_applied(monkeypatch, tmp_pat
     (src / "semantic-ontology" / "core.yaml").write_text(ontology)
 
     puts = []
-    responses.add_callback(responses.PUT, f"{NS}/core", callback=lambda r: (puts.append(r.url) or (200, {}, "")))
+    responses.add_callback(responses.PUT, f"{NS}/core", callback=lambda r: puts.append(r.url) or (200, {}, ""))
     responses.add(responses.PUT, f"{NS}/core/ontology.yaml", status=200)
 
     result = runner.invoke(app, ["apply", "dir", str(src), "--include", "semantic-namespaces,semantic-ontology"])
@@ -547,9 +547,7 @@ def test_apply_semantics_prune_keeps_namespaces_from_ontology_filenames(monkeypa
     # Target has core (kept, present in the import) and legacy (absent -> pruned).
     responses.add(responses.GET, NS, json=[{"namespace": "core"}, {"namespace": "legacy"}], status=200)
     deletes = []
-    responses.add_callback(
-        responses.DELETE, f"{NS}/legacy", callback=lambda r: (deletes.append(r.url) or (200, {}, ""))
-    )
+    responses.add_callback(responses.DELETE, f"{NS}/legacy", callback=lambda r: deletes.append(r.url) or (200, {}, ""))
 
     result = runner.invoke(
         app,

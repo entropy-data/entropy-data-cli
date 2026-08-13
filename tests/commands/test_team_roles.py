@@ -73,10 +73,7 @@ def test_put_custom_from_yaml(monkeypatch, tmp_path):
     responses.add(responses.PUT, URL, json=CUSTOM, status=200)
     body_file = tmp_path / "body.yaml"
     body_file.write_text(
-        "mode: custom-team-roles\n"
-        "team-roles:\n"
-        "  - name: Approver\n"
-        "    permissions: [ACCESS_APPROVE]\n"
+        "mode: custom-team-roles\nteam-roles:\n  - name: Approver\n    permissions: [ACCESS_APPROVE]\n"
     )
     result = runner.invoke(app, ["settings", "team-roles", "put", "--file", str(body_file)])
     assert result.exit_code == 0, result.output

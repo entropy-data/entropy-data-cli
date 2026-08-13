@@ -150,7 +150,6 @@ def test_integrations_get_name_ambiguous(monkeypatch, tmp_path):
     assert "demo-snowflake-2" in result.output
 
 
-
 @responses.activate
 def test_integrations_runs_lists_history(monkeypatch, tmp_path):
     _setup(monkeypatch, tmp_path)
