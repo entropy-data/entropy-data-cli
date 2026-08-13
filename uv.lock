@@ -132,7 +132,7 @@ wheels = [
 
 [[package]]
 name = "entropy-data"
-version = "0.3.19"
+version = "0.3.20"
 source = { editable = "." }
 dependencies = [
     { name = "pydantic" },
@@ -163,7 +163,7 @@ requires-dist = [
     { name = "requests", specifier = ">=2.33,<3.0" },
     { name = "responses", marker = "extra == 'dev'", specifier = ">=0.25" },
     { name = "rich", specifier = ">=14.0,<16.0" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8,<0.16" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8,<0.17" },
     { name = "tomli-w", specifier = ">=1.0,<2.0" },
     { name = "truststore", specifier = ">=0.10,<1.0" },
     { name = "typer", specifier = ">=0.15.0,<1.0" },

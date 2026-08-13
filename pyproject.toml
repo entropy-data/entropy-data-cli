@@ -49,7 +49,9 @@ entropy-data = "entropy_data.cli:app"
 dev = [
     "pytest>=9.0.3",
     "responses>=0.25",
-    # 0.16 changes the default lint rule set and the formatter style; adopting it is a separate migration.
+    # 0.16 is allowed now: the lint rules it would otherwise widen are stated
+    # explicitly under [tool.ruff.lint]. Its formatter style is still unadopted
+    # — .pre-commit-config.yaml pins ruff-pre-commit separately.
     "ruff>=0.8,<0.17",
     "pre-commit>=3.7",
 ]
