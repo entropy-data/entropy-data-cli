@@ -1,7 +1,7 @@
 # Named stage rather than an inline `COPY --from=ghcr.io/astral-sh/uv:...`:
 # Dependabot's Docker parser only reads FROM lines, so an inline image
 # reference is never updated.
-FROM ghcr.io/astral-sh/uv:0.12.3 AS uv
+FROM ghcr.io/astral-sh/uv:0.12.9 AS uv
 
 FROM python:3.14-slim
 
