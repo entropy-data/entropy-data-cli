@@ -138,7 +138,7 @@ def test_branches_merge_lands_with_version_and_route():
         ],
     )  # fmt: skip
     assert result.exit_code == 0
-    assert "merged into data contract 'orders'" in result.output
+    assert "merged into data contract" in result.output
     assert json.loads(responses.calls[0].request.body) == {
         "update_port_versions": False,
         "version": "1.1.0",

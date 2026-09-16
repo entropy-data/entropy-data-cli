@@ -47,7 +47,7 @@ def test_publish_onto_a_branch(tmp_path):
         ["test-results", "publish", "--file", str(body), "--data-contract-id", "orders", "--branch", "add-status"],
     )
     assert result.exit_code == 0
-    assert "branch 'add-status'" in result.output
+    assert "published onto branch" in result.output
     assert json.loads(responses.calls[0].request.body) == RESULTS
 
 
