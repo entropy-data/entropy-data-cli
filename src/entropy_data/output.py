@@ -62,6 +62,15 @@ RESOURCE_COLUMNS: dict[str, list[tuple[str, str]]] = {
     "policies": [("ID", "id"), ("Name", "name"), ("Status", "status")],
     "example-data": [("ID", "id"), ("Data Product", "dataProductId"), ("Schema", "schemaName")],
     "test-results": [("ID", "id"), ("Data Contract", "dataContractId"), ("Result", "result")],
+    "datacontract-branches": [
+        ("Name", "name"),
+        ("Version", "version"),
+        ("Main", "target_version"),
+        ("Version state", "version_state"),
+        ("Changes", "change_count"),
+        ("Conflicted", "conflicted"),
+    ],
+    "datacontract-branch-changes": [("Element", "key"), ("Op", "op"), ("Impact", "impact")],
     "events": [("ID", "id"), ("Type", "type"), ("Subject", "subject"), ("Time", "time")],
     "costs": [("ID", "id"), ("Data Product", "dataProductId"), ("Amount", "amount"), ("Currency", "currency")],
     "assets": [
