@@ -31,7 +31,9 @@ def list_test_results(
     from entropy_data.cli import get_client, get_output_format, handle_error
 
     if branch and not data_contract_id:
-        raise typer.BadParameter("--branch needs --data-contract-id.", param_hint="--branch")
+        raise typer.BadParameter(
+            "--branch narrows the runs of one data contract; name it with --data-contract-id.", param_hint="--branch"
+        )
     fmt = output or get_output_format()
     try:
         client = get_client()

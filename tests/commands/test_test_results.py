@@ -73,4 +73,4 @@ def test_list_narrows_to_a_branch():
 def test_list_branch_needs_the_data_contract():
     result = runner.invoke(app, ["test-results", "list", "--branch", "add-status"])
     assert result.exit_code != 0
-    assert "needs --data-contract-id" in result.output
+    assert "narrows the runs of one data contract" in result.output
