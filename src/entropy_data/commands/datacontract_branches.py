@@ -70,7 +70,8 @@ def create_branch(
         client = get_client()
         response = client.session.put(f"{client.base_url}/api/{branch_path(id, branch)}", timeout=REQUEST_TIMEOUT)
         _raise_for_status(response)
-        print_success(f"Branch '{branch}' of data contract '{id}' created.")
+        if fmt == OutputFormat.table:
+            print_success(f"Branch '{branch}' of data contract '{id}' created.")
         print_resource(response.json(), RESOURCE_TYPE, fmt)
     except Exception as e:
         handle_error(e)
@@ -196,7 +197,8 @@ def rebase_branch(
     try:
         client = get_client()
         data = client.post_action_json(branches_path(id), branch, "rebase")
-        print_success(f"Branch '{branch}' updated from data contract '{id}'.")
+        if fmt == OutputFormat.table:
+            print_success(f"Branch '{branch}' updated from data contract '{id}'.")
         print_resource(data, RESOURCE_TYPE, fmt)
     except Exception as e:
         handle_error(e)
@@ -253,7 +255,10 @@ def merge_branch(
             return
         # 200: the branch stays open, a pull/merge request was opened from it.
         data = response.json()
-        print_success(f"Request opened for branch '{branch}'. The branch stays open.")
-        print_data(data, fmt)
+        if fmt == OutputFormat.table:
+            print_success(f"Request opened for branch '{branch}'. The branch stays open.")
+            print_data(data, OutputFormat.json)
+        else:
+            print_data(data, fmt)
     except Exception as e:
         handle_error(e)

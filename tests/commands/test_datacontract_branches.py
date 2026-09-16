@@ -162,9 +162,16 @@ def test_branches_merge_opens_a_request():
         app, ["datacontracts", "branches", "merge", "orders", "add-status", "--route", "pull_request", "-o", "json"]
     )
     assert result.exit_code == 0
+    # A machine format carries the request alone, so it can be piped.
+    assert json.loads(result.output)["url"] == "https://github.com/test/repo/pull/7"
+    assert json.loads(responses.calls[0].request.body) == {"update_port_versions": True, "route": "pull_request"}
+
+    result = runner.invoke(
+        app, ["datacontracts", "branches", "merge", "orders", "add-status", "--route", "pull_request"]
+    )
+    assert result.exit_code == 0
     assert "The branch stays open" in result.output
     assert "https://github.com/test/repo/pull/7" in result.output
-    assert json.loads(responses.calls[0].request.body) == {"update_port_versions": True, "route": "pull_request"}
 
 
 def test_branches_merge_rejects_an_unknown_route():
