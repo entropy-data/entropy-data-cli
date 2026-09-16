@@ -212,7 +212,7 @@ def merge_branch(
         Optional[str],
         typer.Option(
             "--version",
-            help="The version the data contract lands with. Needed when the branch's own version is not above main's.",
+            help="The version the data contract lands with. Needed when the branch's own version is not above main's; pass main's version to keep it.",
         ),
     ] = None,
     route: Annotated[
@@ -226,9 +226,9 @@ def merge_branch(
         bool,
         typer.Option(
             "--update-ports/--no-update-ports",
-            help="Set the landed version on the output ports that implement the data contract.",
+            help="Set the landed version on the output ports that implement the data contract. Off by default: the ports belong to other data products.",
         ),
-    ] = True,
+    ] = False,
     output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
 ) -> None:
     """Merge the branch: land it on the data contract, or open a pull request from it."""

@@ -134,13 +134,13 @@ def test_branches_merge_lands_with_version_and_route():
         app,
         [
             "datacontracts", "branches", "merge", "orders", "add-status",
-            "--version", "1.1.0", "--route", "land", "--no-update-ports",
+            "--version", "1.1.0", "--route", "land", "--update-ports",
         ],
     )  # fmt: skip
     assert result.exit_code == 0
     assert "merged into data contract" in result.output
     assert json.loads(responses.calls[0].request.body) == {
-        "update_port_versions": False,
+        "update_port_versions": True,
         "version": "1.1.0",
         "route": "land",
     }
@@ -164,7 +164,7 @@ def test_branches_merge_opens_a_request():
     assert result.exit_code == 0
     # A machine format carries the request alone, so it can be piped.
     assert json.loads(result.output)["url"] == "https://github.com/test/repo/pull/7"
-    assert json.loads(responses.calls[0].request.body) == {"update_port_versions": True, "route": "pull_request"}
+    assert json.loads(responses.calls[0].request.body) == {"update_port_versions": False, "route": "pull_request"}
 
     result = runner.invoke(
         app, ["datacontracts", "branches", "merge", "orders", "add-status", "--route", "pull_request"]

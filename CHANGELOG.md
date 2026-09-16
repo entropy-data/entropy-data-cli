@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-- Add `entropy-data datacontracts branches` to work on branches of a data contract: `list`, `create`, `get`, `put` (replace the branch's ODCS document from a file), `yaml`, `changes` (what the branch changes against main, element by element), `rebase`, `merge` and `delete`. `merge` takes `--version` for the version the data contract lands with, `--route land|pull_request` to land here or open a pull/merge request from the branch where the data contract's git branch allows either, and `--no-update-ports` to leave the implementing output ports' versions alone. Requires branches on the instance (entropy-data#1697).
+- Add `entropy-data datacontracts branches` to work on branches of a data contract: `list`, `create`, `get`, `put` (replace the branch's ODCS document from a file), `yaml`, `changes` (what the branch changes against main, element by element), `rebase`, `merge` and `delete`. `merge` takes `--version` for the version the data contract lands with (main's own version keeps it), `--route land|pull_request` to land here or open a pull/merge request from the branch where the data contract's git branch allows either, and `--update-ports` to set the landed version on the implementing output ports as well. Requires branches on the instance (entropy-data#1697).
 - `datacontracts test`, `datacontracts yaml` and `datacontracts generate` take `--branch` to run against a branch of the data contract instead of the data contract itself.
 - `test-results publish` takes `--data-contract-id` and `--branch` to publish the results onto a branch of the data contract; `test-results list --branch` narrows to the runs on one branch.
 
