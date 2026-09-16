@@ -11,6 +11,17 @@ from entropy_data.util import read_body
 datacontracts_app = typer.Typer(no_args_is_help=True)
 RESOURCE_PATH = "datacontracts"
 RESOURCE_TYPE = "datacontracts"
+BRANCH_HELP = "Work on this branch of the data contract instead of the data contract itself."
+
+
+def _branch_action(branch: Optional[str], action: str) -> str:
+    """The action path, under the branch where one is named."""
+    if branch is None:
+        return action
+    from entropy_data.client import _validate_resource_id
+
+    _validate_resource_id(branch)
+    return f"branches/{branch}/{action}"
 
 
 @datacontracts_app.command("list")
@@ -82,6 +93,7 @@ def put_datacontract(
 def test_datacontract(
     id: Annotated[str, typer.Argument(help="Data contract ID.")],
     server: Annotated[Optional[str], typer.Option("--server", "-s", help="Server name to test against.")] = None,
+    branch: Annotated[Optional[str], typer.Option("--branch", "-b", help=BRANCH_HELP)] = None,
 ) -> None:
     """Run a data contract test."""
     import json
@@ -94,7 +106,7 @@ def test_datacontract(
         if server:
             params["server"] = server
         # Data contract tests can take a long time (up to 30 minutes)
-        data = client.post_action_json(RESOURCE_PATH, id, "test", params=params, timeout=1800)
+        data = client.post_action_json(RESOURCE_PATH, id, _branch_action(branch, "test"), params=params, timeout=1800)
         print(json.dumps(data, indent=2))
     except Exception as e:
         handle_error(e)
@@ -133,6 +145,7 @@ def yaml_datacontract(
         Optional[Path],
         typer.Option("--file", "-f", help="Write YAML to this file. Defaults to stdout."),
     ] = None,
+    branch: Annotated[Optional[str], typer.Option("--branch", "-b", help=BRANCH_HELP)] = None,
 ) -> None:
     """Get a data contract as ODCS YAML."""
     from entropy_data.cli import get_client, handle_error
@@ -142,7 +155,7 @@ def yaml_datacontract(
         client = get_client()
         _validate_resource_id(id)
         response = client.session.get(
-            f"{client.base_url}/api/datacontracts/{id}/datacontract.yaml",
+            f"{client.base_url}/api/datacontracts/{id}/{_branch_action(branch, 'datacontract.yaml')}",
             headers={"Accept": "application/yaml"},
             timeout=REQUEST_TIMEOUT,
         )
@@ -178,6 +191,7 @@ def generate_datacontract(
             help="Directory to write each generated file into. If omitted, prints the JSON response.",
         ),
     ] = None,
+    branch: Annotated[Optional[str], typer.Option("--branch", "-b", help=BRANCH_HELP)] = None,
 ) -> None:
     """Generate code artifacts from an ODCS data contract."""
     import json
@@ -199,7 +213,7 @@ def generate_datacontract(
     try:
         client = get_client()
         # Generation may invoke an LLM for `custom`, so allow extra time.
-        data = client.post_action_json(RESOURCE_PATH, id, "generate", body=body, timeout=300)
+        data = client.post_action_json(RESOURCE_PATH, id, _branch_action(branch, "generate"), body=body, timeout=300)
         if out_dir is None:
             print(json.dumps(data, indent=2))
             return
@@ -296,10 +310,16 @@ def _build_git_import_body(
     return body
 
 
+from entropy_data.commands.datacontract_branches import branches_app  # noqa: E402
 from entropy_data.commands.gitconnections import make_gitconnection_app  # noqa: E402
 
 datacontracts_app.add_typer(
     make_gitconnection_app(RESOURCE_PATH, "Data contract"),
     name="gitconnection",
     help="Manage the git connection.",
+)
+datacontracts_app.add_typer(
+    branches_app,
+    name="branches",
+    help="Branches of a data contract: cut, author, review and merge a draft.",
 )

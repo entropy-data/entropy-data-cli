@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+- Add `entropy-data datacontracts branches` to work on branches of a data contract: `list`, `create`, `get`, `put` (replace the branch's ODCS document from a file), `yaml`, `changes` (what the branch changes against main, element by element), `rebase`, `merge` and `delete`. `merge` takes `--version` for the version the data contract lands with, `--route land|pull_request` to land here or open a pull/merge request from the branch where the data contract's git branch allows either, and `--no-update-ports` to leave the implementing output ports' versions alone. Requires branches on the instance (entropy-data#1697).
+- `datacontracts test`, `datacontracts yaml` and `datacontracts generate` take `--branch` to run against a branch of the data contract instead of the data contract itself.
+- `test-results publish` takes `--data-contract-id` and `--branch` to publish the results onto a branch of the data contract; `test-results list --branch` narrows to the runs on one branch.
+
 ## [0.3.21]
 
 - The published Docker image now runs on Python 3.14 (`python:3.14-slim`), up from 3.12. The CLI itself is unchanged — 3.14 has been in the CI test matrix since 0.3.20 — and installs from PyPI are unaffected, which still support 3.11 and newer.

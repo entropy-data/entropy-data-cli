@@ -78,6 +78,12 @@ entropy-data access approve 640864de-83d4-4619-afba-ccea8037ed3a
 
 # Search across all resources
 entropy-data search query "customer orders"
+
+# Draft a change to a data contract on a branch, test it, and land it
+entropy-data datacontracts branches create orders add-status
+entropy-data datacontracts branches put orders add-status --file orders.yaml
+entropy-data datacontracts test orders --branch add-status
+entropy-data datacontracts branches merge orders add-status --version 1.1.0
 ```
 
 ## Commands
@@ -88,6 +94,7 @@ entropy-data [--version] [--connection NAME] [--output table|json|yaml] [--debug
   connection      list | get | add | remove | set-default | test
   dataproducts    list | get | put | delete | import-from-git | star | unstar | star-status | stargazers | gitconnection ...
   datacontracts   list | get | put | test | delete | yaml | generate | import-from-git | gitconnection ...
+                  branches list | create | get | put | yaml | changes | rebase | merge | delete
   access          list | get | put | delete | approve | reject | cancel | request
   teams           list | get | put | delete | git-credentials ... | notifications ...
   sourcesystems   list | get | put | delete
