@@ -10,7 +10,8 @@ The canonical dependency order is:
     teams -> tags -> definitions -> policies -> sourcesystems ->
     certifications -> classification-schemes -> assets ->
     datacontracts -> dataproducts -> example-data -> access ->
-    semantic-namespaces -> semantic-ontology -> organization-features
+    semantic-namespaces -> semantic-ontology -> email-templates ->
+    organization-features
 
 Pruning walks this list in reverse so dependents are removed before their
 dependencies.
@@ -123,6 +124,9 @@ RESOURCE_ORDER: list[Resource] = [
         parent="semantic-namespaces",
         document=True,
     ),
+    # Org-level singleton: every email type with its effective wording per language. The app only
+    # stores wording that differs from the built-in text, so the full document round-trips cleanly.
+    Resource("email-templates", "settings/email-templates", singleton=True),
     # Org-level singleton. Applied last: it may carry a restrictive managedTagsPolicy
     # that would otherwise reject tag/asset imports running earlier in the same sync.
     # Requires the app-side GET/PUT /api/organization/features endpoint (entropy-data#1521).

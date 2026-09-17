@@ -60,6 +60,7 @@ def test_new_resources_present_in_order():
         "access",
         "semantic-namespaces",
         "semantic-ontology",
+        "email-templates",
         "organization-features",
     ]
 
@@ -643,3 +644,50 @@ def test_prune_skips_singleton(monkeypatch, tmp_path):
     # a stray call would raise ConnectionError and fail the run.
     result = runner.invoke(app, ["apply", "dir", str(src), "--include", "organization-features", "--prune", "--yes"])
     assert result.exit_code == 0, result.output
+
+
+# --- email templates (singleton) ------------------------------------------------
+
+EMAIL_TEMPLATES = f"{BASE_URL}/api/settings/email-templates"
+
+
+def test_email_templates_is_singleton_before_organization_features():
+    names = [r.name for r in RESOURCE_ORDER]
+    by_name = {r.name: r for r in RESOURCE_ORDER}
+    assert by_name["email-templates"].singleton is True
+    assert by_name["email-templates"].api_path == "settings/email-templates"
+    assert names.index("email-templates") < names.index("organization-features")
+
+
+@responses.activate
+def test_export_and_apply_email_templates_singleton(monkeypatch, tmp_path):
+    monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
+    monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
+
+    document = {
+        "templates": {
+            "access-rejected": {
+                "enabled": False,
+                "languages": {"en": {"subject": "Rejected", "body": "Sorry.", "customized": True}},
+            }
+        }
+    }
+    responses.add(responses.GET, EMAIL_TEMPLATES, json=document, status=200)
+
+    dest = tmp_path / "export"
+    result = runner.invoke(app, ["export", "dir", str(dest), "--include", "email-templates"])
+    assert result.exit_code == 0, result.output
+    assert yaml.safe_load((dest / "email-templates" / "email-templates.yaml").read_text()) == document
+
+    captured = {}
+
+    def _capture(request):
+        import json as _json
+
+        captured["body"] = _json.loads(request.body)
+        return (200, {}, "")
+
+    responses.add_callback(responses.PUT, EMAIL_TEMPLATES, callback=_capture)
+    result = runner.invoke(app, ["apply", "dir", str(dest), "--include", "email-templates"])
+    assert result.exit_code == 0, result.output
+    assert captured["body"] == document

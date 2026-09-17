@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Add `entropy-data settings email-templates get|put` to manage the organization's email templates as one document: every email type with its enabled state and the effective subject and body per language, each marked as built-in or customized. `put` replaces the whole setup — omitted types and languages revert to the built-in email, and wording identical to the built-in text stays uncustomized, so a `get` written back unchanged customizes nothing. Requires `GET`/`PUT /api/settings/email-templates` on the instance (entropy-data#1705).
+- `export`, `apply`, `import`, and `sync` handle `email-templates` as an organization-level singleton, applied before `organization-features`.
 - Add `entropy-data datacontracts branches` to work on branches of a data contract: `list`, `create`, `get`, `put` (replace the branch's ODCS document from a file), `yaml`, `changes` (what the branch changes against main, element by element), `rebase`, `merge` and `delete`. `merge` takes `--version` for the version the data contract lands with (main's own version keeps it), `--route land|pull_request` to land here or open a pull/merge request from the branch where the data contract's git branch allows either, and `--update-ports` to set the landed version on the implementing output ports as well. Requires branches on the instance (entropy-data#1697).
 - `datacontracts test`, `datacontracts yaml` and `datacontracts generate` take `--branch` to run against a branch of the data contract instead of the data contract itself.
 - `test-results publish` takes `--data-contract-id` and `--branch` to publish the results onto a branch of the data contract; `test-results list --branch` narrows to the runs on one branch.

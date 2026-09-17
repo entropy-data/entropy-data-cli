@@ -73,6 +73,10 @@ entropy-data teams put marketing --file team.yaml
 entropy-data settings team-roles get
 entropy-data settings team-roles put --file team-roles.yaml
 
+# Dump the email templates, edit the wording, and write them back
+entropy-data settings email-templates get --output yaml > email-templates.yaml
+entropy-data settings email-templates put --file email-templates.yaml
+
 # Approve an access agreement
 entropy-data access approve 640864de-83d4-4619-afba-ccea8037ed3a
 
@@ -111,7 +115,7 @@ entropy-data [--version] [--connection NAME] [--output table|json|yaml] [--debug
   connectors      list | get | put | delete
   integrations    list | get | runs | runs-get | runs-latest | run | cancel
   organization    get | members ... | git-credentials ...
-  settings        get-customization | put-customization | get-scim-mapping | put-scim-mapping | team-roles ...
+  settings        get-customization | put-customization | get-scim-mapping | put-scim-mapping | team-roles ... | email-templates ...
   events          poll
   lineage         list | submit | delete
   schemas         get
@@ -138,7 +142,7 @@ idempotent PUT-by-id, so runs converge and are safe to repeat.
 **Supported resources** (in dependency order): `teams`, `tags`, `definitions`, `policies`,
 `sourcesystems`, `certifications`, `classification-schemes`, `assets`, `datacontracts`,
 `dataproducts`, `example-data`, `access`, `semantic-namespaces`, `semantic-ontology`,
-`organization-features`.
+`email-templates`, `organization-features`.
 
 **Not synced:** users & team members, API keys, git credentials, integration and connector
 credentials, usage, costs, test results, events, and lineage (per-instance identity,

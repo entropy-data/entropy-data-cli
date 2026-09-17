@@ -13,6 +13,7 @@ from entropy_data.util import read_body
 
 settings_app = typer.Typer(no_args_is_help=True)
 team_roles_app = typer.Typer(no_args_is_help=True)
+email_templates_app = typer.Typer(no_args_is_help=True)
 
 
 @settings_app.command("get-customization")
@@ -184,4 +185,89 @@ settings_app.add_typer(
     team_roles_app,
     name="team-roles",
     help="Get or set the organization's team roles configuration.",
+)
+
+
+@email_templates_app.command("get")
+def get_email_templates(
+    output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
+) -> None:
+    """Show the organization's email templates.
+
+    Every email type with its enabled state and the effective subject and body per
+    language, each marked as built-in or customized. `--output yaml` prints the
+    document `put` takes.
+    """
+    from entropy_data.cli import get_client, get_output_format, handle_error
+    from entropy_data.client import REQUEST_TIMEOUT, _raise_for_status
+
+    fmt = output or get_output_format()
+    try:
+        client = get_client()
+        response = client.session.get(f"{client.base_url}/api/settings/email-templates", timeout=REQUEST_TIMEOUT)
+        _raise_for_status(response)
+        data = response.json()
+        if fmt != OutputFormat.table:
+            print_data(data, fmt)
+            return
+
+        table = Table()
+        table.add_column("type", style="cyan")
+        table.add_column("enabled")
+        table.add_column("customized")
+        for name, template in (data.get("templates") or {}).items():
+            languages = template.get("languages") or {}
+            customized = [lang for lang, content in languages.items() if content.get("customized")]
+            table.add_row(
+                name,
+                "yes" if template.get("enabled", True) else "no",
+                ", ".join(customized) or "-",
+            )
+        console.print(table)
+    except Exception as e:
+        handle_error(e)
+
+
+@email_templates_app.command("put")
+def put_email_templates(
+    file: Annotated[
+        Path, typer.Option("--file", "-f", help="JSON or YAML file with the body (use - for stdin).")
+    ] = ...,
+) -> None:
+    """Set the organization's email templates.
+
+    The body is the document `get --output yaml` prints: `templates.<type>.enabled`
+    and `templates.<type>.languages.<lang>.{subject, body}`. It replaces the whole
+    setup — types and languages not in the file revert to the built-in email, and
+    wording identical to the built-in text stays uncustomized, so a `get` written
+    back unchanged customizes nothing.
+    """
+    from entropy_data.cli import get_client, handle_error
+    from entropy_data.client import REQUEST_TIMEOUT, _raise_for_status
+
+    try:
+        body = read_body(file)
+        client = get_client()
+        response = client.session.put(
+            f"{client.base_url}/api/settings/email-templates",
+            json=body,
+            timeout=REQUEST_TIMEOUT,
+        )
+        _raise_for_status(response)
+        templates = response.json().get("templates") or {}
+        customized = sum(
+            1
+            for template in templates.values()
+            if any(content.get("customized") for content in (template.get("languages") or {}).values())
+        )
+        disabled = sum(1 for template in templates.values() if template.get("enabled") is False)
+        print_success(f"Email templates saved ({customized} customized, {disabled} disabled).")
+    except Exception as e:
+        handle_error(e)
+
+
+settings_app.add_typer(
+    email_templates_app,
+    name="email-templates",
+    help="Get or set the organization's email templates.",
 )
