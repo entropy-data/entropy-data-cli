@@ -149,7 +149,7 @@ def yaml_datacontract(
 ) -> None:
     """Get a data contract as ODCS YAML."""
     from entropy_data.cli import get_client, handle_error
-    from entropy_data.client import REQUEST_TIMEOUT, _raise_for_status, _validate_resource_id
+    from entropy_data.client import _raise_for_status, _validate_resource_id
 
     try:
         client = get_client()
@@ -157,7 +157,7 @@ def yaml_datacontract(
         response = client.session.get(
             f"{client.base_url}/api/datacontracts/{id}/{_branch_action(branch, 'datacontract.yaml')}",
             headers={"Accept": "application/yaml"},
-            timeout=REQUEST_TIMEOUT,
+            timeout=client.timeout,
         )
         _raise_for_status(response)
         if out_file is not None:

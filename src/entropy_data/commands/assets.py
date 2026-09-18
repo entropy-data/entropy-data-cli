@@ -96,7 +96,7 @@ def list_asset_tags(
 ) -> None:
     """List tags assigned to an asset."""
     from entropy_data.cli import get_client, get_output_format, handle_error
-    from entropy_data.client import REQUEST_TIMEOUT, _raise_for_status, _validate_resource_id
+    from entropy_data.client import _raise_for_status, _validate_resource_id
 
     fmt = output or get_output_format()
     try:
@@ -104,7 +104,7 @@ def list_asset_tags(
         _validate_resource_id(asset_id)
         response = client.session.get(
             f"{client.base_url}/api/assets/{asset_id}/assigned-tags",
-            timeout=REQUEST_TIMEOUT,
+            timeout=client.timeout,
         )
         _raise_for_status(response)
         data = response.json()
@@ -124,7 +124,7 @@ def add_asset_tag(
 ) -> None:
     """Assign a tag to an asset."""
     from entropy_data.cli import get_client, handle_error
-    from entropy_data.client import REQUEST_TIMEOUT, _raise_for_status, _validate_resource_id
+    from entropy_data.client import _raise_for_status, _validate_resource_id
 
     try:
         client = get_client()
@@ -133,7 +133,7 @@ def add_asset_tag(
         # path-traversal-rejecting validator; the server validates anyway.
         response = client.session.put(
             f"{client.base_url}/api/assets/{asset_id}/assigned-tags/{tag_id}",
-            timeout=REQUEST_TIMEOUT,
+            timeout=client.timeout,
         )
         _raise_for_status(response)
         print_success(f"Tag '{tag_id}' assigned to asset '{asset_id}'.")
@@ -148,14 +148,14 @@ def remove_asset_tag(
 ) -> None:
     """Unassign a tag from an asset."""
     from entropy_data.cli import get_client, handle_error
-    from entropy_data.client import REQUEST_TIMEOUT, _raise_for_status, _validate_resource_id
+    from entropy_data.client import _raise_for_status, _validate_resource_id
 
     try:
         client = get_client()
         _validate_resource_id(asset_id)
         response = client.session.delete(
             f"{client.base_url}/api/assets/{asset_id}/assigned-tags/{tag_id}",
-            timeout=REQUEST_TIMEOUT,
+            timeout=client.timeout,
         )
         _raise_for_status(response)
         print_success(f"Tag '{tag_id}' removed from asset '{asset_id}'.")

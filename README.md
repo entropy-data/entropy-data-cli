@@ -99,7 +99,7 @@ entropy-data semantics branches merge sales add-credit-limit
 ## Commands
 
 ```
-entropy-data [--version] [--connection NAME] [--output table|json|yaml] [--debug]
+entropy-data [--version] [--connection NAME] [--output table|json|yaml] [--debug] [--timeout SECONDS]
 
   connection      list | get | add | remove | set-default | test
   dataproducts    list | get | put | delete | import-from-git | star | unstar | star-status | stargazers | gitconnection ...
@@ -273,6 +273,14 @@ export ENTROPY_DATA_SYSTEM_TRUSTSTORE=1
 ```
 
 This keeps certificate verification on while trusting the corporate root CA, and applies to every command that makes HTTPS requests.
+
+### Timeouts
+
+Each API request waits 30 seconds for a response by default (some commands wait longer, e.g. `datacontracts test`). Large documents, such as a semantic ontology with a thousand concepts, can take the server longer. Use the global `--timeout` option, or `ENTROPY_DATA_TIMEOUT`, to wait longer; it applies to every request of the invocation:
+
+```bash
+entropy-data --timeout 120 semantics branches put sales add-credit-limit --file ontology.yaml
+```
 
 ## Development
 

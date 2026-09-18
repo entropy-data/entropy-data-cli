@@ -19,6 +19,7 @@ _cli_api_key: str | None = None
 _cli_host: str | None = None
 _output_format: OutputFormat = OutputFormat.table
 _debug: bool = False
+_timeout: int | None = None
 
 error_console = Console(stderr=True)
 
@@ -30,7 +31,7 @@ def get_client() -> EntropyDataClient:
         cli_api_key=_cli_api_key,
         cli_host=_cli_host,
     )
-    return EntropyDataClient(config)
+    return EntropyDataClient(config, timeout=_timeout)
 
 
 def client_for_connection(name: str) -> EntropyDataClient:
@@ -40,7 +41,7 @@ def client_for_connection(name: str) -> EntropyDataClient:
     target the primary connection and must not bleed into a second endpoint.
     """
     config = resolve_connection(connection_name=name)
-    return EntropyDataClient(config)
+    return EntropyDataClient(config, timeout=_timeout)
 
 
 def get_output_format() -> OutputFormat:
@@ -99,6 +100,16 @@ def main(
     host: Annotated[Optional[str], typer.Option("--host", help="API host URL (overrides config and env).")] = None,
     output: Annotated[OutputFormat, typer.Option("--output", "-o", help="Output format.")] = OutputFormat.table,
     debug: Annotated[bool, typer.Option("--debug", help="Enable debug output.")] = False,
+    timeout: Annotated[
+        Optional[int],
+        typer.Option(
+            "--timeout",
+            min=1,
+            help="Seconds to wait for each API response (default 30, or longer where a command needs it, "
+            "e.g. datacontracts test). Raise it for large documents such as a whole semantic ontology.",
+            envvar="ENTROPY_DATA_TIMEOUT",
+        ),
+    ] = None,
     system_truststore: Annotated[
         bool,
         typer.Option(
@@ -110,13 +121,14 @@ def main(
     ] = False,
 ) -> None:
     """Entropy Data CLI — manage your data platform from the command line."""
-    global _connection_name, _cli_api_key, _cli_host, _output_format, _debug
+    global _connection_name, _cli_api_key, _cli_host, _output_format, _debug, _timeout
     load_dotenv()
     _connection_name = connection
     _cli_api_key = api_key
     _cli_host = host
     _output_format = output
     _debug = debug
+    _timeout = timeout
     if debug:
         logging.basicConfig(level=logging.DEBUG, stream=sys.stderr)
     if system_truststore:

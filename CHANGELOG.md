@@ -1,5 +1,9 @@
 # Changelog
 
+## [Unreleased]
+
+- Add the global `--timeout <seconds>` option (or `ENTROPY_DATA_TIMEOUT`) to set how long every API request waits for a response. The default stays 30 seconds, and commands that already wait longer by themselves (`datacontracts test`, `datacontracts generate`) keep doing so unless `--timeout` is given. Replacing a branch with a large semantic ontology can take the server more than 30 seconds.
+
 ## [0.3.23]
 
 - Add `entropy-data semantics branches` to work on branches of a semantic namespace: `list`, `create`, `get`, `put` (replace the branch with an OSI ontology YAML document, sent as written), `yaml`, `changes` (what the branch changes against the namespace, one entry per concept), `rebase`, `merge` and `delete`. `merge` lands the branch, or — where the namespace's git branch only takes reviewed changes — prints the pull/merge request opened from it, leaving the branch open. Requires semantic branches on the instance (entropy-data#1665).

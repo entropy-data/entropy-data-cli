@@ -369,7 +369,7 @@ def _create_credential(
     bitbucket_username: Optional[str],
 ) -> None:
     from entropy_data.cli import get_client, handle_error
-    from entropy_data.client import REQUEST_TIMEOUT, _raise_for_status
+    from entropy_data.client import _raise_for_status
 
     if git_connection_type and git_connection_type not in GIT_CONNECTION_TYPES:
         raise typer.BadParameter(
@@ -394,7 +394,7 @@ def _create_credential(
         response = client.session.post(
             f"{client.base_url}/api/{_base_path(scope, team_id)}",
             json=body,
-            timeout=REQUEST_TIMEOUT,
+            timeout=client.timeout,
         )
         _raise_for_status(response)
         data = response.json()

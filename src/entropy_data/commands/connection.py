@@ -24,13 +24,13 @@ def _fetch_vanity_url(api_key: str, host: str) -> str | None:
     Returns None on any failure (older server, network error, etc.) so callers
     can fall back to None instead of failing the whole `connection add`.
     """
-    from entropy_data.client import REQUEST_TIMEOUT, EntropyDataClient
+    from entropy_data.client import EntropyDataClient
 
     try:
         client = EntropyDataClient(cfg.ConnectionConfig(api_key=api_key, host=host))
         response = client.session.get(
             f"{client.base_url}/api/organization/settings",
-            timeout=REQUEST_TIMEOUT,
+            timeout=client.timeout,
         )
         if response.ok:
             return response.json().get("vanityUrl")
