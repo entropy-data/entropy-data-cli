@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.3.23]
+
+- Add `entropy-data semantics branches` to work on branches of a semantic namespace: `list`, `create`, `get`, `put` (replace the branch with an OSI ontology YAML document, sent as written), `yaml`, `changes` (what the branch changes against the namespace, one entry per concept), `rebase`, `merge` and `delete`. `merge` lands the branch, or — where the namespace's git branch only takes reviewed changes — prints the pull/merge request opened from it, leaving the branch open. Requires semantic branches on the instance (entropy-data#1665).
+
 ## [0.3.22]
 
 - Add `entropy-data settings email-templates get|put` to manage the organization's email templates as one document: every email type with its enabled state and the effective subject and body per language, each marked as built-in or customized. `put` replaces the whole setup — omitted types and languages revert to the built-in email, and wording identical to the built-in text stays uncustomized, so a `get` written back unchanged customizes nothing. Requires `GET`/`PUT /api/settings/email-templates` on the instance (entropy-data#1705).
