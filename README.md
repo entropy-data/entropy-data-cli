@@ -88,6 +88,12 @@ entropy-data datacontracts branches create orders add-status
 entropy-data datacontracts branches put orders add-status --file orders.yaml
 entropy-data datacontracts test orders --branch add-status
 entropy-data datacontracts branches merge orders add-status --version 1.1.0
+
+# Propose ontology changes on a branch of a semantic namespace, then merge them
+entropy-data semantics branches create sales add-credit-limit
+entropy-data semantics branches put sales add-credit-limit --file ontology.yaml
+entropy-data semantics branches changes sales add-credit-limit
+entropy-data semantics branches merge sales add-credit-limit
 ```
 
 ## Commands
@@ -121,6 +127,7 @@ entropy-data [--version] [--connection NAME] [--output table|json|yaml] [--debug
   schemas         get
   search          query
   semantics       namespaces ... | concepts ... | relationships ... | search
+                  branches list | create | get | put | yaml | changes | rebase | merge | delete
   usage           list | submit | delete
   export          dir
   apply           dir [--include] [--exclude] [--prune] [--dry-run]

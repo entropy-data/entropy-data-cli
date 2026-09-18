@@ -303,6 +303,13 @@ def search_concepts(
         handle_error(e)
 
 
+from entropy_data.commands.semantic_branches import branches_app  # noqa: E402
+
 semantics_app.add_typer(namespaces_app, name="namespaces", help="Manage semantic namespaces.")
 semantics_app.add_typer(concepts_app, name="concepts", help="Manage semantic concepts.")
 semantics_app.add_typer(relationships_app, name="relationships", help="Manage semantic relationships.")
+semantics_app.add_typer(
+    branches_app,
+    name="branches",
+    help="Branches of a semantic namespace: cut, author, review and merge a draft.",
+)

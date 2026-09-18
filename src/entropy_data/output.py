@@ -71,6 +71,18 @@ RESOURCE_COLUMNS: dict[str, list[tuple[str, str]]] = {
         ("Conflicted", "conflicted"),
     ],
     "datacontract-branch-changes": [("Element", "key"), ("Op", "op"), ("Impact", "impact")],
+    "semantic-branches": [
+        ("Name", "name"),
+        ("Namespace", "namespace"),
+        ("Behind", "behind_target"),
+        ("Conflicted", "conflicted"),
+    ],
+    "semantic-branch-changes": [
+        ("Concept", "external_id"),
+        ("Type", "element_type"),
+        ("Op", "op"),
+        ("Impact", "impact"),
+    ],
     "events": [("ID", "id"), ("Type", "type"), ("Subject", "subject"), ("Time", "time")],
     "costs": [("ID", "id"), ("Data Product", "dataProductId"), ("Amount", "amount"), ("Currency", "currency")],
     "assets": [
