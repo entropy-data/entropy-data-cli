@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.3.24]
 
 - Add the global `--timeout <seconds>` option (or `ENTROPY_DATA_TIMEOUT`) to set how long every API request waits for a response. The default stays 30 seconds, and commands that already wait longer by themselves (`datacontracts test`, `datacontracts generate`) keep doing so unless `--timeout` is given. Replacing a branch with a large semantic ontology can take the server more than 30 seconds.
 
