@@ -22,7 +22,7 @@ def get_customization(
 ) -> None:
     """Get organization customization settings."""
     from entropy_data.cli import get_client, get_output_format, handle_error
-    from entropy_data.client import REQUEST_TIMEOUT, _raise_for_status
+    from entropy_data.client import _raise_for_status
 
     fmt = output or get_output_format()
     try:
@@ -31,7 +31,7 @@ def get_customization(
         response = client.session.get(
             f"{client.base_url}/api/settings/customization",
             headers={"Accept": accept},
-            timeout=REQUEST_TIMEOUT,
+            timeout=client.timeout,
         )
         _raise_for_status(response)
         if fmt == OutputFormat.json:
@@ -62,7 +62,7 @@ def get_scim_mapping(
 ) -> None:
     """Get the SCIM group mapping configuration."""
     from entropy_data.cli import get_client, get_output_format, handle_error
-    from entropy_data.client import REQUEST_TIMEOUT, _raise_for_status
+    from entropy_data.client import _raise_for_status
 
     fmt = output or get_output_format()
     try:
@@ -71,7 +71,7 @@ def get_scim_mapping(
         response = client.session.get(
             f"{client.base_url}/api/settings/scim-mapping",
             headers={"Accept": accept},
-            timeout=REQUEST_TIMEOUT,
+            timeout=client.timeout,
         )
         _raise_for_status(response)
         if fmt == OutputFormat.json:
@@ -98,7 +98,7 @@ def put_scim_mapping(
 
 def _put_yaml_or_json(client, path: str, file: Path) -> None:
     """PUT a YAML or JSON payload from `file` to `path`, picking Content-Type by extension/content."""
-    from entropy_data.client import REQUEST_TIMEOUT, _raise_for_status
+    from entropy_data.client import _raise_for_status
 
     if str(file) == "-":
         content = sys.stdin.read()
@@ -110,7 +110,7 @@ def _put_yaml_or_json(client, path: str, file: Path) -> None:
         f"{client.base_url}{path}",
         data=content.encode(),
         headers={"Content-Type": content_type},
-        timeout=REQUEST_TIMEOUT,
+        timeout=client.timeout,
     )
     _raise_for_status(response)
 
@@ -121,12 +121,12 @@ def get_team_roles(
 ) -> None:
     """Show the team roles configuration (default roles or the custom catalog)."""
     from entropy_data.cli import get_client, get_output_format, handle_error
-    from entropy_data.client import REQUEST_TIMEOUT, _raise_for_status
+    from entropy_data.client import _raise_for_status
 
     fmt = output or get_output_format()
     try:
         client = get_client()
-        response = client.session.get(f"{client.base_url}/api/settings/team-roles", timeout=REQUEST_TIMEOUT)
+        response = client.session.get(f"{client.base_url}/api/settings/team-roles", timeout=client.timeout)
         _raise_for_status(response)
         data = response.json()
         if fmt != OutputFormat.table:
@@ -164,7 +164,7 @@ def put_team_roles(
     the listed roles replace the whole catalog; an empty list is rejected with 409.
     """
     from entropy_data.cli import get_client, handle_error
-    from entropy_data.client import REQUEST_TIMEOUT, _raise_for_status
+    from entropy_data.client import _raise_for_status
 
     try:
         body = read_body(file)
@@ -172,7 +172,7 @@ def put_team_roles(
         response = client.session.put(
             f"{client.base_url}/api/settings/team-roles",
             json=body,
-            timeout=REQUEST_TIMEOUT,
+            timeout=client.timeout,
         )
         _raise_for_status(response)
         mode = response.json().get("mode", "")
@@ -199,12 +199,12 @@ def get_email_templates(
     document `put` takes.
     """
     from entropy_data.cli import get_client, get_output_format, handle_error
-    from entropy_data.client import REQUEST_TIMEOUT, _raise_for_status
+    from entropy_data.client import _raise_for_status
 
     fmt = output or get_output_format()
     try:
         client = get_client()
-        response = client.session.get(f"{client.base_url}/api/settings/email-templates", timeout=REQUEST_TIMEOUT)
+        response = client.session.get(f"{client.base_url}/api/settings/email-templates", timeout=client.timeout)
         _raise_for_status(response)
         data = response.json()
         if fmt != OutputFormat.table:
@@ -243,7 +243,7 @@ def put_email_templates(
     back unchanged customizes nothing.
     """
     from entropy_data.cli import get_client, handle_error
-    from entropy_data.client import REQUEST_TIMEOUT, _raise_for_status
+    from entropy_data.client import _raise_for_status
 
     try:
         body = read_body(file)
@@ -251,7 +251,7 @@ def put_email_templates(
         response = client.session.put(
             f"{client.base_url}/api/settings/email-templates",
             json=body,
-            timeout=REQUEST_TIMEOUT,
+            timeout=client.timeout,
         )
         _raise_for_status(response)
         templates = response.json().get("templates") or {}

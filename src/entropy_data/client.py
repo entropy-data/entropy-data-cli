@@ -77,8 +77,11 @@ def _validate_page(page: int) -> None:
 
 
 class EntropyDataClient:
-    def __init__(self, config: ConnectionConfig):
+    def __init__(self, config: ConnectionConfig, timeout: int | None = None):
         self.base_url = config.host.rstrip("/")
+        # An explicit --timeout also overrides the longer waits some commands choose for themselves.
+        self.timeout_override = timeout
+        self.timeout = timeout or REQUEST_TIMEOUT
         self.session = requests.Session()
         self.session.headers.update(
             {
@@ -91,14 +94,14 @@ class EntropyDataClient:
         """GET /api/{path}. Returns (items, has_next_page)."""
         if params and "p" in params:
             _validate_page(int(params["p"]))
-        response = self.session.get(f"{self.base_url}/api/{path}", params=params, timeout=REQUEST_TIMEOUT)
+        response = self.session.get(f"{self.base_url}/api/{path}", params=params, timeout=self.timeout)
         _raise_for_status(response)
         return response.json(), _has_next_page(response)
 
     def get_resource(self, path: str, resource_id: str) -> dict:
         """GET /api/{path}/{id}."""
         _validate_resource_id(resource_id)
-        response = self.session.get(f"{self.base_url}/api/{path}/{resource_id}", timeout=REQUEST_TIMEOUT)
+        response = self.session.get(f"{self.base_url}/api/{path}/{resource_id}", timeout=self.timeout)
         _raise_for_status(response)
         return response.json()
 
@@ -107,20 +110,20 @@ class EntropyDataClient:
         _validate_resource_id(resource_id)
         if "id" in body and body["id"] != resource_id:
             body = {**body, "id": resource_id}
-        response = self.session.put(f"{self.base_url}/api/{path}/{resource_id}", json=body, timeout=REQUEST_TIMEOUT)
+        response = self.session.put(f"{self.base_url}/api/{path}/{resource_id}", json=body, timeout=self.timeout)
         _raise_for_status(response)
         return response.headers.get(RESPONSE_HEADER_LOCATION_HTML)
 
     def delete_resource(self, path: str, resource_id: str) -> None:
         """DELETE /api/{path}/{id}."""
         _validate_resource_id(resource_id)
-        response = self.session.delete(f"{self.base_url}/api/{path}/{resource_id}", timeout=REQUEST_TIMEOUT)
+        response = self.session.delete(f"{self.base_url}/api/{path}/{resource_id}", timeout=self.timeout)
         _raise_for_status(response)
 
     def post_action(self, path: str, resource_id: str, action: str) -> str | None:
         """POST /api/{path}/{id}/{action}. Returns location-html URL if present."""
         _validate_resource_id(resource_id)
-        response = self.session.post(f"{self.base_url}/api/{path}/{resource_id}/{action}", timeout=REQUEST_TIMEOUT)
+        response = self.session.post(f"{self.base_url}/api/{path}/{resource_id}/{action}", timeout=self.timeout)
         _raise_for_status(response)
         return response.headers.get(RESPONSE_HEADER_LOCATION_HTML)
 
@@ -131,7 +134,7 @@ class EntropyDataClient:
         action: str,
         params: dict | None = None,
         body: dict | None = None,
-        timeout: int = REQUEST_TIMEOUT,
+        timeout: int | None = None,
     ) -> dict:
         """POST /api/{path}/{id}/{action}. Returns response JSON."""
         _validate_resource_id(resource_id)
@@ -139,20 +142,20 @@ class EntropyDataClient:
             f"{self.base_url}/api/{path}/{resource_id}/{action}",
             params=params,
             json=body if body is not None else None,
-            timeout=timeout,
+            timeout=self.timeout_override or timeout or self.timeout,
         )
         _raise_for_status(response)
         return response.json()
 
     def post_resource(self, path: str, body: dict, params: dict | None = None) -> str | None:
         """POST /api/{path}. Returns location-html URL if present."""
-        response = self.session.post(f"{self.base_url}/api/{path}", json=body, params=params, timeout=REQUEST_TIMEOUT)
+        response = self.session.post(f"{self.base_url}/api/{path}", json=body, params=params, timeout=self.timeout)
         _raise_for_status(response)
         return response.headers.get(RESPONSE_HEADER_LOCATION_HTML)
 
     def delete_resources(self, path: str, params: dict | None = None) -> dict:
         """DELETE /api/{path} with query params. Returns response JSON."""
-        response = self.session.delete(f"{self.base_url}/api/{path}", params=params, timeout=REQUEST_TIMEOUT)
+        response = self.session.delete(f"{self.base_url}/api/{path}", params=params, timeout=self.timeout)
         _raise_for_status(response)
         try:
             return response.json()
@@ -164,7 +167,7 @@ class EntropyDataClient:
         params = {}
         if last_event_id:
             params["lastEventId"] = last_event_id
-        response = self.session.get(f"{self.base_url}/api/events", params=params, timeout=REQUEST_TIMEOUT)
+        response = self.session.get(f"{self.base_url}/api/events", params=params, timeout=self.timeout)
         _raise_for_status(response)
         return response.json()
 
@@ -173,7 +176,7 @@ class EntropyDataClient:
         _validate_resource_id(resource_id)
         response = self.session.get(
             f"{self.base_url}/api/{path}/{resource_id}/gitconnection",
-            timeout=REQUEST_TIMEOUT,
+            timeout=self.timeout,
         )
         _raise_for_status(response)
         return response.json()
@@ -184,7 +187,7 @@ class EntropyDataClient:
         response = self.session.put(
             f"{self.base_url}/api/{path}/{resource_id}/gitconnection",
             json=body,
-            timeout=REQUEST_TIMEOUT,
+            timeout=self.timeout,
         )
         _raise_for_status(response)
         return response.json()
@@ -194,7 +197,7 @@ class EntropyDataClient:
         _validate_resource_id(resource_id)
         response = self.session.delete(
             f"{self.base_url}/api/{path}/{resource_id}/gitconnection",
-            timeout=REQUEST_TIMEOUT,
+            timeout=self.timeout,
         )
         _raise_for_status(response)
 
@@ -210,7 +213,7 @@ class EntropyDataClient:
         response = self.session.post(
             f"{self.base_url}/api/{path}/{resource_id}/gitconnection/{action}",
             json=body if body is not None else None,
-            timeout=REQUEST_TIMEOUT,
+            timeout=self.timeout,
         )
         _raise_for_status(response)
         return response.json()
@@ -225,13 +228,13 @@ class EntropyDataClient:
         if version is not None and not _SCHEMA_VERSION_PATTERN.match(version):
             raise ValueError(f"Invalid schema version '{version}'. Expected a version like 3.1.0.")
         filename = f"{spec}{f'-{version}' if version else ''}{'-custom' if custom else ''}.schema.json"
-        response = self.session.get(f"{self.base_url}/api/schemas/{filename}", timeout=REQUEST_TIMEOUT)
+        response = self.session.get(f"{self.base_url}/api/schemas/{filename}", timeout=self.timeout)
         _raise_for_status(response)
         return response.text, response.headers.get("X-Schema-Version")
 
     def search(self, query: str, **params) -> dict:
         """GET /api/search."""
         params["query"] = query
-        response = self.session.get(f"{self.base_url}/api/search", params=params, timeout=REQUEST_TIMEOUT)
+        response = self.session.get(f"{self.base_url}/api/search", params=params, timeout=self.timeout)
         _raise_for_status(response)
         return response.json()

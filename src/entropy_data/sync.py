@@ -16,7 +16,6 @@ from pathlib import Path
 import yaml
 
 from entropy_data.client import (
-    REQUEST_TIMEOUT,
     ApiError,
     EntropyDataClient,
     _raise_for_status,
@@ -106,7 +105,7 @@ def _child_document_ids(source: Path, resources: list[Resource], parent_name: st
 
 def _get_singleton(client: EntropyDataClient, resource: Resource) -> dict:
     """GET the singleton object at ``/api/{api_path}`` (returns ``{}`` when unset)."""
-    response = client.session.get(f"{client.base_url}/api/{resource.api_path}", timeout=REQUEST_TIMEOUT)
+    response = client.session.get(f"{client.base_url}/api/{resource.api_path}", timeout=client.timeout)
     _raise_for_status(response)
     body = response.json()
     return body if isinstance(body, dict) else {}
@@ -114,7 +113,7 @@ def _get_singleton(client: EntropyDataClient, resource: Resource) -> dict:
 
 def _put_singleton(client: EntropyDataClient, resource: Resource, body: dict) -> None:
     """PUT the singleton object at ``/api/{api_path}`` (no id segment)."""
-    response = client.session.put(f"{client.base_url}/api/{resource.api_path}", json=body, timeout=REQUEST_TIMEOUT)
+    response = client.session.put(f"{client.base_url}/api/{resource.api_path}", json=body, timeout=client.timeout)
     _raise_for_status(response)
 
 
@@ -130,7 +129,7 @@ def _get_document(client: EntropyDataClient, resource: Resource, parent_id: str)
     response = client.session.get(
         f"{client.base_url}/api/{resource.path_for(parent_id)}",
         headers={"Accept": "application/yaml"},
-        timeout=REQUEST_TIMEOUT,
+        timeout=client.timeout,
     )
     _raise_for_status(response)
     return response.text
@@ -142,7 +141,7 @@ def _put_document(client: EntropyDataClient, resource: Resource, parent_id: str,
         f"{client.base_url}/api/{resource.path_for(parent_id)}",
         data=text.encode("utf-8"),
         headers={"Content-Type": "application/yaml"},
-        timeout=REQUEST_TIMEOUT,
+        timeout=client.timeout,
     )
     _raise_for_status(response)
 
@@ -174,7 +173,7 @@ def _get_assigned_tags(client: EntropyDataClient, asset_id: str) -> list[str]:
     _validate_resource_id(asset_id)
     response = client.session.get(
         f"{client.base_url}/api/assets/{asset_id}/assigned-tags",
-        timeout=REQUEST_TIMEOUT,
+        timeout=client.timeout,
     )
     _raise_for_status(response)
     return response.json()
@@ -185,7 +184,7 @@ def _put_assigned_tag(client: EntropyDataClient, asset_id: str, tag_id: str) -> 
     # tag_id may be hierarchical ("governance/PII"); the server validates it.
     response = client.session.put(
         f"{client.base_url}/api/assets/{asset_id}/assigned-tags/{tag_id}",
-        timeout=REQUEST_TIMEOUT,
+        timeout=client.timeout,
     )
     _raise_for_status(response)
 

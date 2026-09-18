@@ -63,12 +63,12 @@ def create_branch(
 ) -> None:
     """Cut a branch from a data contract. The branch starts as a copy of the data contract."""
     from entropy_data.cli import get_client, get_output_format, handle_error
-    from entropy_data.client import REQUEST_TIMEOUT, _raise_for_status
+    from entropy_data.client import _raise_for_status
 
     fmt = output or get_output_format()
     try:
         client = get_client()
-        response = client.session.put(f"{client.base_url}/api/{branch_path(id, branch)}", timeout=REQUEST_TIMEOUT)
+        response = client.session.put(f"{client.base_url}/api/{branch_path(id, branch)}", timeout=client.timeout)
         _raise_for_status(response)
         if fmt == OutputFormat.table:
             print_success(f"Branch '{branch}' of data contract '{id}' created.")
@@ -122,14 +122,14 @@ def yaml_branch(
 ) -> None:
     """Get the branch's document as ODCS YAML."""
     from entropy_data.cli import get_client, handle_error
-    from entropy_data.client import REQUEST_TIMEOUT, _raise_for_status
+    from entropy_data.client import _raise_for_status
 
     try:
         client = get_client()
         response = client.session.get(
             f"{client.base_url}/api/{branch_path(id, branch)}/datacontract.yaml",
             headers={"Accept": "application/yaml"},
-            timeout=REQUEST_TIMEOUT,
+            timeout=client.timeout,
         )
         _raise_for_status(response)
         if out_file is not None:
@@ -149,7 +149,7 @@ def put_branch(
 ) -> None:
     """Replace the branch's document with an ODCS YAML file. The data contract itself is untouched."""
     from entropy_data.cli import get_client, handle_error
-    from entropy_data.client import REQUEST_TIMEOUT, _raise_for_status
+    from entropy_data.client import _raise_for_status
 
     try:
         content = read_text(file)
@@ -158,7 +158,7 @@ def put_branch(
             f"{client.base_url}/api/{branch_path(id, branch)}/datacontract.yaml",
             data=content.encode("utf-8"),
             headers={"Content-Type": "application/yaml"},
-            timeout=REQUEST_TIMEOUT,
+            timeout=client.timeout,
         )
         _raise_for_status(response)
         print_success(f"Branch '{branch}' of data contract '{id}' updated.")
@@ -233,7 +233,7 @@ def merge_branch(
 ) -> None:
     """Merge the branch: land it on the data contract, or open a pull request from it."""
     from entropy_data.cli import get_client, get_output_format, handle_error
-    from entropy_data.client import REQUEST_TIMEOUT, _raise_for_status
+    from entropy_data.client import _raise_for_status
 
     if route is not None and route not in MERGE_ROUTES:
         raise typer.BadParameter(f"Must be one of: {', '.join(MERGE_ROUTES)}", param_hint="--route")
@@ -247,7 +247,7 @@ def merge_branch(
     try:
         client = get_client()
         response = client.session.post(
-            f"{client.base_url}/api/{branch_path(id, branch)}/merge", json=body, timeout=REQUEST_TIMEOUT
+            f"{client.base_url}/api/{branch_path(id, branch)}/merge", json=body, timeout=client.timeout
         )
         _raise_for_status(response)
         if response.status_code == 204:

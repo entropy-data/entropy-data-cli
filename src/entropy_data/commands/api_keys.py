@@ -31,7 +31,7 @@ def create_api_key(
         response = client.session.post(
             f"{client.base_url}/api/{RESOURCE_PATH}",
             json=body,
-            timeout=30,
+            timeout=client.timeout,
         )
         from entropy_data.client import _raise_for_status
 

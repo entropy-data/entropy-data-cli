@@ -17,14 +17,14 @@ def get_organization(
 ) -> None:
     """Get settings of the organization the current API key is bound to."""
     from entropy_data.cli import get_client, get_output_format, handle_error
-    from entropy_data.client import REQUEST_TIMEOUT, _raise_for_status
+    from entropy_data.client import _raise_for_status
 
     fmt = output or get_output_format()
     try:
         client = get_client()
         response = client.session.get(
             f"{client.base_url}/api/organization/settings",
-            timeout=REQUEST_TIMEOUT,
+            timeout=client.timeout,
         )
         _raise_for_status(response)
         data = response.json()
