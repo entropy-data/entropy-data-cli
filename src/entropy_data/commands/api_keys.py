@@ -24,7 +24,8 @@ def create_api_key(
         typer.Option(
             "--permission",
             help=(
-                "Permission the key may write with, by name (e.g. DATAPRODUCT_EDIT); repeat for more. "
+                "Permission the key may write with, by its name as shown under Settings > Roles & Permissions "
+                "(e.g. DATAPRODUCT_EDIT, see https://docs.entropy-data.com/roles); repeat for more. "
                 "Without it the key carries everything your key holds on the team."
             ),
         ),
