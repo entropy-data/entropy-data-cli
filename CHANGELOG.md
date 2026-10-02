@@ -69,6 +69,8 @@
 
 - Add `entropy-data integrations runs-get <integration> <run-id>` to fetch a single ingestion run by id. Wraps `GET /api/integrations/{ingestionId}/runs/{ingestionRunId}`, the last documented API endpoint not yet exposed by the CLI. Like the other `integrations` commands, the integration argument accepts an `externalId`, display `name`, or UUID.
 
+- `entropy-data api-keys create` takes `--permission NAME` (repeatable) to create a key that may write only with those permissions, and `--read-only` for a key that reads what the team sees and changes nothing. Without either, the key carries everything your own key holds on the team, which is what it did before. `--scope` now defaults to `team`. Needs a server that knows the `permissions` field on `POST /api/api-keys`; an older server ignores it and creates the key as before.
+
 ## [0.3.11]
 
 - Add `entropy-data integrations list|get|configuration|runs|run|cancel` to manage native data-platform integrations (Snowflake, Databricks, BigQuery, Postgres, MySQL, MariaDB, MSSQL, Glue, Alation, Fabric, Power BI). Wraps the new `/api/integrations` endpoints. Commands accept the integration's `externalId`, display `name`, or UUID; name-to-UUID resolution happens client-side. `integrations run` supports `--wait` to poll the run until it reaches a terminal status (SUCCESS, FAILED, CANCELLED), useful for CI and automation that wants to know the outcome before continuing.
