@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+- `entropy-data integrations …` now addresses the asset imports on `/api/integrations/ingest/…`, their new home; the paths without `ingest` stay on the server as deprecated. Requires entropy-data#1763.
+- Add `entropy-data integrations put <externalId> --file <file>` to create or change an asset import from its configuration as `integrations get` prints it (`configuration`, plus `credential` and `enabled`; `--credential-file` and `--enabled/--disabled` override the file), and `entropy-data integrations delete <integration> [--delete-assets]`.
+- Add `entropy-data integrations unity-catalog-metadata` for the integrations that write data contract metadata to Databricks Unity Catalog: `list`, `get`, `put` (from `--name`/`--host`/`--client-id`/`--client-secret`/`--warehouse-id`/`--enabled` or a file), `delete`, `tables` (what was written, `--state`), `queue` (what waits), `retry-failed` and `discard-queue`.
+
 ## [0.3.24]
 
 - Add the global `--timeout <seconds>` option (or `ENTROPY_DATA_TIMEOUT`) to set how long every API request waits for a response. The default stays 30 seconds, and commands that already wait longer by themselves (`datacontracts test`, `datacontracts generate`) keep doing so unless `--timeout` is given. Replacing a branch with a large semantic ontology can take the server more than 30 seconds.

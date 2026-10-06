@@ -1,9 +1,10 @@
 """Integrations commands.
 
-Manage native data-platform integrations (Snowflake, Databricks, BigQuery, …):
-list configured integrations, inspect a single integration (including its
-decrypted configuration), view run history, and trigger or cancel a manual
-ingestion run.
+Manage the asset imports (Snowflake, Databricks, BigQuery, …) on
+`/api/integrations/ingest`: list them, inspect one (including its decrypted
+configuration), create or change one, view run history, and trigger or cancel a
+manual ingestion run. The integrations that write to a platform have groups of
+their own, e.g. `integrations unity-catalog-metadata`.
 
 Integrations are addressed by their user-facing `externalId`. For convenience these
 commands also accept the integration's display `name`, resolved client-side via list + filter.
@@ -13,6 +14,7 @@ from __future__ import annotations
 
 import time
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Annotated, Optional
 
 import typer
@@ -24,10 +26,11 @@ from entropy_data.output import (
     print_resource_list,
     print_success,
 )
+from entropy_data.util import read_body
 
 integrations_app = typer.Typer(no_args_is_help=True)
 
-RESOURCE_PATH = "integrations"
+RESOURCE_PATH = "integrations/ingest"
 RESOURCE_TYPE = "integrations"
 RUN_RESOURCE_TYPE = "integration-runs"
 
@@ -104,6 +107,82 @@ def get_integration(
         external_id = _resolve_external_id(client, identifier)
         data = client.get_resource(RESOURCE_PATH, external_id)
         print_resource(data, RESOURCE_TYPE, fmt)
+    except Exception as e:
+        handle_error(e)
+
+
+@integrations_app.command("put")
+def put_integration(
+    external_id: Annotated[str, typer.Argument(help="Integration externalId.")],
+    file: Annotated[
+        Path,
+        typer.Option(
+            "--file",
+            "-f",
+            help=(
+                "JSON or YAML file (use - for stdin) with `configuration` as 'integrations get' prints it "
+                "(source, name, scheduleExpression, description, filters, assetOwnerTeamExternalId), and optionally "
+                "`credential` (type and details) and `enabled`. Other keys of a 'get' output are ignored."
+            ),
+        ),
+    ] = ...,
+    credential_file: Annotated[
+        Optional[Path],
+        typer.Option(
+            "--credential-file",
+            help="JSON or YAML file with the provider's credential (`type` and `details`); overrides the file's.",
+        ),
+    ] = None,
+    enabled: Annotated[
+        Optional[bool],
+        typer.Option("--enabled/--disabled", help="Whether the schedule is enabled; overrides the file's."),
+    ] = None,
+) -> None:
+    """Create or update an asset import.
+
+    On create the credential is required. On update an omitted credential keeps the stored one, and a secret
+    field left blank keeps its stored value. The source of an existing import cannot change.
+    """
+    from entropy_data.cli import get_client, handle_error
+
+    try:
+        document = read_body(file)
+        configuration = document.get("configuration")
+        if not isinstance(configuration, dict):
+            raise typer.BadParameter("The file needs a `configuration` object, as 'integrations get' prints it.")
+        body: dict = {"configuration": configuration}
+        credential = read_body(credential_file) if credential_file else document.get("credential")
+        if credential is not None:
+            body["credential"] = credential
+        if enabled is not None:
+            body["enabled"] = enabled
+        elif document.get("enabled") is not None:
+            body["enabled"] = document["enabled"]
+        client = get_client()
+        client.put_resource(RESOURCE_PATH, external_id, body)
+        print_success(f"Integration '{external_id}' saved.")
+    except Exception as e:
+        handle_error(e)
+
+
+@integrations_app.command("delete")
+def delete_integration(
+    identifier: Annotated[str, typer.Argument(help="Integration externalId or display name.")],
+    delete_assets: Annotated[
+        bool, typer.Option("--delete-assets", help="Also delete every asset this import brought in.")
+    ] = False,
+) -> None:
+    """Delete an asset import, with its runs and its schedule; the assets stay unless --delete-assets."""
+    from entropy_data.cli import get_client, handle_error
+
+    try:
+        client = get_client()
+        external_id = _resolve_external_id(client, identifier)
+        if delete_assets:
+            client.delete_resources(f"{RESOURCE_PATH}/{external_id}", params={"deleteAssets": "true"})
+        else:
+            client.delete_resource(RESOURCE_PATH, external_id)
+        print_success(f"Integration '{external_id}' deleted.")
     except Exception as e:
         handle_error(e)
 
@@ -318,3 +397,14 @@ def _wait_for_run(
         "It may still complete; check 'entropy-data integrations runs <name>'.[/yellow]"
     )
     raise SystemExit(2)
+
+
+# ─── Writing integrations, each with a group of its own ──────────────────────
+
+from entropy_data.commands.unity_catalog_metadata import unity_catalog_metadata_app  # noqa: E402
+
+integrations_app.add_typer(
+    unity_catalog_metadata_app,
+    name="unity-catalog-metadata",
+    help="Integrations that write data contract metadata to Databricks Unity Catalog.",
+)
