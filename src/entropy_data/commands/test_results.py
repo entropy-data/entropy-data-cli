@@ -5,7 +5,19 @@ from typing import Annotated, Optional
 
 import typer
 
-from entropy_data.output import OutputFormat, print_link, print_resource, print_resource_list, print_success
+from entropy_data.listing import (
+    AllOption,
+    Listing,
+    PageOption,
+    SinceOption,
+    TimeRange,
+    UntilOption,
+    fetch_records,
+    limit_option,
+    parse_record_time,
+    print_listing,
+)
+from entropy_data.output import OutputFormat, print_link, print_resource, print_success
 from entropy_data.util import read_body
 
 test_results_app = typer.Typer(no_args_is_help=True)
@@ -15,7 +27,7 @@ RESOURCE_TYPE = "test-results"
 
 @test_results_app.command("list")
 def list_test_results(
-    page: Annotated[int, typer.Option("--page", "-p", help="Page number (0-indexed).")] = 0,
+    page: PageOption = 0,
     data_contract_id: Annotated[
         Optional[str], typer.Option("--data-contract-id", help="Filter by data contract.")
     ] = None,
@@ -25,9 +37,14 @@ def list_test_results(
             "--branch", "-b", help="Only the runs on this branch of the data contract. Needs --data-contract-id."
         ),
     ] = None,
+    server: Annotated[Optional[str], typer.Option("--server", "-s", help="Only the runs against this server.")] = None,
+    since: SinceOption = None,
+    until: UntilOption = None,
+    limit: limit_option(10) = 10,
+    all_pages: AllOption = False,
     output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
 ) -> None:
-    """List all test results."""
+    """List all test results (newest first; --since/--until apply to when a run started)."""
     from entropy_data.cli import get_client, get_output_format, handle_error
 
     if branch and not data_contract_id:
@@ -35,15 +52,26 @@ def list_test_results(
             "--branch narrows the runs of one data contract; name it with --data-contract-id.", param_hint="--branch"
         )
     fmt = output or get_output_format()
+    time_range = TimeRange.parse(since, until)
     try:
         client = get_client()
-        params = {"p": page}
+        params = {}
         if data_contract_id:
             params["dataContractId"] = data_contract_id
         if branch:
             params["branch"] = branch
-        data, has_next = client.list_resources(RESOURCE_PATH, params=params)
-        print_resource_list(data, RESOURCE_TYPE, fmt, has_next_page=has_next, page=page)
+        if server:
+            params["server"] = server
+        listing = Listing(params, time_range, page=page, limit=limit, all_pages=all_pages)
+        data, has_next = fetch_records(
+            client,
+            RESOURCE_PATH,
+            listing,
+            lambda run: parse_record_time(run.get("timestampStart")),
+            "test results",
+            record_matches=lambda run: server is None or run.get("server") == server,
+        )
+        print_listing(data, RESOURCE_TYPE, fmt, has_next, page)
     except Exception as e:
         handle_error(e)
 
