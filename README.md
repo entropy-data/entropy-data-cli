@@ -112,6 +112,7 @@ entropy-data [--version] [--connection NAME] [--output table|json|yaml] [--debug
   certifications  list | get | put | delete
   classifications list | get | put | delete
   policies        list | get | put | delete
+  dataproductbuilders list | get | put | delete
   example-data    list | get | put | delete
   test-results    list | get | publish | delete
   costs           list | add | delete
@@ -121,7 +122,7 @@ entropy-data [--version] [--connection NAME] [--output table|json|yaml] [--debug
   connectors      list | get | put | delete
   integrations    list | get | put | delete | runs | runs-get | runs-latest | run | cancel | unity-catalog-metadata ...
   organization    get | members ... | git-credentials ...
-  settings        get-customization | put-customization | get-scim-mapping | put-scim-mapping | team-roles ... | email-templates ...
+  settings        get-customization | put-customization | get-scim-mapping | put-scim-mapping | team-roles ... | email-templates ... | dataproduct-types ...
   events          poll
   lineage         list | submit | delete
   schemas         get
@@ -147,7 +148,7 @@ idempotent PUT-by-id, so runs converge and are safe to repeat.
 `sync` copies **nothing by default** — name the resources to sync with `--include`.
 
 **Supported resources** (in dependency order): `teams`, `tags`, `definitions`, `policies`,
-`sourcesystems`, `certifications`, `classification-schemes`, `assets`, `datacontracts`,
+`dataproduct-types`, `dataproductbuilders`, `sourcesystems`, `certifications`, `classification-schemes`, `assets`, `datacontracts`,
 `dataproducts`, `example-data`, `access`, `semantic-namespaces`, `semantic-ontology`,
 `email-templates`, `organization-features`.
 

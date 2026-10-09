@@ -50,6 +50,8 @@ def test_new_resources_present_in_order():
         "tags",
         "definitions",
         "policies",
+        "dataproduct-types",
+        "dataproductbuilders",
         "sourcesystems",
         "certifications",
         "classification-schemes",

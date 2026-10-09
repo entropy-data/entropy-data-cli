@@ -14,6 +14,7 @@ from entropy_data.util import read_body
 settings_app = typer.Typer(no_args_is_help=True)
 team_roles_app = typer.Typer(no_args_is_help=True)
 email_templates_app = typer.Typer(no_args_is_help=True)
+dataproduct_types_app = typer.Typer(no_args_is_help=True)
 
 
 @settings_app.command("get-customization")
@@ -270,4 +271,78 @@ settings_app.add_typer(
     email_templates_app,
     name="email-templates",
     help="Get or set the organization's email templates.",
+)
+
+
+@dataproduct_types_app.command("get")
+def get_dataproduct_types(
+    output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
+) -> None:
+    """Show the organization's data product types.
+
+    Every type in order with its behavior, labels and flags; `builtIn` marks types the
+    organization has not defined itself. `--output yaml` prints the document `put` takes.
+    """
+    from entropy_data.cli import get_client, get_output_format, handle_error
+    from entropy_data.client import _raise_for_status
+
+    fmt = output or get_output_format()
+    try:
+        client = get_client()
+        response = client.session.get(f"{client.base_url}/api/settings/dataproduct-types", timeout=client.timeout)
+        _raise_for_status(response)
+        data = response.json()
+        if fmt != OutputFormat.table:
+            print_data(data, fmt)
+            return
+
+        table = Table()
+        table.add_column("id", style="cyan")
+        table.add_column("label")
+        table.add_column("behavior")
+        table.add_column("enabled")
+        table.add_column("default")
+        table.add_column("built-in")
+        for type_ in data.get("dataProductTypes") or []:
+            labels = type_.get("labels") or {}
+            table.add_row(
+                type_.get("id", ""),
+                labels.get("en") or next(iter(labels.values()), ""),
+                type_.get("behavior") or "",
+                "yes" if type_.get("enabled", True) else "no",
+                "yes" if type_.get("default") else "",
+                "yes" if type_.get("builtIn") else "",
+            )
+        console.print(table)
+    except Exception as e:
+        handle_error(e)
+
+
+@dataproduct_types_app.command("put")
+def put_dataproduct_types(
+    file: Annotated[
+        Path, typer.Option("--file", "-f", help="JSON or YAML file with the body (use - for stdin).")
+    ] = ...,
+) -> None:
+    """Set the organization's data product types.
+
+    The body is the document `get --output yaml` prints: `dataProductTypes`, a list of
+    types with `id`, `outputPorts`, `labels`, `descriptions`, `examples`, `icon`,
+    `enabled`, `showOnMarketplaceHome` and `default`. It replaces the whole list — types
+    not in the file are removed. `behavior` and `builtIn` are read-only, and system types
+    are ignored, so a `get` written back unchanged is accepted.
+    """
+    from entropy_data.cli import get_client, handle_error
+
+    try:
+        _put_yaml_or_json(get_client(), "/api/settings/dataproduct-types", file)
+        print_success("Data product types saved.")
+    except Exception as e:
+        handle_error(e)
+
+
+settings_app.add_typer(
+    dataproduct_types_app,
+    name="dataproduct-types",
+    help="Get or set the organization's data product types.",
 )

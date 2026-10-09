@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+- Add `entropy-data dataproductbuilders list|get|put|delete` (EXPERIMENTAL) to manage data product builders, the coding agent plugins offered on a data product's Build page. Builders are addressed by a stable external ID (e.g. `dbt`); `put` creates a builder under a new ID and otherwise replaces the whole builder. Wraps `/api/dataproductbuilders` (entropy-data#1776, external IDs from entropy-data#1782).
+- Add `entropy-data settings dataproduct-types get|put` to manage the organization's data product types as one document. `put` replaces the whole list; `behavior` and `builtIn` are read-only, so a `get` written back unchanged is accepted. Wraps `GET`/`PUT /api/settings/dataproduct-types`.
+- `export`, `apply`, `import`, and `sync` handle `dataproduct-types` as an organization-level singleton and `dataproductbuilders`, both applied after `policies` and before the data products that reference the type ids.
 - `entropy-data integrations …` now addresses the asset imports on `/api/integrations/ingest/…`, their new home; the paths without `ingest` stay on the server as deprecated. Requires entropy-data#1763.
 - Add `entropy-data integrations put <externalId> --file <file>` to create or change an asset import from its configuration as `integrations get` prints it (`configuration`, plus `credential` and `enabled`; `--credential-file` and `--enabled/--disabled` override the file), and `entropy-data integrations delete <integration> [--delete-assets]`.
 - Add `entropy-data integrations unity-catalog-metadata` for the integrations that write data contract metadata to Databricks Unity Catalog: `list`, `get`, `put` (from `--name`/`--host`/`--client-id`/`--client-secret`/`--warehouse-id`/`--enabled` or a file), `delete`, `tables` (what was written, `--state`), `queue` (what waits), `retry-failed` and `discard-queue`.
