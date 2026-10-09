@@ -5,7 +5,7 @@ import sys
 from typing import Annotated, Optional
 
 import typer
-from dotenv import load_dotenv
+from dotenv import find_dotenv, load_dotenv
 from rich.console import Console
 
 from entropy_data import __version__
@@ -122,7 +122,8 @@ def main(
 ) -> None:
     """Entropy Data CLI — manage your data platform from the command line."""
     global _connection_name, _cli_api_key, _cli_host, _output_format, _debug, _timeout
-    load_dotenv()
+    # usecwd: find the .env where the user runs the CLI, not next to the installed package.
+    load_dotenv(find_dotenv(usecwd=True))
     _connection_name = connection
     _cli_api_key = api_key
     _cli_host = host
