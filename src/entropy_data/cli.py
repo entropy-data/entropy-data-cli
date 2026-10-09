@@ -11,7 +11,7 @@ from rich.console import Console
 from entropy_data import __version__
 from entropy_data.client import ApiError, EntropyDataClient
 from entropy_data.config import ConfigurationError, resolve_connection
-from entropy_data.output import OutputFormat
+from entropy_data.output import OutputFormat, print_data
 
 # Global state shared across commands
 _connection_name: str | None = None
@@ -49,17 +49,28 @@ def get_output_format() -> OutputFormat:
 
 
 def handle_error(e: Exception) -> None:
-    """Handle errors with appropriate output and exit codes."""
+    """Handle errors with appropriate output and exit codes.
+
+    Errors always go to stderr. With -o json/yaml they are written as a structured
+    document, so scripts and agents can parse failures the same way as results.
+    """
     if _debug:
         raise e
     if isinstance(e, ConfigurationError):
-        error_console.print(f"[red]Configuration error: {e}[/red]")
-        raise SystemExit(2)
-    if isinstance(e, ApiError):
-        error_console.print(f"[red]API error: {e}[/red]")
-        raise SystemExit(1)
-    error_console.print(f"[red]Error: {e}[/red]")
-    raise SystemExit(1)
+        kind, label, exit_code = "configuration_error", "Configuration error", 2
+    elif isinstance(e, ApiError):
+        kind, label, exit_code = "api_error", "API error", 1
+    else:
+        kind, label, exit_code = "error", "Error", 1
+    if _output_format != OutputFormat.table:
+        error: dict = {"type": kind, "message": str(e)}
+        if isinstance(e, ApiError):
+            error["status"] = e.status_code
+            error["url"] = e.url
+        print_data({"error": error}, _output_format, stream=sys.stderr)
+    else:
+        error_console.print(f"[red]{label}: {e}[/red]", highlight=False, soft_wrap=True)
+    raise SystemExit(exit_code)
 
 
 def version_callback(value: bool) -> None:

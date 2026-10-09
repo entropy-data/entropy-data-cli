@@ -136,6 +136,29 @@ def set_default_connection(name: str) -> None:
     save_config(config)
 
 
+def mask_api_key(api_key: str) -> str:
+    """Mask an API key for display (first/last 4 visible)."""
+    if len(api_key) > 8:
+        return api_key[:4] + "..." + api_key[-4:]
+    return "****"
+
+
+def env_overrides() -> dict[str, str]:
+    """Connection settings set via ENTROPY_DATA_API_KEY / ENTROPY_DATA_HOST (or a .env file).
+
+    These take precedence over the default connection (but not over --connection),
+    see resolve_connection. Keys are the variable names, values are display-safe.
+    """
+    overrides = {}
+    api_key = os.getenv("ENTROPY_DATA_API_KEY")
+    if api_key is not None:
+        overrides["ENTROPY_DATA_API_KEY"] = mask_api_key(api_key)
+    host = os.getenv("ENTROPY_DATA_HOST")
+    if host is not None:
+        overrides["ENTROPY_DATA_HOST"] = host
+    return overrides
+
+
 def list_connections() -> list[dict]:
     """List all connections with masked API keys."""
     config = load_config()
@@ -143,14 +166,12 @@ def list_connections() -> list[dict]:
     connections = config.get("connections", {})
     result = []
     for name, conn in connections.items():
-        api_key = conn.get("api_key", "")
-        masked = api_key[:4] + "..." + api_key[-4:] if len(api_key) > 8 else "****"
         result.append(
             {
                 "name": name,
                 "host": conn.get("host", DEFAULT_HOST),
                 "vanity_url": conn.get("vanity_url"),
-                "api_key": masked,
+                "api_key": mask_api_key(conn.get("api_key", "")),
                 "default": name == default_name,
             }
         )

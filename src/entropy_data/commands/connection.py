@@ -6,16 +6,9 @@ import typer
 from rich.table import Table
 
 from entropy_data import config as cfg
-from entropy_data.output import OutputFormat, console, print_data, print_error, print_success
+from entropy_data.output import OutputFormat, console, error_console, print_data, print_error, print_success
 
 connection_app = typer.Typer(no_args_is_help=True)
-
-
-def _mask_api_key(api_key: str) -> str:
-    """Mask an API key for display (first/last 4 visible)."""
-    if len(api_key) > 8:
-        return api_key[:4] + "..." + api_key[-4:]
-    return "****"
 
 
 def _fetch_vanity_url(api_key: str, host: str) -> str | None:
@@ -39,10 +32,49 @@ def _fetch_vanity_url(api_key: str, host: str) -> str | None:
     return None
 
 
+def _env_override_notice(overrides: dict[str, str], default_name: str | None) -> str:
+    """Explain how ENTROPY_DATA_* variables change which credentials commands use."""
+    api_key = overrides.get("ENTROPY_DATA_API_KEY")
+    host = overrides.get("ENTROPY_DATA_HOST")
+    if api_key is not None:
+        target = f"the default connection '{default_name}'" if default_name else "any stored connection"
+        notice = f"ENTROPY_DATA_API_KEY is set ({api_key}): commands use it instead of {target}"
+        if host is not None:
+            notice += f", with ENTROPY_DATA_HOST ({host})"
+        elif default_name:
+            notice += " (the host still comes from the default connection)"
+    else:
+        notice = (
+            f"ENTROPY_DATA_HOST is set ({host}): commands send the default connection's API key "
+            "to this host instead of its stored host"
+        )
+    return notice + ". Pass --connection <name> to use a stored connection."
+
+
 @connection_app.command("list")
-def list_connections() -> None:
-    """List all configured connections."""
+def list_connections(
+    output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
+) -> None:
+    """List all configured connections, and any ENTROPY_DATA_* environment variables overriding them."""
+    from entropy_data.cli import get_output_format
+
     connections = cfg.list_connections()
+    overrides = cfg.env_overrides()
+    default_name = next((conn["name"] for conn in connections if conn["default"]), None)
+    for conn in connections:
+        if conn["default"] and overrides:
+            conn["overridden_by"] = list(overrides)
+
+    if overrides:
+        error_console.print(
+            f"[yellow]{_env_override_notice(overrides, default_name)}[/yellow]", highlight=False, soft_wrap=True
+        )
+
+    fmt = output or get_output_format()
+    if fmt != OutputFormat.table:
+        print_data(connections, fmt)
+        return
+
     if not connections:
         console.print("No connections configured. Run: entropy-data connection add <name>")
         return
@@ -54,12 +86,15 @@ def list_connections() -> None:
     table.add_column("API Key")
     table.add_column("Default")
     for conn in connections:
+        default_marker = ""
+        if conn["default"]:
+            default_marker = "* (env)" if overrides else "*"
         table.add_row(
             conn["name"],
             conn["host"],
             conn.get("vanity_url") or "",
             conn["api_key"],
-            "*" if conn["default"] else "",
+            default_marker,
         )
     console.print(table)
 
@@ -92,7 +127,7 @@ def get_connection(
 
     conn = connections[resolved_name]
     api_key_value = conn.get("api_key", "")
-    displayed_key = api_key_value if show_api_key else _mask_api_key(api_key_value)
+    displayed_key = api_key_value if show_api_key else cfg.mask_api_key(api_key_value)
     is_default = config.get("default_connection_name") == resolved_name
 
     fmt = output or get_output_format()

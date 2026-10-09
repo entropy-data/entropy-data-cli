@@ -18,7 +18,7 @@ class OutputFormat(str, Enum):
     yaml = "yaml"
 
 
-def print_data(data, fmt: OutputFormat) -> None:
+def print_data(data, fmt: OutputFormat, stream=None) -> None:
     """Print data structured as JSON or YAML.
 
     Machine formats are written straight to stdout, NOT through the Rich
@@ -27,8 +27,9 @@ def print_data(data, fmt: OutputFormat) -> None:
     when the output is piped or redirected to a file. ``width`` is set high so
     PyYAML itself does not fold long strings either.
     """
+    stream = stream or sys.stdout
     if fmt == OutputFormat.yaml:
-        sys.stdout.write(
+        stream.write(
             yaml.safe_dump(
                 data,
                 sort_keys=False,
@@ -38,8 +39,8 @@ def print_data(data, fmt: OutputFormat) -> None:
             )
         )
     else:
-        json.dump(data, sys.stdout, indent=2)
-        sys.stdout.write("\n")
+        json.dump(data, stream, indent=2)
+        stream.write("\n")
 
 
 # Column definitions per resource type: list of (header, dict_key)

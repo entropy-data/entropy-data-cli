@@ -226,3 +226,62 @@ def test_connection_help():
     assert "remove" in result.output
     assert "set-default" in result.output
     assert "test" in result.output
+
+
+def _two_connections(tmp_path, monkeypatch):
+    monkeypatch.setattr(cfg, "CONFIG_DIR", tmp_path)
+    monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
+    cfg.add_connection("staging", "stagingkey123456", BASE_URL)
+    cfg.add_connection("prod", "prodkey123456789", BASE_URL)  # last added becomes default
+
+
+def test_connection_list_without_env_overrides_has_no_notice(tmp_path, monkeypatch):
+    _two_connections(tmp_path, monkeypatch)
+    result = runner.invoke(app, ["connection", "list", "-o", "json"])
+    assert result.exit_code == 0
+    assert result.stderr == ""
+    rows = {row["name"]: row for row in json.loads(result.stdout)}
+    assert "overridden_by" not in rows["prod"]
+
+
+def test_connection_list_shows_env_api_key_overrides_default(tmp_path, monkeypatch):
+    _two_connections(tmp_path, monkeypatch)
+    monkeypatch.setenv("ENTROPY_DATA_API_KEY", "envkey1234567890")
+    result = runner.invoke(app, ["connection", "list"], env={"COLUMNS": "200"})
+    assert result.exit_code == 0
+    assert "ENTROPY_DATA_API_KEY is set (envk...7890)" in result.stderr
+    assert "instead of the default connection 'prod'" in result.stderr
+    assert "--connection <name>" in result.stderr
+    assert "envkey1234567890" not in result.stderr
+    assert "* (env)" in result.stdout
+
+
+def test_connection_list_json_marks_overridden_default(tmp_path, monkeypatch):
+    _two_connections(tmp_path, monkeypatch)
+    monkeypatch.setenv("ENTROPY_DATA_API_KEY", "envkey1234567890")
+    monkeypatch.setenv("ENTROPY_DATA_HOST", "https://other.example.com")
+    result = runner.invoke(app, ["connection", "list", "-o", "json"])
+    assert result.exit_code == 0
+    rows = {row["name"]: row for row in json.loads(result.stdout)}
+    assert rows["prod"]["overridden_by"] == ["ENTROPY_DATA_API_KEY", "ENTROPY_DATA_HOST"]
+    assert "overridden_by" not in rows["staging"]
+    assert "with ENTROPY_DATA_HOST (https://other.example.com)" in result.stderr
+
+
+def test_connection_list_env_host_only(tmp_path, monkeypatch):
+    _two_connections(tmp_path, monkeypatch)
+    monkeypatch.setenv("ENTROPY_DATA_HOST", "https://other.example.com")
+    result = runner.invoke(app, ["connection", "list"])
+    assert result.exit_code == 0
+    assert "ENTROPY_DATA_HOST is set (https://other.example.com)" in result.stderr
+    assert "default connection's API key" in result.stderr
+
+
+def test_connection_list_env_api_key_without_stored_connections(tmp_path, monkeypatch):
+    monkeypatch.setattr(cfg, "CONFIG_DIR", tmp_path)
+    monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
+    monkeypatch.setenv("ENTROPY_DATA_API_KEY", "envkey1234567890")
+    result = runner.invoke(app, ["connection", "list"])
+    assert result.exit_code == 0
+    assert "No connections configured" in result.stdout
+    assert "instead of any stored connection" in result.stderr

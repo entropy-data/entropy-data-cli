@@ -255,7 +255,24 @@ ENTROPY_DATA_HOST=https://api.entropy-data.com
 
 Values from `.env` are loaded as environment variables and do **not** override already-set environment variables.
 
-Resolution precedence: CLI options > environment variables / `.env` > config file.
+Resolution precedence: CLI options (`--api-key`, `--host`, `--connection`) > environment variables / `.env` > default connection from the config file.
+
+`entropy-data connection list` warns (on stderr) when `ENTROPY_DATA_API_KEY` or `ENTROPY_DATA_HOST` is set, because those override the default connection; in the table the default is marked `* (env)`, and in `-o json` it carries `"overridden_by": [...]`.
+
+### Errors
+
+Errors are written to stderr, never stdout, and the CLI exits non-zero (2 for configuration errors, 1 otherwise). With `-o json` or `-o yaml` the error is a structured document, so scripts can parse it:
+
+```json
+{
+  "error": {
+    "type": "api_error",
+    "message": "HTTP 404 from https://api.entropy-data.com/api/teams/missing: Team not found",
+    "status": 404,
+    "url": "https://api.entropy-data.com/api/teams/missing"
+  }
+}
+```
 
 ### TLS behind a corporate proxy or internal CA
 
