@@ -144,4 +144,4 @@ def test_usage_list_filters_spans_locally_when_the_server_ignores_the_range(monk
     assert result.exit_code == 0
     spans = json.loads(result.stdout)["resourceSpans"][0]["scopeSpans"][0]["spans"]
     assert sorted(s["spanId"] for s in spans) == ["s2", "s3"]  # the newest two in range
-    assert "does not support the time range or page size" in result.stderr
+    assert "does not support all filters or the page size" in result.stderr

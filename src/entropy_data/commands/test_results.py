@@ -37,6 +37,7 @@ def list_test_results(
             "--branch", "-b", help="Only the runs on this branch of the data contract. Needs --data-contract-id."
         ),
     ] = None,
+    server: Annotated[Optional[str], typer.Option("--server", "-s", help="Only the runs against this server.")] = None,
     since: SinceOption = None,
     until: UntilOption = None,
     limit: limit_option(10) = 10,
@@ -59,9 +60,16 @@ def list_test_results(
             params["dataContractId"] = data_contract_id
         if branch:
             params["branch"] = branch
+        if server:
+            params["server"] = server
         listing = Listing(params, time_range, page=page, limit=limit, all_pages=all_pages)
         data, has_next = fetch_records(
-            client, RESOURCE_PATH, listing, lambda run: parse_record_time(run.get("timestampStart")), "test results"
+            client,
+            RESOURCE_PATH,
+            listing,
+            lambda run: parse_record_time(run.get("timestampStart")),
+            "test results",
+            record_matches=lambda run: server is None or run.get("server") == server,
         )
         print_listing(data, RESOURCE_TYPE, fmt, has_next, page)
     except Exception as e:

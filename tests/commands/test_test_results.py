@@ -103,4 +103,30 @@ def test_list_filters_by_time_locally_when_the_server_ignores_it():
     result = runner.invoke(app, ["-o", "json", "test-results", "list", "--since", "2026-10-01"])
     assert result.exit_code == 0
     assert [r["id"] for r in json.loads(result.stdout)] == ["new"]
-    assert "does not support the time range or page size" in result.stderr
+    assert "does not support all filters or the page size" in result.stderr
+
+
+@responses.activate
+def test_list_filters_by_server():
+    responses.add(responses.GET, f"{BASE_URL}/api/test-results", json=[], status=200)
+    result = runner.invoke(app, ["test-results", "list", "--data-contract-id", "orders", "--server", "production"])
+    assert result.exit_code == 0
+    assert responses.calls[0].request.params == {
+        "dataContractId": "orders",
+        "server": "production",
+        "p": "0",
+        "size": "10",
+    }
+
+
+@responses.activate
+def test_list_filters_by_server_locally_when_the_server_ignores_it():
+    responses.add(
+        responses.GET,
+        f"{BASE_URL}/api/test-results",
+        json=[{"id": "a", **RESULTS, "server": "production"}, {"id": "b", **RESULTS, "server": "staging"}],
+    )
+    result = runner.invoke(app, ["-o", "json", "test-results", "list", "--server", "staging"])
+    assert result.exit_code == 0
+    assert [r["id"] for r in json.loads(result.stdout)] == ["b"]
+    assert "does not support all filters or the page size" in result.stderr

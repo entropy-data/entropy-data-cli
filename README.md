@@ -104,8 +104,8 @@ entropy-data semantics branches merge sales add-credit-limit
 # Lineage events of the last 24 hours
 entropy-data lineage list --since 24h
 
-# Every test run of a contract in September
-entropy-data test-results list --data-contract-id orders --since 2026-09-01 --until 2026-10-01 --all
+# Every test run of a contract against production in September
+entropy-data test-results list --data-contract-id orders --server production --since 2026-09-01 --until 2026-10-01 --all
 
 # Usage spans in pages of 500
 entropy-data usage list --scope-name usage --limit 500 --page 1

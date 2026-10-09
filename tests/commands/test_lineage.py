@@ -158,7 +158,7 @@ def test_lineage_list_filters_and_pages_locally_when_the_server_ignores_it(monke
     result = runner.invoke(app, ["-o", "json", "lineage", "list", "--since", "2026-10-01", "--limit", "2"])
     assert result.exit_code == 0
     assert [e["run"]["runId"] for e in json.loads(result.stdout)] == ["r1", "r2"]
-    assert "does not support the time range or page size" in result.stderr
+    assert "does not support all filters or the page size" in result.stderr
     assert "--page 1" in result.stderr
 
 

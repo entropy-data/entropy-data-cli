@@ -121,7 +121,7 @@ class Listing:
 
 def _warn_old_server(what: str) -> None:
     error_console.print(
-        f"[yellow]This server does not support the time range or page size for {what} yet; "
+        f"[yellow]This server does not support all filters or the page size for {what} yet; "
         "the CLI applied them to what the server returned.[/yellow]",
         highlight=False,
         soft_wrap=True,
@@ -134,8 +134,17 @@ def fetch_records(
     listing: Listing,
     record_time: Callable[[dict], datetime | None],
     what: str,
+    record_matches: Callable[[dict], bool] = lambda record: True,
 ) -> tuple[list[dict], bool]:
-    """Fetch a list of time-stamped records. Returns (records, has_next_page)."""
+    """Fetch a list of time-stamped records. Returns (records, has_next_page).
+
+    [record_matches] repeats the command's filters that an older server may not know, so the CLI
+    can tell when the server ignored them.
+    """
+
+    def wanted(record: dict) -> bool:
+        return listing.time_range.contains(record_time(record)) and record_matches(record)
+
     records: list[dict] = []
     page = listing.page
     while True:
@@ -144,10 +153,10 @@ def fetch_records(
         # A server that pages on its own (older test results: 10 a page) links the next page; one
         # that returns more than asked for without a link ignored the page size and sent everything.
         ignored_paging = len(data) > listing.limit and not has_next
-        ignored_time = any(not listing.time_range.contains(record_time(r)) for r in data)
-        if ignored_paging or ignored_time:
+        ignored_filters = not all(wanted(r) for r in data)
+        if ignored_paging or ignored_filters:
             _warn_old_server(what)
-            matching = [r for r in data if listing.time_range.contains(record_time(r))]
+            matching = [r for r in data if wanted(r)]
             if ignored_paging:
                 if listing.all_pages:
                     return matching, False
