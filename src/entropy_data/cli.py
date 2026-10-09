@@ -145,6 +145,7 @@ from entropy_data.commands.connection import connection_app  # noqa: E402
 from entropy_data.commands.connectors import connectors_app  # noqa: E402
 from entropy_data.commands.costs import costs_app  # noqa: E402
 from entropy_data.commands.datacontracts import datacontracts_app  # noqa: E402
+from entropy_data.commands.dataproductbuilders import dataproductbuilders_app  # noqa: E402
 from entropy_data.commands.dataproducts import dataproducts_app  # noqa: E402
 from entropy_data.commands.definitions import definitions_app  # noqa: E402
 from entropy_data.commands.events import events_app  # noqa: E402
@@ -175,6 +176,11 @@ app.add_typer(definitions_app, name="definitions", help="Manage definitions.")
 app.add_typer(certifications_app, name="certifications", help="Manage certifications.")
 app.add_typer(classifications_app, name="classifications", help="Manage classification schemes.")
 app.add_typer(policies_app, name="policies", help="Manage policies.")
+app.add_typer(
+    dataproductbuilders_app,
+    name="dataproductbuilders",
+    help="EXPERIMENTAL Manage data product builders.",
+)
 app.add_typer(example_data_app, name="example-data", help="Manage example data.")
 app.add_typer(test_results_app, name="test-results", help="Manage test results.")
 app.add_typer(costs_app, name="costs", help="Manage costs.")

@@ -7,7 +7,8 @@ handling flags drive enumeration (export), upsert (import) and orchestration
 
 The canonical dependency order is:
 
-    teams -> tags -> definitions -> policies -> sourcesystems ->
+    teams -> tags -> definitions -> policies -> dataproduct-types ->
+    dataproductbuilders -> sourcesystems ->
     certifications -> classification-schemes -> assets ->
     datacontracts -> dataproducts -> example-data -> access ->
     semantic-namespaces -> semantic-ontology -> email-templates ->
@@ -102,6 +103,11 @@ RESOURCE_ORDER: list[Resource] = [
     Resource("tags", "tags", paginated=True),
     Resource("definitions", "definitions", paginated=True),
     Resource("policies", "policies"),
+    # Org-level singleton: the whole list of data product types. Applied before the builders and
+    # data products that reference the type ids.
+    Resource("dataproduct-types", "settings/dataproduct-types", singleton=True),
+    # References teams and tags by external id, and data product types by id.
+    Resource("dataproductbuilders", "dataproductbuilders"),
     Resource("sourcesystems", "sourcesystems", paginated=True),
     Resource("certifications", "certifications"),
     Resource("classification-schemes", "classification-schemes", id_field="externalId"),
