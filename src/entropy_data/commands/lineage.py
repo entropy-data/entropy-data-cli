@@ -5,7 +5,19 @@ from typing import Annotated, Optional
 
 import typer
 
-from entropy_data.output import OutputFormat, print_resource_list, print_success
+from entropy_data.listing import (
+    AllOption,
+    Listing,
+    PageOption,
+    SinceOption,
+    TimeRange,
+    UntilOption,
+    fetch_records,
+    limit_option,
+    parse_record_time,
+    print_listing,
+)
+from entropy_data.output import OutputFormat, print_success
 from entropy_data.util import read_body
 
 lineage_app = typer.Typer(no_args_is_help=True)
@@ -25,12 +37,18 @@ def list_lineage(
     data_product_id: Annotated[
         Optional[str], typer.Option("--data-product-id", help="Filter by data product ID.")
     ] = None,
+    since: SinceOption = None,
+    until: UntilOption = None,
+    page: PageOption = 0,
+    limit: limit_option(100) = 100,
+    all_pages: AllOption = False,
     output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
 ) -> None:
-    """List OpenLineage events."""
+    """List OpenLineage events (by event time, newest first)."""
     from entropy_data.cli import get_client, get_output_format, handle_error
 
     fmt = output or get_output_format()
+    time_range = TimeRange.parse(since, until)
     try:
         params = {}
         if job_namespace:
@@ -44,8 +62,11 @@ def list_lineage(
         if data_product_id:
             params["dataProductId"] = data_product_id
         client = get_client()
-        data, _ = client.list_resources(RESOURCE_PATH, params=params)
-        print_resource_list(data, RESOURCE_TYPE, fmt)
+        listing = Listing(params, time_range, page=page, limit=limit, all_pages=all_pages)
+        data, has_next = fetch_records(
+            client, RESOURCE_PATH, listing, lambda event: parse_record_time(event.get("eventTime")), "lineage"
+        )
+        print_listing(data, RESOURCE_TYPE, fmt, has_next, page)
     except Exception as e:
         handle_error(e)
 

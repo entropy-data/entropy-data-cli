@@ -5,7 +5,18 @@ from typing import Annotated, Optional
 
 import typer
 
-from entropy_data.output import OutputFormat, print_resource_list, print_success
+from entropy_data.listing import (
+    AllOption,
+    Listing,
+    PageOption,
+    SinceOption,
+    TimeRange,
+    UntilOption,
+    fetch_traces,
+    limit_option,
+    print_listing,
+)
+from entropy_data.output import OutputFormat, print_success
 from entropy_data.util import read_body
 
 usage_app = typer.Typer(no_args_is_help=True)
@@ -24,12 +35,18 @@ def list_usage(
     data_contract_id: Annotated[
         Optional[str], typer.Option("--data-contract-id", help="Filter by data contract ID.")
     ] = None,
+    since: SinceOption = None,
+    until: UntilOption = None,
+    page: PageOption = 0,
+    limit: limit_option(100) = 100,
+    all_pages: AllOption = False,
     output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
 ) -> None:
-    """List usage traces."""
+    """List usage traces (spans by start time, newest first) as OTLP/JSON."""
     from entropy_data.cli import get_client, get_output_format, handle_error
 
     fmt = output or get_output_format()
+    time_range = TimeRange.parse(since, until)
     try:
         params = {}
         if scope_name:
@@ -39,8 +56,9 @@ def list_usage(
         if data_contract_id:
             params["dataContractId"] = data_contract_id
         client = get_client()
-        data, _ = client.list_resources(RESOURCE_PATH, params=params)
-        print_resource_list(data, RESOURCE_TYPE, fmt)
+        listing = Listing(params, time_range, page=page, limit=limit, all_pages=all_pages)
+        data, has_next = fetch_traces(client, RESOURCE_PATH, listing)
+        print_listing(data, RESOURCE_TYPE, fmt, has_next, page)
     except Exception as e:
         handle_error(e)
 

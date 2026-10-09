@@ -96,6 +96,25 @@ entropy-data semantics branches changes sales add-credit-limit
 entropy-data semantics branches merge sales add-credit-limit
 ```
 
+### Time ranges and paging for usage, lineage, and test results
+
+`usage list`, `lineage list`, and `test-results list` show the newest records first, one page at a time (100 per page, 10 for test results):
+
+```bash
+# Lineage events of the last 24 hours
+entropy-data lineage list --since 24h
+
+# Every test run of a contract in September
+entropy-data test-results list --data-contract-id orders --since 2026-09-01 --until 2026-10-01 --all
+
+# Usage spans in pages of 500
+entropy-data usage list --scope-name usage --limit 500 --page 1
+```
+
+`--since` (inclusive) and `--until` (exclusive) take an ISO date or date-time (UTC unless it has an offset), or a relative time like `30m`, `24h`, `7d`, `2w`. `--all` follows every page. With `-o json`, a note on stderr says when more pages exist.
+
+The server applies these filters. A server from before that feature ignores them, so the CLI applies them to what it gets back and says so on stderr.
+
 ## Commands
 
 ```
