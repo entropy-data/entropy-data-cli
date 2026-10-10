@@ -15,6 +15,7 @@ settings_app = typer.Typer(no_args_is_help=True)
 team_roles_app = typer.Typer(no_args_is_help=True)
 email_templates_app = typer.Typer(no_args_is_help=True)
 dataproduct_types_app = typer.Typer(no_args_is_help=True)
+dataproduct_score_app = typer.Typer(no_args_is_help=True)
 
 
 @settings_app.command("get-customization")
@@ -345,4 +346,87 @@ settings_app.add_typer(
     dataproduct_types_app,
     name="dataproduct-types",
     help="Get or set the organization's data product types.",
+)
+
+
+def _get_json(path: str):
+    from entropy_data.cli import get_client
+    from entropy_data.client import _raise_for_status
+
+    client = get_client()
+    response = client.session.get(f"{client.base_url}{path}", timeout=client.timeout)
+    _raise_for_status(response)
+    return response.json()
+
+
+@dataproduct_score_app.command("get")
+def get_dataproduct_score_definition(
+    output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
+) -> None:
+    """Show the organization's data product score definition.
+
+    Rating bands, unranked statuses, and every rule with its category and weight. Needs an
+    organization-scoped API key.
+    """
+    from entropy_data.cli import get_output_format, handle_error
+
+    fmt = output or get_output_format()
+    try:
+        data = _get_json("/api/settings/dataproduct-score")
+        if fmt != OutputFormat.table:
+            print_data(data, fmt)
+            return
+        bands = data.get("ratingBands", {})
+        console.print(
+            f"Rating bands: excellent >= {bands.get('excellent')}, good >= {bands.get('good')}, "
+            f"fair >= {bands.get('fair')}"
+        )
+        table = Table()
+        for header in ("Rule", "Kind", "Category", "Weight", "Enabled"):
+            table.add_column(header)
+        for rule in data.get("rules", []):
+            table.add_row(
+                rule.get("key", ""),
+                rule.get("kind", ""),
+                rule.get("category", ""),
+                str(rule.get("weight", "")),
+                str(rule.get("enabled", True)),
+            )
+        console.print(table)
+    except Exception as e:
+        handle_error(e)
+
+
+@dataproduct_score_app.command("rules")
+def list_dataproduct_score_rules(
+    output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
+) -> None:
+    """List the score rules in effect, with labels, descriptions and framework references.
+
+    Needs an organization-scoped API key.
+    """
+    from entropy_data.cli import get_output_format, handle_error
+
+    fmt = output or get_output_format()
+    try:
+        data = _get_json("/api/data-product-score/rules")
+        if fmt != OutputFormat.table:
+            print_data(data, fmt)
+            return
+        table = Table()
+        for header in ("Rule", "Category", "Weight", "Label"):
+            table.add_column(header)
+        for rule in data.get("rules", []):
+            table.add_row(
+                rule.get("key", ""), rule.get("category", ""), str(rule.get("weight", "")), rule.get("label", "")
+            )
+        console.print(table)
+    except Exception as e:
+        handle_error(e)
+
+
+settings_app.add_typer(
+    dataproduct_score_app,
+    name="dataproduct-score",
+    help="Show the organization's data product score definition and rules.",
 )

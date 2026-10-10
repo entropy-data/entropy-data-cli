@@ -64,6 +64,14 @@ RESOURCE_COLUMNS: dict[str, list[tuple[str, str]]] = {
     "dataproductbuilders": [("ID", "id"), ("Name", "name"), ("Plugin Repository", "pluginRepository")],
     "example-data": [("ID", "id"), ("Data Product", "dataProductId"), ("Schema", "schemaName")],
     "test-results": [("ID", "id"), ("Data Contract", "dataContractId"), ("Result", "result")],
+    "dataproduct-scores": [
+        ("Data Product", "dataProductId"),
+        ("Score", "score"),
+        ("Rating", "rating"),
+        ("Rules", "rulesFulfilled"),
+        ("Of", "rulesApplicable"),
+        ("Biggest Gap", "biggestGap"),
+    ],
     "datacontract-branches": [
         ("Name", "name"),
         ("Version", "version"),
