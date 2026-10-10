@@ -43,6 +43,58 @@ def list_dataproducts(
         handle_error(e)
 
 
+@dataproducts_app.command("scores")
+def list_dataproduct_scores(
+    page: Annotated[int, typer.Option("--page", "-p", help="Page number (0-indexed), by data product ID.")] = 0,
+    limit: Annotated[int, typer.Option("--limit", "-l", min=1, max=1000, help="Data products per page.")] = 100,
+    all_pages: Annotated[bool, typer.Option("--all", help="Fetch every page.")] = False,
+    output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
+) -> None:
+    """List the data product scores (0-100 and a rating) of all data products.
+
+    Stored scores, without the rule breakdown; use `score <id>` for the rules of one data product.
+    Needs an organization-scoped API key.
+    """
+    from entropy_data.cli import get_client, get_output_format, handle_error
+
+    fmt = output or get_output_format()
+    try:
+        client = get_client()
+        records: list[dict] = []
+        current = page
+        while True:
+            data, has_next = client.list_resources(f"{RESOURCE_PATH}/scores", params={"p": current, "size": limit})
+            records.extend(data)
+            # Servers without a Link header on this endpoint: a full page may have a next one.
+            more = has_next or len(data) == limit
+            if not (all_pages and more and data):
+                break
+            current += 1
+        print_resource_list(records, "dataproduct-scores", fmt, has_next_page=more and not all_pages, page=page)
+    except Exception as e:
+        handle_error(e)
+
+
+@dataproducts_app.command("score")
+def get_dataproduct_score(
+    id: Annotated[str, typer.Argument(help="Data product ID.")],
+    output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
+) -> None:
+    """Get the score of a data product, computed now, with every rule and whether it passed.
+
+    Needs an organization-scoped API key.
+    """
+    from entropy_data.cli import get_client, get_output_format, handle_error
+
+    fmt = output or get_output_format()
+    try:
+        client = get_client()
+        data = client.get_resource(RESOURCE_PATH, f"{id}/score")
+        print_resource(data, "dataproduct-score", fmt)
+    except Exception as e:
+        handle_error(e)
+
+
 @dataproducts_app.command("get")
 def get_dataproduct(
     id: Annotated[str, typer.Argument(help="Data product ID.")],
