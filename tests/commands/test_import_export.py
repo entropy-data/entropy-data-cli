@@ -1,6 +1,7 @@
 """Tests for export / apply dir / import zip / sync commands and the shared sync engine."""
 
-import responses
+import httpx
+import respx
 import yaml
 from typer.testing import CliRunner
 
@@ -105,28 +106,22 @@ def test_select_resources_unknown_raises():
 # --- export ---------------------------------------------------------------------
 
 
-@responses.activate
+@respx.mock
 def test_export_writes_files(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
 
     # Only teams and certifications have content; everything else lists empty.
-    responses.add(
-        responses.GET,
-        f"{BASE_URL}/api/teams",
-        json=[{"id": "team-a", "name": "A", "members": [{"emailAddress": "x@y.z"}]}],
-        status=200,
+    respx.get(f"{BASE_URL}/api/teams").mock(
+        return_value=httpx.Response(200, json=[{"id": "team-a", "name": "A", "members": [{"emailAddress": "x@y.z"}]}])
     )
-    responses.add(
-        responses.GET,
-        f"{BASE_URL}/api/certifications",
-        json=[{"id": "gold", "name": "Gold", "createdAt": "2020-01-01"}],
-        status=200,
+    respx.get(f"{BASE_URL}/api/certifications").mock(
+        return_value=httpx.Response(200, json=[{"id": "gold", "name": "Gold", "createdAt": "2020-01-01"}])
     )
     for r in RESOURCE_ORDER:
         if r.name in ("teams", "certifications"):
             continue
-        responses.add(responses.GET, f"{BASE_URL}/api/{r.api_path}", json=[], status=200)
+        respx.get(f"{BASE_URL}/api/{r.api_path}").mock(return_value=httpx.Response(200, json=[]))
 
     dest = tmp_path / "export"
     result = runner.invoke(app, ["export", "dir", str(dest)])
@@ -144,23 +139,20 @@ def test_export_writes_files(monkeypatch, tmp_path):
     assert "createdAt" not in body
 
 
-@responses.activate
+@respx.mock
 def test_export_detail_fetches_each_item(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
 
     # dataproducts list returns a partial body; the full body comes from GET /{id}.
-    responses.add(responses.GET, f"{BASE_URL}/api/dataproducts", json=[{"id": "dp-1"}], status=200)
-    responses.add(
-        responses.GET,
-        f"{BASE_URL}/api/dataproducts/dp-1",
-        json={"id": "dp-1", "info": {"title": "Full body"}},
-        status=200,
+    respx.get(f"{BASE_URL}/api/dataproducts").mock(return_value=httpx.Response(200, json=[{"id": "dp-1"}]))
+    respx.get(f"{BASE_URL}/api/dataproducts/dp-1").mock(
+        return_value=httpx.Response(200, json={"id": "dp-1", "info": {"title": "Full body"}})
     )
     for r in RESOURCE_ORDER:
         if r.name == "dataproducts":
             continue
-        responses.add(responses.GET, f"{BASE_URL}/api/{r.api_path}", json=[], status=200)
+        respx.get(f"{BASE_URL}/api/{r.api_path}").mock(return_value=httpx.Response(200, json=[]))
 
     dest = tmp_path / "export"
     result = runner.invoke(app, ["export", "dir", str(dest), "--include", "dataproducts"])
@@ -180,7 +172,7 @@ def _write_tree(root, tree):
             (d / f"{name}.yaml").write_text(yaml.safe_dump(body))
 
 
-@responses.activate
+@respx.mock
 def test_apply_dir_upserts_in_order(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
@@ -200,12 +192,12 @@ def test_apply_dir_upserts_in_order(monkeypatch, tmp_path):
     puts = []
 
     def _record(request):
-        puts.append(request.url)
-        return (200, {}, "")
+        puts.append(str(request.url))
+        return httpx.Response(200)
 
-    responses.add_callback(responses.PUT, f"{BASE_URL}/api/teams/parent-team", callback=_record)
-    responses.add_callback(responses.PUT, f"{BASE_URL}/api/teams/child-team", callback=_record)
-    responses.add_callback(responses.PUT, f"{BASE_URL}/api/certifications/gold", callback=_record)
+    respx.put(f"{BASE_URL}/api/teams/parent-team").mock(side_effect=_record)
+    respx.put(f"{BASE_URL}/api/teams/child-team").mock(side_effect=_record)
+    respx.put(f"{BASE_URL}/api/certifications/gold").mock(side_effect=_record)
 
     result = runner.invoke(app, ["apply", "dir", str(src)])
     assert result.exit_code == 0, result.output
@@ -214,7 +206,7 @@ def test_apply_dir_upserts_in_order(monkeypatch, tmp_path):
     assert f"{BASE_URL}/api/certifications/gold" in puts
 
 
-@responses.activate
+@respx.mock
 def test_apply_dir_strips_team_members(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
@@ -227,17 +219,17 @@ def test_apply_dir_strips_team_members(monkeypatch, tmp_path):
     def _capture(request):
         import json as _json
 
-        captured["body"] = _json.loads(request.body)
-        return (200, {}, "")
+        captured["body"] = _json.loads(request.content)
+        return httpx.Response(200)
 
-    responses.add_callback(responses.PUT, f"{BASE_URL}/api/teams/t1", callback=_capture)
+    respx.put(f"{BASE_URL}/api/teams/t1").mock(side_effect=_capture)
 
     result = runner.invoke(app, ["apply", "dir", str(src), "--include", "teams"])
     assert result.exit_code == 0, result.output
     assert captured["body"]["members"] == []
 
 
-@responses.activate
+@respx.mock
 def test_apply_dir_assigns_asset_tags(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
@@ -248,25 +240,23 @@ def test_apply_dir_assigns_asset_tags(monkeypatch, tmp_path):
         {"assets": {"asset-1": {"id": "asset-1", "info": {"name": "A"}, "assignedTags": ["pii", "governance/PII"]}}},
     )
 
-    responses.add(responses.PUT, f"{BASE_URL}/api/assets/asset-1", status=200)
+    respx.put(f"{BASE_URL}/api/assets/asset-1").mock(return_value=httpx.Response(200))
     # One tag already assigned -> only the missing one is added (idempotent).
-    responses.add(responses.GET, f"{BASE_URL}/api/assets/asset-1/assigned-tags", json=["pii"], status=200)
+    respx.get(f"{BASE_URL}/api/assets/asset-1/assigned-tags").mock(return_value=httpx.Response(200, json=["pii"]))
     tag_puts = []
 
     def _record_tag(request):
-        tag_puts.append(request.url)
-        return (200, {}, "")
+        tag_puts.append(str(request.url))
+        return httpx.Response(200)
 
-    responses.add_callback(
-        responses.PUT, f"{BASE_URL}/api/assets/asset-1/assigned-tags/governance/PII", callback=_record_tag
-    )
+    respx.put(f"{BASE_URL}/api/assets/asset-1/assigned-tags/governance/PII").mock(side_effect=_record_tag)
 
     result = runner.invoke(app, ["apply", "dir", str(src), "--include", "assets"])
     assert result.exit_code == 0, result.output
     assert tag_puts == [f"{BASE_URL}/api/assets/asset-1/assigned-tags/governance/PII"]
 
 
-@responses.activate
+@respx.mock
 def test_apply_dir_dry_run_no_writes(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
@@ -278,16 +268,16 @@ def test_apply_dir_dry_run_no_writes(monkeypatch, tmp_path):
     )
 
     # Target already has "gold" -> gold is an update, silver is a create.
-    responses.add(responses.GET, f"{BASE_URL}/api/certifications", json=[{"id": "gold"}], status=200)
+    respx.get(f"{BASE_URL}/api/certifications").mock(return_value=httpx.Response(200, json=[{"id": "gold"}]))
 
     result = runner.invoke(app, ["apply", "dir", str(src), "--include", "certifications", "--dry-run"])
     assert result.exit_code == 0, result.output
     assert "create=1" in result.output
     assert "update=1" in result.output
-    # No PUT was registered; a write would have raised ConnectionError.
+    # No PUT was registered; a write would have hit an unmatched route and failed.
 
 
-@responses.activate
+@respx.mock
 def test_apply_dir_dry_run_fails_when_target_cannot_be_listed(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
@@ -295,7 +285,7 @@ def test_apply_dir_dry_run_fails_when_target_cannot_be_listed(monkeypatch, tmp_p
     src = tmp_path / "tree"
     _write_tree(src, {"certifications": {"gold": {"id": "gold", "name": "Gold"}}})
 
-    responses.add(responses.GET, f"{BASE_URL}/api/certifications", status=403)
+    respx.get(f"{BASE_URL}/api/certifications").mock(return_value=httpx.Response(403))
 
     result = runner.invoke(app, ["apply", "dir", str(src), "--include", "certifications", "--dry-run"])
     # The plan degrades to an empty target, so it must not report a clean run.
@@ -305,7 +295,7 @@ def test_apply_dir_dry_run_fails_when_target_cannot_be_listed(monkeypatch, tmp_p
 # --- prune ----------------------------------------------------------------------
 
 
-@responses.activate
+@respx.mock
 def test_apply_dir_prune_deletes_absent(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
@@ -313,21 +303,18 @@ def test_apply_dir_prune_deletes_absent(monkeypatch, tmp_path):
     src = tmp_path / "tree"
     _write_tree(src, {"certifications": {"gold": {"id": "gold", "name": "Gold"}}})
 
-    responses.add(responses.PUT, f"{BASE_URL}/api/certifications/gold", status=200)
+    respx.put(f"{BASE_URL}/api/certifications/gold").mock(return_value=httpx.Response(200))
     # Target has gold (kept) and bronze (absent from import -> pruned).
-    responses.add(
-        responses.GET,
-        f"{BASE_URL}/api/certifications",
-        json=[{"id": "gold"}, {"id": "bronze"}],
-        status=200,
+    respx.get(f"{BASE_URL}/api/certifications").mock(
+        return_value=httpx.Response(200, json=[{"id": "gold"}, {"id": "bronze"}])
     )
     deletes = []
 
     def _record_delete(request):
-        deletes.append(request.url)
-        return (200, {}, "")
+        deletes.append(str(request.url))
+        return httpx.Response(200)
 
-    responses.add_callback(responses.DELETE, f"{BASE_URL}/api/certifications/bronze", callback=_record_delete)
+    respx.delete(f"{BASE_URL}/api/certifications/bronze").mock(side_effect=_record_delete)
 
     result = runner.invoke(app, ["apply", "dir", str(src), "--include", "certifications", "--prune", "--yes"])
     assert result.exit_code == 0, result.output
@@ -335,7 +322,7 @@ def test_apply_dir_prune_deletes_absent(monkeypatch, tmp_path):
     assert deletes == [f"{BASE_URL}/api/certifications/bronze"]
 
 
-@responses.activate
+@respx.mock
 def test_apply_dir_prune_deletes_teams_children_first(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
@@ -344,27 +331,24 @@ def test_apply_dir_prune_deletes_teams_children_first(monkeypatch, tmp_path):
     # Import is empty for teams -> both existing teams get pruned, child before parent.
     (src / "teams").mkdir(parents=True)
 
-    responses.add(
-        responses.GET,
-        f"{BASE_URL}/api/teams",
-        json=[{"id": "parent", "parent": None}, {"id": "child", "parent": "parent"}],
-        status=200,
+    respx.get(f"{BASE_URL}/api/teams").mock(
+        return_value=httpx.Response(200, json=[{"id": "parent", "parent": None}, {"id": "child", "parent": "parent"}])
     )
     deletes = []
 
     def _record(request):
-        deletes.append(request.url.rsplit("/", 1)[-1])
-        return (200, {}, "")
+        deletes.append(str(request.url).rsplit("/", 1)[-1])
+        return httpx.Response(200)
 
-    responses.add_callback(responses.DELETE, f"{BASE_URL}/api/teams/parent", callback=_record)
-    responses.add_callback(responses.DELETE, f"{BASE_URL}/api/teams/child", callback=_record)
+    respx.delete(f"{BASE_URL}/api/teams/parent").mock(side_effect=_record)
+    respx.delete(f"{BASE_URL}/api/teams/child").mock(side_effect=_record)
 
     result = runner.invoke(app, ["apply", "dir", str(src), "--include", "teams", "--prune", "--yes"])
     assert result.exit_code == 0, result.output
     assert deletes == ["child", "parent"]
 
 
-@responses.activate
+@respx.mock
 def test_apply_dir_prune_prompt_abort(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
@@ -381,21 +365,23 @@ def test_apply_dir_prune_prompt_abort(monkeypatch, tmp_path):
 # --- sync -----------------------------------------------------------------------
 
 
-@responses.activate
+@respx.mock
 def test_sync_orchestrates_export_import(monkeypatch, tmp_path):
     _config_with_two_connections(tmp_path, monkeypatch)
 
     # Only the included resource is exported.
-    responses.add(responses.GET, f"{BASE_URL}/api/certifications", json=[{"id": "gold", "name": "Gold"}], status=200)
+    respx.get(f"{BASE_URL}/api/certifications").mock(
+        return_value=httpx.Response(200, json=[{"id": "gold", "name": "Gold"}])
+    )
 
     # Target import: capture the PUT.
     target_puts = []
 
     def _record(request):
-        target_puts.append(request.url)
-        return (200, {}, "")
+        target_puts.append(str(request.url))
+        return httpx.Response(200)
 
-    responses.add_callback(responses.PUT, f"{TARGET_URL}/api/certifications/gold", callback=_record)
+    respx.put(f"{TARGET_URL}/api/certifications/gold").mock(side_effect=_record)
 
     keep = tmp_path / "staged"
     result = runner.invoke(
@@ -408,13 +394,15 @@ def test_sync_orchestrates_export_import(monkeypatch, tmp_path):
     assert (keep / "certifications" / "gold.yaml").is_file()
 
 
-@responses.activate
+@respx.mock
 def test_sync_dry_run_no_target_writes(monkeypatch, tmp_path):
     _config_with_two_connections(tmp_path, monkeypatch)
 
-    responses.add(responses.GET, f"{BASE_URL}/api/certifications", json=[{"id": "gold", "name": "Gold"}], status=200)
+    respx.get(f"{BASE_URL}/api/certifications").mock(
+        return_value=httpx.Response(200, json=[{"id": "gold", "name": "Gold"}])
+    )
     # Target enumeration for the plan (read-only); no certifications yet -> create.
-    responses.add(responses.GET, f"{TARGET_URL}/api/certifications", json=[], status=200)
+    respx.get(f"{TARGET_URL}/api/certifications").mock(return_value=httpx.Response(200, json=[]))
 
     result = runner.invoke(
         app, ["sync", "--source", "source", "--target", "target", "--include", "certifications", "--dry-run"]
@@ -459,19 +447,15 @@ def test_apply_dir_help_lists_resource_kinds():
 NS = f"{BASE_URL}/api/semantics/experimental/namespaces"
 
 
-@responses.activate
+@respx.mock
 def test_export_semantics_ontology_document(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
 
     ontology = "version: 0.2.0.dev0\nname: core\nontology:\n  - concept:\n      id: customer\n"
-    responses.add(responses.GET, NS, json=[{"namespace": "core", "label": "Core"}], status=200)
-    responses.add(
-        responses.GET,
-        f"{NS}/core/ontology.yaml",
-        body=ontology,
-        status=200,
-        content_type="application/yaml",
+    respx.get(NS).mock(return_value=httpx.Response(200, json=[{"namespace": "core", "label": "Core"}]))
+    respx.get(f"{NS}/core/ontology.yaml").mock(
+        return_value=httpx.Response(200, text=ontology, headers={"Content-Type": "application/yaml"})
     )
 
     dest = tmp_path / "export"
@@ -484,7 +468,7 @@ def test_export_semantics_ontology_document(monkeypatch, tmp_path):
     assert (dest / "semantic-ontology" / "core.yaml").read_text() == ontology
 
 
-@responses.activate
+@respx.mock
 def test_import_semantics_ontology_document(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
@@ -497,13 +481,12 @@ def test_import_semantics_ontology_document(monkeypatch, tmp_path):
     captured = {}
 
     def _record_ontology(request):
-        body = request.body
-        captured["body"] = body.decode("utf-8") if isinstance(body, bytes) else body
+        captured["body"] = request.content.decode("utf-8")
         captured["content_type"] = request.headers.get("Content-Type")
-        return (200, {}, "")
+        return httpx.Response(200)
 
     # No PUT to the namespace endpoint: applying the ontology provisions the namespace.
-    responses.add_callback(responses.PUT, f"{NS}/core/ontology.yaml", callback=_record_ontology)
+    respx.put(f"{NS}/core/ontology.yaml").mock(side_effect=_record_ontology)
 
     result = runner.invoke(app, ["apply", "dir", str(src), "--include", "semantic-namespaces,semantic-ontology"])
     assert result.exit_code == 0, result.output
@@ -512,7 +495,7 @@ def test_import_semantics_ontology_document(monkeypatch, tmp_path):
     assert captured["content_type"] == "application/yaml"
 
 
-@responses.activate
+@respx.mock
 def test_apply_semantics_legacy_namespace_dir_still_applied(monkeypatch, tmp_path):
     """A tree exported before the single-artifact change still carries semantic-namespaces/; apply it."""
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
@@ -526,8 +509,8 @@ def test_apply_semantics_legacy_namespace_dir_still_applied(monkeypatch, tmp_pat
     (src / "semantic-ontology" / "core.yaml").write_text(ontology)
 
     puts = []
-    responses.add_callback(responses.PUT, f"{NS}/core", callback=lambda r: puts.append(r.url) or (200, {}, ""))
-    responses.add(responses.PUT, f"{NS}/core/ontology.yaml", status=200)
+    respx.put(f"{NS}/core").mock(side_effect=lambda r: puts.append(str(r.url)) or httpx.Response(200))
+    respx.put(f"{NS}/core/ontology.yaml").mock(return_value=httpx.Response(200))
 
     result = runner.invoke(app, ["apply", "dir", str(src), "--include", "semantic-namespaces,semantic-ontology"])
     assert result.exit_code == 0, result.output
@@ -535,7 +518,7 @@ def test_apply_semantics_legacy_namespace_dir_still_applied(monkeypatch, tmp_pat
     assert puts == [f"{NS}/core"]
 
 
-@responses.activate
+@respx.mock
 def test_apply_semantics_prune_keeps_namespaces_from_ontology_filenames(monkeypatch, tmp_path):
     """With no semantic-namespaces/ dir, the prune keep-set must come from the ontology filenames —
     otherwise every namespace on the target would be deleted for lack of a directory to read."""
@@ -546,11 +529,11 @@ def test_apply_semantics_prune_keeps_namespaces_from_ontology_filenames(monkeypa
     (src / "semantic-ontology").mkdir(parents=True)
     (src / "semantic-ontology" / "core.yaml").write_text("version: 0.2.0.dev0\nname: core\nontology: []\n")
 
-    responses.add(responses.PUT, f"{NS}/core/ontology.yaml", status=200)
+    respx.put(f"{NS}/core/ontology.yaml").mock(return_value=httpx.Response(200))
     # Target has core (kept, present in the import) and legacy (absent -> pruned).
-    responses.add(responses.GET, NS, json=[{"namespace": "core"}, {"namespace": "legacy"}], status=200)
+    respx.get(NS).mock(return_value=httpx.Response(200, json=[{"namespace": "core"}, {"namespace": "legacy"}]))
     deletes = []
-    responses.add_callback(responses.DELETE, f"{NS}/legacy", callback=lambda r: deletes.append(r.url) or (200, {}, ""))
+    respx.delete(f"{NS}/legacy").mock(side_effect=lambda r: deletes.append(str(r.url)) or httpx.Response(200))
 
     result = runner.invoke(
         app,
@@ -565,16 +548,16 @@ def test_apply_semantics_prune_keeps_namespaces_from_ontology_filenames(monkeypa
 FEATURES = f"{BASE_URL}/api/organization/features"
 
 
-@responses.activate
+@respx.mock
 def test_export_organization_features_singleton(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
 
-    responses.add(
-        responses.GET,
-        FEATURES,
-        json={"changeProcessMode": "approval-required", "intelligenceEnabled": True, "createdAt": "2020-01-01"},
-        status=200,
+    respx.get(FEATURES).mock(
+        return_value=httpx.Response(
+            200,
+            json={"changeProcessMode": "approval-required", "intelligenceEnabled": True, "createdAt": "2020-01-01"},
+        )
     )
 
     dest = tmp_path / "export"
@@ -587,13 +570,13 @@ def test_export_organization_features_singleton(monkeypatch, tmp_path):
     assert "createdAt" not in body
 
 
-@responses.activate
+@respx.mock
 def test_export_organization_features_skips_when_empty(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
 
     # Nothing configured on the source -> empty object -> no file written.
-    responses.add(responses.GET, FEATURES, json={}, status=200)
+    respx.get(FEATURES).mock(return_value=httpx.Response(200, json={}))
 
     dest = tmp_path / "export"
     result = runner.invoke(app, ["export", "dir", str(dest), "--include", "organization-features"])
@@ -601,7 +584,7 @@ def test_export_organization_features_skips_when_empty(monkeypatch, tmp_path):
     assert not (dest / "organization-features").exists()
 
 
-@responses.activate
+@respx.mock
 def test_import_organization_features_singleton_put(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
@@ -617,11 +600,11 @@ def test_import_organization_features_singleton_put(monkeypatch, tmp_path):
     def _capture(request):
         import json as _json
 
-        captured["body"] = _json.loads(request.body)
-        return (200, {}, "")
+        captured["body"] = _json.loads(request.content)
+        return httpx.Response(200)
 
     # PUT to the bare singleton path (no id segment).
-    responses.add_callback(responses.PUT, FEATURES, callback=_capture)
+    respx.put(FEATURES).mock(side_effect=_capture)
 
     result = runner.invoke(app, ["apply", "dir", str(src), "--include", "organization-features"])
     assert result.exit_code == 0, result.output
@@ -629,7 +612,7 @@ def test_import_organization_features_singleton_put(monkeypatch, tmp_path):
     assert captured["body"]["openInOptions"] == ["snowflake"]
 
 
-@responses.activate
+@respx.mock
 def test_prune_skips_singleton(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
@@ -640,10 +623,10 @@ def test_prune_skips_singleton(monkeypatch, tmp_path):
         yaml.safe_dump({"changeProcessMode": "direct-editing-allowed"})
     )
 
-    responses.add(responses.PUT, FEATURES, status=200)
+    respx.put(FEATURES).mock(return_value=httpx.Response(200))
 
     # --prune must not attempt to list or delete the singleton (no GET/DELETE registered);
-    # a stray call would raise ConnectionError and fail the run.
+    # a stray call would hit an unmatched route and fail the run.
     result = runner.invoke(app, ["apply", "dir", str(src), "--include", "organization-features", "--prune", "--yes"])
     assert result.exit_code == 0, result.output
 
@@ -661,7 +644,7 @@ def test_email_templates_is_singleton_before_organization_features():
     assert names.index("email-templates") < names.index("organization-features")
 
 
-@responses.activate
+@respx.mock
 def test_export_and_apply_email_templates_singleton(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
@@ -674,7 +657,7 @@ def test_export_and_apply_email_templates_singleton(monkeypatch, tmp_path):
             }
         }
     }
-    responses.add(responses.GET, EMAIL_TEMPLATES, json=document, status=200)
+    respx.get(EMAIL_TEMPLATES).mock(return_value=httpx.Response(200, json=document))
 
     dest = tmp_path / "export"
     result = runner.invoke(app, ["export", "dir", str(dest), "--include", "email-templates"])
@@ -686,10 +669,10 @@ def test_export_and_apply_email_templates_singleton(monkeypatch, tmp_path):
     def _capture(request):
         import json as _json
 
-        captured["body"] = _json.loads(request.body)
-        return (200, {}, "")
+        captured["body"] = _json.loads(request.content)
+        return httpx.Response(200)
 
-    responses.add_callback(responses.PUT, EMAIL_TEMPLATES, callback=_capture)
+    respx.put(EMAIL_TEMPLATES).mock(side_effect=_capture)
     result = runner.invoke(app, ["apply", "dir", str(dest), "--include", "email-templates"])
     assert result.exit_code == 0, result.output
     assert captured["body"] == document

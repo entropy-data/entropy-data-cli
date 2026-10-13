@@ -2,7 +2,8 @@
 
 import json
 
-import responses
+import httpx
+import respx
 from typer.testing import CliRunner
 
 import entropy_data.config as cfg
@@ -44,33 +45,33 @@ TEAMS_LIST_WITH_MEMBERS = [
 ]
 
 
-@responses.activate
+@respx.mock
 def test_teams_list(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(responses.GET, f"{BASE_URL}/api/teams", json=TEAMS_LIST, status=200)
+    respx.get(f"{BASE_URL}/api/teams").mock(return_value=httpx.Response(200, json=TEAMS_LIST))
     result = runner.invoke(app, ["teams", "list"])
     assert result.exit_code == 0
     assert "marketing" in result.output
     assert "Marketing" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_teams_list_json(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(responses.GET, f"{BASE_URL}/api/teams", json=TEAMS_LIST, status=200)
+    respx.get(f"{BASE_URL}/api/teams").mock(return_value=httpx.Response(200, json=TEAMS_LIST))
     result = runner.invoke(app, ["teams", "list", "--output", "json"])
     assert result.exit_code == 0
     data = json.loads(result.output)
     assert len(data) == 2
 
 
-@responses.activate
+@respx.mock
 def test_teams_list_member_filter(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(responses.GET, f"{BASE_URL}/api/teams", json=TEAMS_LIST_WITH_MEMBERS, status=200)
+    respx.get(f"{BASE_URL}/api/teams").mock(return_value=httpx.Response(200, json=TEAMS_LIST_WITH_MEMBERS))
     result = runner.invoke(app, ["teams", "list", "--member", "alice@example.com"])
     assert result.exit_code == 0
     assert "marketing" in result.output
@@ -80,11 +81,11 @@ def test_teams_list_member_filter(monkeypatch, tmp_path):
     assert "Maintainer" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_teams_list_member_filter_case_insensitive(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(responses.GET, f"{BASE_URL}/api/teams", json=TEAMS_LIST_WITH_MEMBERS, status=200)
+    respx.get(f"{BASE_URL}/api/teams").mock(return_value=httpx.Response(200, json=TEAMS_LIST_WITH_MEMBERS))
     result = runner.invoke(app, ["teams", "list", "-m", "ALICE@example.com", "--output", "json"])
     assert result.exit_code == 0
     data = json.loads(result.output)
@@ -94,24 +95,17 @@ def test_teams_list_member_filter_case_insensitive(monkeypatch, tmp_path):
     assert roles == {"marketing": "Owner", "platform": "Maintainer"}
 
 
-@responses.activate
+@respx.mock
 def test_teams_list_member_filter_paginates(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(
-        responses.GET,
-        f"{BASE_URL}/api/teams",
-        json=TEAMS_LIST_WITH_MEMBERS[:1],
-        status=200,
-        headers={"Link": '</api/teams?p=1>; rel="next"'},
-        match=[responses.matchers.query_param_matcher({"p": "0"})],
+    respx.get(f"{BASE_URL}/api/teams", params__eq={"p": "0"}).mock(
+        return_value=httpx.Response(
+            200, json=TEAMS_LIST_WITH_MEMBERS[:1], headers={"Link": '</api/teams?p=1>; rel="next"'}
+        )
     )
-    responses.add(
-        responses.GET,
-        f"{BASE_URL}/api/teams",
-        json=TEAMS_LIST_WITH_MEMBERS[1:],
-        status=200,
-        match=[responses.matchers.query_param_matcher({"p": "1"})],
+    respx.get(f"{BASE_URL}/api/teams", params__eq={"p": "1"}).mock(
+        return_value=httpx.Response(200, json=TEAMS_LIST_WITH_MEMBERS[1:])
     )
     result = runner.invoke(app, ["teams", "list", "--member", "alice@example.com", "--output", "json"])
     assert result.exit_code == 0
@@ -120,36 +114,33 @@ def test_teams_list_member_filter_paginates(monkeypatch, tmp_path):
     assert ids == {"marketing", "platform"}
 
 
-@responses.activate
+@respx.mock
 def test_teams_get(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(responses.GET, f"{BASE_URL}/api/teams/marketing", json=TEAMS_LIST[0], status=200)
+    respx.get(f"{BASE_URL}/api/teams/marketing").mock(return_value=httpx.Response(200, json=TEAMS_LIST[0]))
     result = runner.invoke(app, ["teams", "get", "marketing"])
     assert result.exit_code == 0
     assert "marketing" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_teams_get_json(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(responses.GET, f"{BASE_URL}/api/teams/marketing", json=TEAMS_LIST[0], status=200)
+    respx.get(f"{BASE_URL}/api/teams/marketing").mock(return_value=httpx.Response(200, json=TEAMS_LIST[0]))
     result = runner.invoke(app, ["teams", "get", "marketing", "--output", "json"])
     assert result.exit_code == 0
     data = json.loads(result.output)
     assert data["id"] == "marketing"
 
 
-@responses.activate
+@respx.mock
 def test_teams_put(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(
-        responses.PUT,
-        f"{BASE_URL}/api/teams/marketing",
-        status=200,
-        headers={"location-html": "https://app.entropy-data.com/teams/marketing"},
+    respx.put(f"{BASE_URL}/api/teams/marketing").mock(
+        return_value=httpx.Response(200, headers={"location-html": "https://app.entropy-data.com/teams/marketing"})
     )
     team_file = tmp_path / "team.json"
     team_file.write_text(json.dumps({"id": "marketing", "name": "Marketing", "type": "Team"}))
@@ -158,11 +149,11 @@ def test_teams_put(monkeypatch, tmp_path):
     assert "saved" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_teams_delete(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(responses.DELETE, f"{BASE_URL}/api/teams/marketing", status=200)
+    respx.delete(f"{BASE_URL}/api/teams/marketing").mock(return_value=httpx.Response(200))
     result = runner.invoke(app, ["teams", "delete", "marketing"])
     assert result.exit_code == 0
     assert "deleted" in result.output

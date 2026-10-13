@@ -2,7 +2,8 @@
 
 import json
 
-import responses
+import httpx
+import respx
 from typer.testing import CliRunner
 
 import entropy_data.config as cfg
@@ -21,11 +22,11 @@ def test_connection_list_empty(tmp_path, monkeypatch):
     assert "No connections" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_connection_add_and_list(tmp_path, monkeypatch):
     monkeypatch.setattr(cfg, "CONFIG_DIR", tmp_path)
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
-    # Auto-fetch fails (no responses registered) — connection still saves without vanity
+    # Auto-fetch fails (no routes registered) — connection still saves without vanity
     result = runner.invoke(app, ["connection", "add", "prod", "--api-key", "mykey123456", "--host", BASE_URL])
     assert result.exit_code == 0
     assert "saved" in result.output
@@ -36,7 +37,7 @@ def test_connection_add_and_list(tmp_path, monkeypatch):
     assert "*" in result.output  # default marker
 
 
-@responses.activate
+@respx.mock
 def test_connection_add_with_api_key_does_not_prompt_for_host(tmp_path, monkeypatch):
     monkeypatch.setattr(cfg, "CONFIG_DIR", tmp_path)
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
@@ -49,7 +50,7 @@ def test_connection_add_with_api_key_does_not_prompt_for_host(tmp_path, monkeypa
     assert json.loads(result.output)["host"] == cfg.DEFAULT_HOST
 
 
-@responses.activate
+@respx.mock
 def test_connection_add_interactive_confirms_host_default(tmp_path, monkeypatch):
     monkeypatch.setattr(cfg, "CONFIG_DIR", tmp_path)
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
@@ -62,7 +63,7 @@ def test_connection_add_interactive_confirms_host_default(tmp_path, monkeypatch)
     assert json.loads(result.output)["host"] == cfg.DEFAULT_HOST
 
 
-@responses.activate
+@respx.mock
 def test_connection_add_interactive_overwrites_host(tmp_path, monkeypatch):
     monkeypatch.setattr(cfg, "CONFIG_DIR", tmp_path)
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
@@ -73,7 +74,7 @@ def test_connection_add_interactive_overwrites_host(tmp_path, monkeypatch):
     assert json.loads(result.output)["host"] == "http://localhost:8081"
 
 
-@responses.activate
+@respx.mock
 def test_connection_add_interactive_with_host_flag_does_not_prompt_for_host(tmp_path, monkeypatch):
     monkeypatch.setattr(cfg, "CONFIG_DIR", tmp_path)
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
@@ -88,15 +89,14 @@ def test_connection_add_interactive_with_host_flag_does_not_prompt_for_host(tmp_
     assert json.loads(result.output)["host"] == "http://localhost:8081"
 
 
-@responses.activate
+@respx.mock
 def test_connection_add_fetches_vanity_url(tmp_path, monkeypatch):
     monkeypatch.setattr(cfg, "CONFIG_DIR", tmp_path)
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
-    responses.add(
-        responses.GET,
-        ORG_SETTINGS_URL,
-        json={"vanityUrl": "acme", "host": BASE_URL, "fullName": "Acme Corp", "logoUrl": ""},
-        status=200,
+    respx.get(ORG_SETTINGS_URL).mock(
+        return_value=httpx.Response(
+            200, json={"vanityUrl": "acme", "host": BASE_URL, "fullName": "Acme Corp", "logoUrl": ""}
+        )
     )
     result = runner.invoke(app, ["connection", "add", "prod", "--api-key", "mykey", "--host", BASE_URL])
     assert result.exit_code == 0
@@ -108,12 +108,12 @@ def test_connection_add_fetches_vanity_url(tmp_path, monkeypatch):
     assert "acme" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_connection_add_handles_fetch_failure(tmp_path, monkeypatch):
     monkeypatch.setattr(cfg, "CONFIG_DIR", tmp_path)
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     # Older server / endpoint missing → 404
-    responses.add(responses.GET, ORG_SETTINGS_URL, json={"detail": "Not found"}, status=404)
+    respx.get(ORG_SETTINGS_URL).mock(return_value=httpx.Response(404, json={"detail": "Not found"}))
     result = runner.invoke(app, ["connection", "add", "prod", "--api-key", "mykey", "--host", BASE_URL])
     assert result.exit_code == 0
     assert "saved" in result.output
@@ -123,7 +123,7 @@ def test_connection_add_handles_fetch_failure(tmp_path, monkeypatch):
     assert "prod" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_connection_remove(tmp_path, monkeypatch):
     monkeypatch.setattr(cfg, "CONFIG_DIR", tmp_path)
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
@@ -133,7 +133,7 @@ def test_connection_remove(tmp_path, monkeypatch):
     assert "removed" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_connection_set_default(tmp_path, monkeypatch):
     monkeypatch.setattr(cfg, "CONFIG_DIR", tmp_path)
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
@@ -144,18 +144,18 @@ def test_connection_set_default(tmp_path, monkeypatch):
     assert "dev" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_connection_test_success(tmp_path, monkeypatch):
     monkeypatch.setattr(cfg, "CONFIG_DIR", tmp_path)
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     runner.invoke(app, ["connection", "add", "prod", "--api-key", "key1", "--host", BASE_URL])
-    responses.add(responses.GET, f"{BASE_URL}/api/teams", json=[], status=200)
+    respx.get(f"{BASE_URL}/api/teams").mock(return_value=httpx.Response(200, json=[]))
     result = runner.invoke(app, ["connection", "test"])
     assert result.exit_code == 0
     assert "successful" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_connection_get_masked_by_default(tmp_path, monkeypatch):
     monkeypatch.setattr(cfg, "CONFIG_DIR", tmp_path)
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
@@ -166,7 +166,7 @@ def test_connection_get_masked_by_default(tmp_path, monkeypatch):
     assert "abcd1234efgh5678" not in result.output
 
 
-@responses.activate
+@respx.mock
 def test_connection_get_show_api_key(tmp_path, monkeypatch):
     monkeypatch.setattr(cfg, "CONFIG_DIR", tmp_path)
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
@@ -176,7 +176,7 @@ def test_connection_get_show_api_key(tmp_path, monkeypatch):
     assert "abcd1234efgh5678" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_connection_get_uses_default(tmp_path, monkeypatch):
     monkeypatch.setattr(cfg, "CONFIG_DIR", tmp_path)
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
@@ -187,7 +187,7 @@ def test_connection_get_uses_default(tmp_path, monkeypatch):
     assert "default" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_connection_get_json(tmp_path, monkeypatch):
     monkeypatch.setattr(cfg, "CONFIG_DIR", tmp_path)
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")

@@ -2,7 +2,8 @@
 
 import json
 
-import responses
+import httpx
+import respx
 from typer.testing import CliRunner
 
 import entropy_data.config as cfg
@@ -18,29 +19,24 @@ CHANNEL_PAYLOAD = {
 }
 
 
-@responses.activate
+@respx.mock
 def test_notifications_get(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(
-        responses.GET,
-        f"{BASE_URL}/api/teams/marketing/notification-channels/slack-alerts",
-        json=CHANNEL_PAYLOAD,
-        status=200,
+    respx.get(f"{BASE_URL}/api/teams/marketing/notification-channels/slack-alerts").mock(
+        return_value=httpx.Response(200, json=CHANNEL_PAYLOAD)
     )
     result = runner.invoke(app, ["teams", "notifications", "get", "marketing", "slack-alerts"])
     assert result.exit_code == 0
     assert "slack-alerts" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_notifications_put(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(
-        responses.PUT,
-        f"{BASE_URL}/api/teams/marketing/notification-channels/slack-alerts",
-        status=200,
+    respx.put(f"{BASE_URL}/api/teams/marketing/notification-channels/slack-alerts").mock(
+        return_value=httpx.Response(200)
     )
     body_file = tmp_path / "channel.json"
     body_file.write_text(json.dumps(CHANNEL_PAYLOAD))
@@ -50,18 +46,16 @@ def test_notifications_put(monkeypatch, tmp_path):
     )
     assert result.exit_code == 0
     assert "saved" in result.output
-    body = json.loads(responses.calls[0].request.body)
+    body = json.loads(respx.calls[0].request.content)
     assert body["type"] == "slack"
 
 
-@responses.activate
+@respx.mock
 def test_notifications_delete(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(
-        responses.DELETE,
-        f"{BASE_URL}/api/teams/marketing/notification-channels/slack-alerts",
-        status=200,
+    respx.delete(f"{BASE_URL}/api/teams/marketing/notification-channels/slack-alerts").mock(
+        return_value=httpx.Response(200)
     )
     result = runner.invoke(app, ["teams", "notifications", "delete", "marketing", "slack-alerts"])
     assert result.exit_code == 0

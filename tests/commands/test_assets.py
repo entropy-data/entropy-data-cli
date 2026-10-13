@@ -2,7 +2,8 @@
 
 import json
 
-import responses
+import httpx
+import respx
 from typer.testing import CliRunner
 
 import entropy_data.config as cfg
@@ -23,54 +24,54 @@ ASSETS_LIST = [
 ]
 
 
-@responses.activate
+@respx.mock
 def test_assets_list(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(responses.GET, f"{BASE_URL}/api/assets", json=ASSETS_LIST, status=200)
+    respx.get(f"{BASE_URL}/api/assets").mock(return_value=httpx.Response(200, json=ASSETS_LIST))
     result = runner.invoke(app, ["assets", "list"])
     assert result.exit_code == 0
     assert "asset-1" in result.output
     assert "my_table" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_assets_list_json(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(responses.GET, f"{BASE_URL}/api/assets", json=ASSETS_LIST, status=200)
+    respx.get(f"{BASE_URL}/api/assets").mock(return_value=httpx.Response(200, json=ASSETS_LIST))
     result = runner.invoke(app, ["assets", "list", "--output", "json"])
     assert result.exit_code == 0
     data = json.loads(result.output)
     assert len(data) == 2
 
 
-@responses.activate
+@respx.mock
 def test_assets_get(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(responses.GET, f"{BASE_URL}/api/assets/asset-1", json=ASSETS_LIST[0], status=200)
+    respx.get(f"{BASE_URL}/api/assets/asset-1").mock(return_value=httpx.Response(200, json=ASSETS_LIST[0]))
     result = runner.invoke(app, ["assets", "get", "asset-1"])
     assert result.exit_code == 0
     assert "asset-1" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_assets_get_json(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(responses.GET, f"{BASE_URL}/api/assets/asset-1", json=ASSETS_LIST[0], status=200)
+    respx.get(f"{BASE_URL}/api/assets/asset-1").mock(return_value=httpx.Response(200, json=ASSETS_LIST[0]))
     result = runner.invoke(app, ["assets", "get", "asset-1", "--output", "json"])
     assert result.exit_code == 0
     data = json.loads(result.output)
     assert data["id"] == "asset-1"
 
 
-@responses.activate
+@respx.mock
 def test_assets_put(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(responses.PUT, f"{BASE_URL}/api/assets/asset-1", status=200)
+    respx.put(f"{BASE_URL}/api/assets/asset-1").mock(return_value=httpx.Response(200))
     asset_file = tmp_path / "asset.json"
     asset_file.write_text(json.dumps(ASSETS_LIST[0]))
     result = runner.invoke(app, ["assets", "put", "asset-1", "--file", str(asset_file)])
@@ -78,25 +79,22 @@ def test_assets_put(monkeypatch, tmp_path):
     assert "saved" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_assets_delete(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(responses.DELETE, f"{BASE_URL}/api/assets/asset-1", status=200)
+    respx.delete(f"{BASE_URL}/api/assets/asset-1").mock(return_value=httpx.Response(200))
     result = runner.invoke(app, ["assets", "delete", "asset-1"])
     assert result.exit_code == 0
     assert "deleted" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_assets_tags_list(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(
-        responses.GET,
-        f"{BASE_URL}/api/assets/asset-1/assigned-tags",
-        json=["pii:true", "governance/internal"],
-        status=200,
+    respx.get(f"{BASE_URL}/api/assets/asset-1/assigned-tags").mock(
+        return_value=httpx.Response(200, json=["pii:true", "governance/internal"])
     )
     result = runner.invoke(app, ["assets", "tags", "list", "asset-1"])
     assert result.exit_code == 0
@@ -104,45 +102,32 @@ def test_assets_tags_list(monkeypatch, tmp_path):
     assert "governance/internal" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_assets_tags_list_json(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(
-        responses.GET,
-        f"{BASE_URL}/api/assets/asset-1/assigned-tags",
-        json=["pii:true"],
-        status=200,
-    )
+    respx.get(f"{BASE_URL}/api/assets/asset-1/assigned-tags").mock(return_value=httpx.Response(200, json=["pii:true"]))
     result = runner.invoke(app, ["assets", "tags", "list", "asset-1", "--output", "json"])
     assert result.exit_code == 0
     data = json.loads(result.output)
     assert data == ["pii:true"]
 
 
-@responses.activate
+@respx.mock
 def test_assets_tags_add(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(
-        responses.PUT,
-        f"{BASE_URL}/api/assets/asset-1/assigned-tags/governance/PII",
-        status=200,
-    )
+    respx.put(f"{BASE_URL}/api/assets/asset-1/assigned-tags/governance/PII").mock(return_value=httpx.Response(200))
     result = runner.invoke(app, ["assets", "tags", "add", "asset-1", "governance/PII"])
     assert result.exit_code == 0
     assert "assigned" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_assets_tags_remove(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(
-        responses.DELETE,
-        f"{BASE_URL}/api/assets/asset-1/assigned-tags/governance/PII",
-        status=200,
-    )
+    respx.delete(f"{BASE_URL}/api/assets/asset-1/assigned-tags/governance/PII").mock(return_value=httpx.Response(200))
     result = runner.invoke(app, ["assets", "tags", "remove", "asset-1", "governance/PII"])
     assert result.exit_code == 0
     assert "removed" in result.output

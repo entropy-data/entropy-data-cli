@@ -28,11 +28,11 @@ dependencies = [
     "typer>=0.15.0,<1.0",
     "rich>=14.0,<16.0",
     "pydantic>=2.10,<3.0",
-    "requests>=2.33,<3.0",
     "tomli_w>=1.0,<2.0",
     "pyyaml>=6.0,<7.0",
     "python-dotenv>=1.0,<2.0",
     "truststore>=0.10,<1.0",
+    "entropy-data-sdk>=0.1.0,<0.2",
 ]
 
 [project.urls]
@@ -48,12 +48,13 @@ entropy-data = "entropy_data.cli:app"
 [project.optional-dependencies]
 dev = [
     "pytest>=9.0.3",
-    "responses>=0.25",
     # 0.16 is allowed: its formatter style is applied to the tree, and the
     # lint rules it would otherwise widen are stated explicitly under
     # [tool.ruff.lint].
     "ruff>=0.8,<0.17",
     "pre-commit>=3.7",
+    "respx>=0.22",
+    "httpx>=0.28.1",
 ]
 
 [build-system]

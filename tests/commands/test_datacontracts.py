@@ -2,7 +2,8 @@
 
 import json
 
-import responses
+import httpx
+import respx
 from typer.testing import CliRunner
 
 import entropy_data.config as cfg
@@ -20,33 +21,25 @@ version: 1.0.0
 """
 
 
-@responses.activate
+@respx.mock
 def test_datacontracts_yaml_stdout(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(
-        responses.GET,
-        f"{BASE_URL}/api/datacontracts/search-queries/datacontract.yaml",
-        body=YAML_BODY,
-        content_type="application/yaml",
-        status=200,
+    respx.get(f"{BASE_URL}/api/datacontracts/search-queries/datacontract.yaml").mock(
+        return_value=httpx.Response(200, text=YAML_BODY, headers={"Content-Type": "application/yaml"})
     )
     result = runner.invoke(app, ["datacontracts", "yaml", "search-queries"])
     assert result.exit_code == 0
     assert "kind: DataContract" in result.output
-    assert responses.calls[0].request.headers["Accept"] == "application/yaml"
+    assert respx.calls[0].request.headers["Accept"] == "application/yaml"
 
 
-@responses.activate
+@respx.mock
 def test_datacontracts_yaml_to_file(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(
-        responses.GET,
-        f"{BASE_URL}/api/datacontracts/search-queries/datacontract.yaml",
-        body=YAML_BODY,
-        content_type="application/yaml",
-        status=200,
+    respx.get(f"{BASE_URL}/api/datacontracts/search-queries/datacontract.yaml").mock(
+        return_value=httpx.Response(200, text=YAML_BODY, headers={"Content-Type": "application/yaml"})
     )
     out = tmp_path / "out.yaml"
     result = runner.invoke(app, ["datacontracts", "yaml", "search-queries", "--file", str(out)])
@@ -54,7 +47,7 @@ def test_datacontracts_yaml_to_file(monkeypatch, tmp_path):
     assert out.read_text() == YAML_BODY
 
 
-@responses.activate
+@respx.mock
 def test_datacontracts_generate_prints_json(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
@@ -63,36 +56,31 @@ def test_datacontracts_generate_prints_json(monkeypatch, tmp_path):
         "generationType": "sql-select",
         "files": [{"filename": "orders.sql", "language": "sql", "content": "SELECT 1"}],
     }
-    responses.add(
-        responses.POST,
-        f"{BASE_URL}/api/datacontracts/orders/generate",
-        json=payload,
-        status=200,
-    )
+    respx.post(f"{BASE_URL}/api/datacontracts/orders/generate").mock(return_value=httpx.Response(200, json=payload))
     result = runner.invoke(app, ["datacontracts", "generate", "orders", "--type", "sql-select"])
     assert result.exit_code == 0
     data = json.loads(result.output)
     assert data["dataContractId"] == "orders"
-    body = json.loads(responses.calls[0].request.body)
+    body = json.loads(respx.calls[0].request.content)
     assert body == {"type": "sql-select"}
 
 
-@responses.activate
+@respx.mock
 def test_datacontracts_generate_writes_files(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(
-        responses.POST,
-        f"{BASE_URL}/api/datacontracts/orders/generate",
-        json={
-            "dataContractId": "orders",
-            "generationType": "sql-ddl",
-            "files": [
-                {"filename": "orders.sql", "language": "sql", "content": "CREATE TABLE orders ();"},
-                {"filename": "items.sql", "language": "sql", "content": "CREATE TABLE items ();"},
-            ],
-        },
-        status=200,
+    respx.post(f"{BASE_URL}/api/datacontracts/orders/generate").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "dataContractId": "orders",
+                "generationType": "sql-ddl",
+                "files": [
+                    {"filename": "orders.sql", "language": "sql", "content": "CREATE TABLE orders ();"},
+                    {"filename": "items.sql", "language": "sql", "content": "CREATE TABLE items ();"},
+                ],
+            },
+        )
     )
     out_dir = tmp_path / "gen"
     result = runner.invoke(
@@ -118,15 +106,12 @@ def test_datacontracts_generate_rejects_bad_type(monkeypatch, tmp_path):
     assert result.exit_code != 0
 
 
-@responses.activate
+@respx.mock
 def test_datacontracts_import_from_git_flags(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(
-        responses.POST,
-        f"{BASE_URL}/api/datacontracts/import/git",
-        json={"gitConnectionId": "abc"},
-        status=201,
+    respx.post(f"{BASE_URL}/api/datacontracts/import/git").mock(
+        return_value=httpx.Response(201, json={"gitConnectionId": "abc"})
     )
     result = runner.invoke(
         app,
@@ -142,7 +127,7 @@ def test_datacontracts_import_from_git_flags(monkeypatch, tmp_path):
         ],
     )
     assert result.exit_code == 0
-    body = json.loads(responses.calls[0].request.body)
+    body = json.loads(respx.calls[0].request.content)
     assert body == {
         "repositoryUrl": "https://github.com/x/y",
         "repositoryPath": "contracts/orders.yaml",
@@ -150,15 +135,12 @@ def test_datacontracts_import_from_git_flags(monkeypatch, tmp_path):
     }
 
 
-@responses.activate
+@respx.mock
 def test_datacontracts_import_from_git_file(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(
-        responses.POST,
-        f"{BASE_URL}/api/datacontracts/import/git",
-        json={"gitConnectionId": "abc"},
-        status=201,
+    respx.post(f"{BASE_URL}/api/datacontracts/import/git").mock(
+        return_value=httpx.Response(201, json={"gitConnectionId": "abc"})
     )
     body_file = tmp_path / "import.json"
     body_file.write_text(
@@ -172,7 +154,7 @@ def test_datacontracts_import_from_git_file(monkeypatch, tmp_path):
     )
     result = runner.invoke(app, ["datacontracts", "import-from-git", "--file", str(body_file)])
     assert result.exit_code == 0
-    body = json.loads(responses.calls[0].request.body)
+    body = json.loads(respx.calls[0].request.content)
     assert body["gitCredentialExternalId"] == "ci-cred"
 
 

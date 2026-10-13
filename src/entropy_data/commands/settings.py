@@ -23,24 +23,19 @@ def get_customization(
 ) -> None:
     """Get organization customization settings."""
     from entropy_data.cli import get_client, get_output_format, handle_error
-    from entropy_data.client import _raise_for_status
 
-    fmt = output or get_output_format()
     try:
-        client = get_client()
-        accept = "application/json" if fmt == OutputFormat.json else "application/yaml"
-        response = client.session.get(
-            f"{client.base_url}/api/settings/customization",
-            headers={"Accept": accept},
-            timeout=client.timeout,
-        )
-        _raise_for_status(response)
-        if fmt == OutputFormat.json:
-            console.print_json(json.dumps(response.json()))
-        else:
-            console.print(response.text)
+        _print_json_or_yaml(get_client(), "/api/settings/customization", output or get_output_format())
     except Exception as e:
         handle_error(e)
+
+
+def _print_json_or_yaml(client, path: str, fmt: OutputFormat) -> None:
+    """Print a document the API serves as JSON or YAML, in the format asked for (YAML unless json)."""
+    if fmt == OutputFormat.json:
+        console.print_json(json.dumps(client.http.get_json(path)))
+    else:
+        console.print(client.http.get_text(path))
 
 
 @settings_app.command("put-customization")
@@ -63,22 +58,9 @@ def get_scim_mapping(
 ) -> None:
     """Get the SCIM group mapping configuration."""
     from entropy_data.cli import get_client, get_output_format, handle_error
-    from entropy_data.client import _raise_for_status
 
-    fmt = output or get_output_format()
     try:
-        client = get_client()
-        accept = "application/json" if fmt == OutputFormat.json else "application/yaml"
-        response = client.session.get(
-            f"{client.base_url}/api/settings/scim-mapping",
-            headers={"Accept": accept},
-            timeout=client.timeout,
-        )
-        _raise_for_status(response)
-        if fmt == OutputFormat.json:
-            console.print_json(json.dumps(response.json()))
-        else:
-            console.print(response.text)
+        _print_json_or_yaml(get_client(), "/api/settings/scim-mapping", output or get_output_format())
     except Exception as e:
         handle_error(e)
 
@@ -99,21 +81,13 @@ def put_scim_mapping(
 
 def _put_yaml_or_json(client, path: str, file: Path) -> None:
     """PUT a YAML or JSON payload from `file` to `path`, picking Content-Type by extension/content."""
-    from entropy_data.client import _raise_for_status
-
     if str(file) == "-":
         content = sys.stdin.read()
     else:
         content = file.read_text()
     is_json = str(file).endswith(".json") or content.lstrip().startswith("{")
     content_type = "application/json" if is_json else "application/yaml"
-    response = client.session.put(
-        f"{client.base_url}{path}",
-        data=content.encode(),
-        headers={"Content-Type": content_type},
-        timeout=client.timeout,
-    )
-    _raise_for_status(response)
+    client.http.put_text(path, content, content_type=content_type)
 
 
 @team_roles_app.command("get")
@@ -122,14 +96,10 @@ def get_team_roles(
 ) -> None:
     """Show the team roles configuration (default roles or the custom catalog)."""
     from entropy_data.cli import get_client, get_output_format, handle_error
-    from entropy_data.client import _raise_for_status
 
     fmt = output or get_output_format()
     try:
-        client = get_client()
-        response = client.session.get(f"{client.base_url}/api/settings/team-roles", timeout=client.timeout)
-        _raise_for_status(response)
-        data = response.json()
+        data = get_client().http.get_json("/api/settings/team-roles")
         if fmt != OutputFormat.table:
             print_data(data, fmt)
             return
@@ -165,18 +135,10 @@ def put_team_roles(
     the listed roles replace the whole catalog; an empty list is rejected with 409.
     """
     from entropy_data.cli import get_client, handle_error
-    from entropy_data.client import _raise_for_status
 
     try:
         body = read_body(file)
-        client = get_client()
-        response = client.session.put(
-            f"{client.base_url}/api/settings/team-roles",
-            json=body,
-            timeout=client.timeout,
-        )
-        _raise_for_status(response)
-        mode = response.json().get("mode", "")
+        mode = get_client().http.request("PUT", "/api/settings/team-roles", json=body).json().get("mode", "")
         print_success(f"Team roles configuration saved (mode: {mode}).")
     except Exception as e:
         handle_error(e)
@@ -200,14 +162,10 @@ def get_email_templates(
     document `put` takes.
     """
     from entropy_data.cli import get_client, get_output_format, handle_error
-    from entropy_data.client import _raise_for_status
 
     fmt = output or get_output_format()
     try:
-        client = get_client()
-        response = client.session.get(f"{client.base_url}/api/settings/email-templates", timeout=client.timeout)
-        _raise_for_status(response)
-        data = response.json()
+        data = get_client().http.get_json("/api/settings/email-templates")
         if fmt != OutputFormat.table:
             print_data(data, fmt)
             return
@@ -244,18 +202,11 @@ def put_email_templates(
     back unchanged customizes nothing.
     """
     from entropy_data.cli import get_client, handle_error
-    from entropy_data.client import _raise_for_status
 
     try:
         body = read_body(file)
-        client = get_client()
-        response = client.session.put(
-            f"{client.base_url}/api/settings/email-templates",
-            json=body,
-            timeout=client.timeout,
-        )
-        _raise_for_status(response)
-        templates = response.json().get("templates") or {}
+        saved = get_client().http.request("PUT", "/api/settings/email-templates", json=body).json()
+        templates = saved.get("templates") or {}
         customized = sum(
             1
             for template in templates.values()
@@ -284,14 +235,10 @@ def get_dataproduct_types(
     organization has not defined itself. `--output yaml` prints the document `put` takes.
     """
     from entropy_data.cli import get_client, get_output_format, handle_error
-    from entropy_data.client import _raise_for_status
 
     fmt = output or get_output_format()
     try:
-        client = get_client()
-        response = client.session.get(f"{client.base_url}/api/settings/dataproduct-types", timeout=client.timeout)
-        _raise_for_status(response)
-        data = response.json()
+        data = get_client().http.get_json("/api/settings/dataproduct-types")
         if fmt != OutputFormat.table:
             print_data(data, fmt)
             return

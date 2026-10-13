@@ -2,7 +2,8 @@
 
 import json
 
-import responses
+import httpx
+import respx
 import yaml
 from typer.testing import CliRunner
 
@@ -42,10 +43,10 @@ def _setup(monkeypatch, tmp_path):
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
 
 
-@responses.activate
+@respx.mock
 def test_get_table_marks_disabled_types_and_customized_languages(monkeypatch, tmp_path):
     _setup(monkeypatch, tmp_path)
-    responses.add(responses.GET, URL, json=DOCUMENT, status=200)
+    respx.get(URL).mock(return_value=httpx.Response(200, json=DOCUMENT))
     result = runner.invoke(app, ["settings", "email-templates", "get"])
     assert result.exit_code == 0, result.output
     lines = {line.split("│")[1].strip(): line for line in result.output.splitlines() if line.startswith("│")}
@@ -53,16 +54,16 @@ def test_get_table_marks_disabled_types_and_customized_languages(monkeypatch, tm
     assert "no" in lines["access-rejected"] and "-" in lines["access-rejected"]
 
 
-@responses.activate
+@respx.mock
 def test_get_yaml_prints_the_document(monkeypatch, tmp_path):
     _setup(monkeypatch, tmp_path)
-    responses.add(responses.GET, URL, json=DOCUMENT, status=200)
+    respx.get(URL).mock(return_value=httpx.Response(200, json=DOCUMENT))
     result = runner.invoke(app, ["settings", "email-templates", "get", "--output", "yaml"])
     assert result.exit_code == 0, result.output
     assert yaml.safe_load(result.output) == DOCUMENT
 
 
-@responses.activate
+@respx.mock
 def test_put_sends_the_file_as_json_and_reports_counts(monkeypatch, tmp_path):
     _setup(monkeypatch, tmp_path)
     body = {
@@ -76,26 +77,23 @@ def test_put_sends_the_file_as_json_and_reports_counts(monkeypatch, tmp_path):
     captured = {}
 
     def _capture(request):
-        captured["body"] = json.loads(request.body)
-        return (200, {}, json.dumps(DOCUMENT))
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(200, json=DOCUMENT)
 
-    responses.add_callback(responses.PUT, URL, callback=_capture)
+    respx.put(URL).mock(side_effect=_capture)
     result = runner.invoke(app, ["settings", "email-templates", "put", "--file", str(body_file)])
     assert result.exit_code == 0, result.output
     assert captured["body"] == body
     assert "1 customized, 1 disabled" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_put_validation_error_surfaces_detail(monkeypatch, tmp_path):
     _setup(monkeypatch, tmp_path)
     body_file = tmp_path / "email-templates.json"
     body_file.write_text(json.dumps({"templates": {"invitation": {"enabled": False}}}))
-    responses.add(
-        responses.PUT,
-        URL,
-        json={"status": 400, "detail": "Email type 'invitation' cannot be disabled"},
-        status=400,
+    respx.put(URL).mock(
+        return_value=httpx.Response(400, json={"status": 400, "detail": "Email type 'invitation' cannot be disabled"})
     )
     result = runner.invoke(app, ["settings", "email-templates", "put", "--file", str(body_file)])
     assert result.exit_code != 0

@@ -2,7 +2,8 @@
 
 import json
 
-import responses
+import httpx
+import respx
 from typer.testing import CliRunner
 
 import entropy_data.config as cfg
@@ -29,15 +30,15 @@ def _setup(monkeypatch, tmp_path):
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
 
 
-@responses.activate
+@respx.mock
 def test_list_and_get(monkeypatch, tmp_path):
     _setup(monkeypatch, tmp_path)
-    responses.add(responses.GET, PATH, json=[LAKEHOUSE], status=200)
-    responses.add(responses.GET, f"{PATH}/lakehouse", json=LAKEHOUSE_DETAIL, status=200)
+    respx.get(PATH).mock(return_value=httpx.Response(200, json=[LAKEHOUSE]))
+    respx.get(f"{PATH}/lakehouse").mock(return_value=httpx.Response(200, json=LAKEHOUSE_DETAIL))
 
     result = runner.invoke(app, ["integrations", "unity-catalog-metadata", "list", "--disabled", "-o", "json"])
     assert result.exit_code == 0, result.output
-    assert "enabled=false" in responses.calls[0].request.url
+    assert "enabled=false" in str(respx.calls[0].request.url)
     assert json.loads(result.output)[0]["externalId"] == "lakehouse"
 
     result = runner.invoke(app, ["integrations", "unity-catalog-metadata", "get", "lakehouse", "-o", "json"])
@@ -47,10 +48,10 @@ def test_list_and_get(monkeypatch, tmp_path):
     assert "databricksClientSecret" not in data["credential"]
 
 
-@responses.activate
+@respx.mock
 def test_put_from_options_and_from_file(monkeypatch, tmp_path):
     _setup(monkeypatch, tmp_path)
-    responses.add(responses.PUT, f"{PATH}/lakehouse", json=LAKEHOUSE_DETAIL, status=201)
+    respx.put(f"{PATH}/lakehouse").mock(return_value=httpx.Response(201, json=LAKEHOUSE_DETAIL))
     result = runner.invoke(
         app,
         [
@@ -71,7 +72,7 @@ def test_put_from_options_and_from_file(monkeypatch, tmp_path):
         ],
     )
     assert result.exit_code == 0, result.output
-    body = json.loads(responses.calls[0].request.body)
+    body = json.loads(respx.calls[0].request.content)
     assert body == {
         "name": "Lakehouse",
         "credential": {
@@ -99,66 +100,65 @@ def test_put_from_options_and_from_file(monkeypatch, tmp_path):
         ],
     )
     assert result.exit_code == 0, result.output
-    assert json.loads(responses.calls[1].request.body) == {"name": "Lakehouse (prod)", "enabled": False}
+    assert json.loads(respx.calls[1].request.content) == {"name": "Lakehouse (prod)", "enabled": False}
 
     result = runner.invoke(app, ["integrations", "unity-catalog-metadata", "put", "lakehouse", "--host", "x"])
     assert result.exit_code != 0
     assert "name" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_tables_queue_retry_discard_and_delete(monkeypatch, tmp_path):
     _setup(monkeypatch, tmp_path)
-    responses.add(
-        responses.GET,
-        f"{PATH}/lakehouse/tables",
-        json=[
-            {
-                "dataContractExternalId": "orders",
-                "dataContractElement": "lake",
-                "tableFullName": "sales.public.orders",
-                "state": "failed",
-                "lastError": "boom",
-            }
-        ],
-        status=200,
+    respx.get(f"{PATH}/lakehouse/tables").mock(
+        return_value=httpx.Response(
+            200,
+            json=[
+                {
+                    "dataContractExternalId": "orders",
+                    "dataContractElement": "lake",
+                    "tableFullName": "sales.public.orders",
+                    "state": "failed",
+                    "lastError": "boom",
+                }
+            ],
+        )
     )
-    responses.add(
-        responses.GET,
-        f"{PATH}/lakehouse/queue",
-        json=[
-            {
-                "eventType": "DataContractUpdatedEvent",
-                "externalId": "orders",
-                "since": "2026-10-06T08:00:00Z",
-                "attempts": 1,
-            }
-        ],
-        status=200,
+    respx.get(f"{PATH}/lakehouse/queue").mock(
+        return_value=httpx.Response(
+            200,
+            json=[
+                {
+                    "eventType": "DataContractUpdatedEvent",
+                    "externalId": "orders",
+                    "since": "2026-10-06T08:00:00Z",
+                    "attempts": 1,
+                }
+            ],
+        )
     )
-    responses.add(
-        responses.POST,
-        f"{PATH}/lakehouse/tables/retry-failed",
-        json={
-            "integrationExternalId": "lakehouse",
-            "count": 1,
-            "message": "1 data contracts with failed or unresolved tables are written again",
-        },
-        status=200,
+    respx.post(f"{PATH}/lakehouse/tables/retry-failed").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "integrationExternalId": "lakehouse",
+                "count": 1,
+                "message": "1 data contracts with failed or unresolved tables are written again",
+            },
+        )
     )
-    responses.add(
-        responses.POST,
-        f"{PATH}/lakehouse/queue/discard",
-        json={"integrationExternalId": "lakehouse", "count": 2, "message": "2 waiting events discarded"},
-        status=200,
+    respx.post(f"{PATH}/lakehouse/queue/discard").mock(
+        return_value=httpx.Response(
+            200, json={"integrationExternalId": "lakehouse", "count": 2, "message": "2 waiting events discarded"}
+        )
     )
-    responses.add(responses.DELETE, f"{PATH}/lakehouse", status=204)
+    respx.delete(f"{PATH}/lakehouse").mock(return_value=httpx.Response(204))
 
     result = runner.invoke(
         app, ["integrations", "unity-catalog-metadata", "tables", "lakehouse", "--state", "failed", "-o", "json"]
     )
     assert result.exit_code == 0, result.output
-    assert "state=failed" in responses.calls[0].request.url
+    assert "state=failed" in str(respx.calls[0].request.url)
     assert json.loads(result.output)[0]["tableFullName"] == "sales.public.orders"
 
     result = runner.invoke(app, ["integrations", "unity-catalog-metadata", "queue", "lakehouse", "-o", "json"])
@@ -175,4 +175,4 @@ def test_tables_queue_retry_discard_and_delete(monkeypatch, tmp_path):
 
     result = runner.invoke(app, ["integrations", "unity-catalog-metadata", "delete", "lakehouse"])
     assert result.exit_code == 0, result.output
-    assert responses.calls[-1].request.method == "DELETE"
+    assert respx.calls[-1].request.method == "DELETE"

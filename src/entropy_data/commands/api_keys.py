@@ -49,16 +49,7 @@ def create_api_key(
             body["permissions"] = []
         elif permission:
             body["permissions"] = permission
-        client = get_client()
-        response = client.session.post(
-            f"{client.base_url}/api/{RESOURCE_PATH}",
-            json=body,
-            timeout=client.timeout,
-        )
-        from entropy_data.client import _raise_for_status
-
-        _raise_for_status(response)
-        data = response.json()
+        data = get_client().http.request("POST", f"/api/{RESOURCE_PATH}", json=body).json()
         if fmt != OutputFormat.table:
             print_data(data, fmt)
         else:

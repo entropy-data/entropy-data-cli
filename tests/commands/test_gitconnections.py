@@ -2,8 +2,9 @@
 
 import json
 
+import httpx
 import pytest
-import responses
+import respx
 from typer.testing import CliRunner
 
 import entropy_data.config as cfg
@@ -32,13 +33,10 @@ def configured(monkeypatch, tmp_path):
 
 
 @pytest.mark.parametrize("resource", ["dataproducts", "datacontracts"])
-@responses.activate
+@respx.mock
 def test_gitconnection_get(configured, resource):
-    responses.add(
-        responses.GET,
-        f"{BASE_URL}/api/{resource}/orders/gitconnection",
-        json=CONNECTION_RESPONSE,
-        status=200,
+    respx.get(f"{BASE_URL}/api/{resource}/orders/gitconnection").mock(
+        return_value=httpx.Response(200, json=CONNECTION_RESPONSE)
     )
     result = runner.invoke(app, [resource, "gitconnection", "get", "orders"])
     assert result.exit_code == 0
@@ -46,13 +44,10 @@ def test_gitconnection_get(configured, resource):
 
 
 @pytest.mark.parametrize("resource", ["dataproducts", "datacontracts"])
-@responses.activate
+@respx.mock
 def test_gitconnection_put(configured, resource):
-    responses.add(
-        responses.PUT,
-        f"{BASE_URL}/api/{resource}/orders/gitconnection",
-        json=CONNECTION_RESPONSE,
-        status=200,
+    respx.put(f"{BASE_URL}/api/{resource}/orders/gitconnection").mock(
+        return_value=httpx.Response(200, json=CONNECTION_RESPONSE)
     )
     result = runner.invoke(
         app,
@@ -71,7 +66,7 @@ def test_gitconnection_put(configured, resource):
     )
     assert result.exit_code == 0
     assert "saved" in result.output
-    sent = json.loads(responses.calls[-1].request.body)
+    sent = json.loads(respx.calls[-1].request.content)
     assert sent["repositoryUrl"] == "https://github.com/acme/contracts"
     assert sent["repositoryPath"] == "contracts/orders.yaml"
     assert sent["gitConnectionType"] == "github"
@@ -114,13 +109,10 @@ def test_gitconnection_put_rejects_invalid_type(configured):
 
 
 @pytest.mark.parametrize("resource", ["dataproducts", "datacontracts"])
-@responses.activate
+@respx.mock
 def test_gitconnection_put_with_credential_external_id(configured, resource):
-    responses.add(
-        responses.PUT,
-        f"{BASE_URL}/api/{resource}/orders/gitconnection",
-        json=CONNECTION_RESPONSE,
-        status=200,
+    respx.put(f"{BASE_URL}/api/{resource}/orders/gitconnection").mock(
+        return_value=httpx.Response(200, json=CONNECTION_RESPONSE)
     )
     result = runner.invoke(
         app,
@@ -138,32 +130,25 @@ def test_gitconnection_put_with_credential_external_id(configured, resource):
         ],
     )
     assert result.exit_code == 0
-    sent = json.loads(responses.calls[-1].request.body)
+    sent = json.loads(respx.calls[-1].request.content)
     assert sent["gitCredentialExternalId"] == "acme-ci"
     assert "gitConnectionType" not in sent
 
 
 @pytest.mark.parametrize("resource", ["dataproducts", "datacontracts"])
-@responses.activate
+@respx.mock
 def test_gitconnection_delete(configured, resource):
-    responses.add(
-        responses.DELETE,
-        f"{BASE_URL}/api/{resource}/orders/gitconnection",
-        status=200,
-    )
+    respx.delete(f"{BASE_URL}/api/{resource}/orders/gitconnection").mock(return_value=httpx.Response(200))
     result = runner.invoke(app, [resource, "gitconnection", "delete", "orders"])
     assert result.exit_code == 0
     assert "deleted" in result.output
 
 
 @pytest.mark.parametrize("resource", ["dataproducts", "datacontracts"])
-@responses.activate
+@respx.mock
 def test_gitconnection_pull(configured, resource):
-    responses.add(
-        responses.POST,
-        f"{BASE_URL}/api/{resource}/orders/gitconnection/pull",
-        json=CONNECTION_RESPONSE,
-        status=200,
+    respx.post(f"{BASE_URL}/api/{resource}/orders/gitconnection/pull").mock(
+        return_value=httpx.Response(200, json=CONNECTION_RESPONSE)
     )
     result = runner.invoke(app, [resource, "gitconnection", "pull", "orders"])
     assert result.exit_code == 0
@@ -171,13 +156,10 @@ def test_gitconnection_pull(configured, resource):
 
 
 @pytest.mark.parametrize("resource", ["dataproducts", "datacontracts"])
-@responses.activate
+@respx.mock
 def test_gitconnection_push(configured, resource):
-    responses.add(
-        responses.POST,
-        f"{BASE_URL}/api/{resource}/orders/gitconnection/push",
-        json=CONNECTION_RESPONSE,
-        status=200,
+    respx.post(f"{BASE_URL}/api/{resource}/orders/gitconnection/push").mock(
+        return_value=httpx.Response(200, json=CONNECTION_RESPONSE)
     )
     result = runner.invoke(
         app,
@@ -185,32 +167,26 @@ def test_gitconnection_push(configured, resource):
     )
     assert result.exit_code == 0
     assert "pushed" in result.output
-    sent = json.loads(responses.calls[-1].request.body)
+    sent = json.loads(respx.calls[-1].request.content)
     assert sent["commitMessage"] == "update orders"
 
 
 @pytest.mark.parametrize("resource", ["dataproducts", "datacontracts"])
-@responses.activate
+@respx.mock
 def test_gitconnection_push_no_body(configured, resource):
-    responses.add(
-        responses.POST,
-        f"{BASE_URL}/api/{resource}/orders/gitconnection/push",
-        json=CONNECTION_RESPONSE,
-        status=200,
+    respx.post(f"{BASE_URL}/api/{resource}/orders/gitconnection/push").mock(
+        return_value=httpx.Response(200, json=CONNECTION_RESPONSE)
     )
     result = runner.invoke(app, [resource, "gitconnection", "push", "orders"])
     assert result.exit_code == 0
-    assert responses.calls[-1].request.body in (None, b"null", "null")
+    assert respx.calls[-1].request.content in (b"", b"null")
 
 
 @pytest.mark.parametrize("resource", ["dataproducts", "datacontracts"])
-@responses.activate
+@respx.mock
 def test_gitconnection_push_pr(configured, resource):
-    responses.add(
-        responses.POST,
-        f"{BASE_URL}/api/{resource}/orders/gitconnection/push-pr",
-        json=CONNECTION_RESPONSE,
-        status=200,
+    respx.post(f"{BASE_URL}/api/{resource}/orders/gitconnection/push-pr").mock(
+        return_value=httpx.Response(200, json=CONNECTION_RESPONSE)
     )
     result = runner.invoke(
         app,
@@ -230,7 +206,7 @@ def test_gitconnection_push_pr(configured, resource):
         ],
     )
     assert result.exit_code == 0
-    sent = json.loads(responses.calls[-1].request.body)
+    sent = json.loads(respx.calls[-1].request.content)
     assert sent["branchName"] == "feat/orders"
     assert sent["title"] == "Update orders"
     assert sent["commitMessage"] == "update orders"

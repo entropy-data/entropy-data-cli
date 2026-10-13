@@ -2,7 +2,8 @@
 
 import json
 
-import responses
+import httpx
+import respx
 from typer.testing import CliRunner
 
 import entropy_data.config as cfg
@@ -26,48 +27,45 @@ SCHEMES = [
 ]
 
 
-@responses.activate
+@respx.mock
 def test_classifications_list(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(responses.GET, f"{BASE_URL}/api/classification-schemes", json=SCHEMES, status=200)
+    respx.get(f"{BASE_URL}/api/classification-schemes").mock(return_value=httpx.Response(200, json=SCHEMES))
     result = runner.invoke(app, ["classifications", "list"])
     assert result.exit_code == 0
     assert "classification" in result.output
     assert "GDPR" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_classifications_list_json(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(responses.GET, f"{BASE_URL}/api/classification-schemes", json=SCHEMES, status=200)
+    respx.get(f"{BASE_URL}/api/classification-schemes").mock(return_value=httpx.Response(200, json=SCHEMES))
     result = runner.invoke(app, ["classifications", "list", "--output", "json"])
     assert result.exit_code == 0
     data = json.loads(result.output)
     assert len(data) == 2
 
 
-@responses.activate
+@respx.mock
 def test_classifications_get(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(
-        responses.GET,
-        f"{BASE_URL}/api/classification-schemes/classification",
-        json=SCHEMES[0],
-        status=200,
+    respx.get(f"{BASE_URL}/api/classification-schemes/classification").mock(
+        return_value=httpx.Response(200, json=SCHEMES[0])
     )
     result = runner.invoke(app, ["classifications", "get", "classification"])
     assert result.exit_code == 0
     assert "Classification" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_classifications_put(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(responses.PUT, f"{BASE_URL}/api/classification-schemes/classification", status=200)
+    respx.put(f"{BASE_URL}/api/classification-schemes/classification").mock(return_value=httpx.Response(200))
     scheme_file = tmp_path / "scheme.json"
     scheme_file.write_text(json.dumps(SCHEMES[0]))
     result = runner.invoke(app, ["classifications", "put", "classification", "--file", str(scheme_file)])
@@ -75,11 +73,11 @@ def test_classifications_put(monkeypatch, tmp_path):
     assert "saved" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_classifications_delete(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(responses.DELETE, f"{BASE_URL}/api/classification-schemes/classification", status=200)
+    respx.delete(f"{BASE_URL}/api/classification-schemes/classification").mock(return_value=httpx.Response(200))
     result = runner.invoke(app, ["classifications", "delete", "classification"])
     assert result.exit_code == 0
     assert "deleted" in result.output

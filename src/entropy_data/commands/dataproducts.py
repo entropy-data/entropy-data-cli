@@ -152,16 +152,9 @@ def star_dataproduct(
 ) -> None:
     """Star a data product (requires a user-scoped API key)."""
     from entropy_data.cli import get_client, handle_error
-    from entropy_data.client import _raise_for_status, _validate_resource_id
 
     try:
-        client = get_client()
-        _validate_resource_id(id)
-        response = client.session.put(
-            f"{client.base_url}/api/{RESOURCE_PATH}/{id}/star",
-            timeout=client.timeout,
-        )
-        _raise_for_status(response)
+        get_client().sdk.data_products.star(id)
         print_success(f"Starred data product '{id}'.")
     except Exception as e:
         handle_error(e)
@@ -173,16 +166,9 @@ def unstar_dataproduct(
 ) -> None:
     """Remove your star from a data product (requires a user-scoped API key)."""
     from entropy_data.cli import get_client, handle_error
-    from entropy_data.client import _raise_for_status, _validate_resource_id
 
     try:
-        client = get_client()
-        _validate_resource_id(id)
-        response = client.session.delete(
-            f"{client.base_url}/api/{RESOURCE_PATH}/{id}/star",
-            timeout=client.timeout,
-        )
-        _raise_for_status(response)
+        get_client().sdk.data_products.unstar(id)
         print_success(f"Unstarred data product '{id}'.")
     except Exception as e:
         handle_error(e)
@@ -195,18 +181,10 @@ def star_status_dataproduct(
 ) -> None:
     """Show the star count and whether you starred a data product."""
     from entropy_data.cli import get_client, get_output_format, handle_error
-    from entropy_data.client import _raise_for_status, _validate_resource_id
 
     fmt = output or get_output_format()
     try:
-        client = get_client()
-        _validate_resource_id(id)
-        response = client.session.get(
-            f"{client.base_url}/api/{RESOURCE_PATH}/{id}/star",
-            timeout=client.timeout,
-        )
-        _raise_for_status(response)
-        print_resource(response.json(), "star-status", fmt)
+        print_resource(get_client().sdk.data_products.get_star(id), "star-status", fmt)
     except Exception as e:
         handle_error(e)
 
@@ -218,18 +196,10 @@ def stargazers_dataproduct(
 ) -> None:
     """List the users who starred a data product (organization owners only)."""
     from entropy_data.cli import get_client, get_output_format, handle_error
-    from entropy_data.client import _raise_for_status, _validate_resource_id
 
     fmt = output or get_output_format()
     try:
-        client = get_client()
-        _validate_resource_id(id)
-        response = client.session.get(
-            f"{client.base_url}/api/{RESOURCE_PATH}/{id}/stargazers",
-            timeout=client.timeout,
-        )
-        _raise_for_status(response)
-        print_resource_list(response.json(), "stargazers", fmt)
+        print_resource_list(get_client().sdk.data_products.stargazers(id), "stargazers", fmt)
     except Exception as e:
         handle_error(e)
 

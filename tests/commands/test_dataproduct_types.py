@@ -2,7 +2,8 @@
 
 import json
 
-import responses
+import httpx
+import respx
 import yaml
 from typer.testing import CliRunner
 
@@ -42,10 +43,10 @@ def _setup(monkeypatch, tmp_path):
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
 
 
-@responses.activate
+@respx.mock
 def test_dataproduct_types_get_table(monkeypatch, tmp_path):
     _setup(monkeypatch, tmp_path)
-    responses.add(responses.GET, URL, json=DOCUMENT, status=200)
+    respx.get(URL).mock(return_value=httpx.Response(200, json=DOCUMENT))
     monkeypatch.setenv("COLUMNS", "200")
     result = runner.invoke(app, ["settings", "dataproduct-types", "get"])
     assert result.exit_code == 0, result.output
@@ -54,44 +55,44 @@ def test_dataproduct_types_get_table(monkeypatch, tmp_path):
     assert "data-consumer" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_dataproduct_types_get_yaml(monkeypatch, tmp_path):
     _setup(monkeypatch, tmp_path)
-    responses.add(responses.GET, URL, json=DOCUMENT, status=200)
+    respx.get(URL).mock(return_value=httpx.Response(200, json=DOCUMENT))
     result = runner.invoke(app, ["settings", "dataproduct-types", "get", "--output", "yaml"])
     assert result.exit_code == 0, result.output
     assert yaml.safe_load(result.output) == DOCUMENT
 
 
-@responses.activate
+@respx.mock
 def test_dataproduct_types_put_yaml(monkeypatch, tmp_path):
     _setup(monkeypatch, tmp_path)
-    responses.add(responses.PUT, URL, json=DOCUMENT, status=200)
+    respx.put(URL).mock(return_value=httpx.Response(200, json=DOCUMENT))
     file = tmp_path / "types.yaml"
     file.write_text(yaml.safe_dump(DOCUMENT))
     result = runner.invoke(app, ["settings", "dataproduct-types", "put", "--file", str(file)])
     assert result.exit_code == 0, result.output
     assert "saved" in result.output
-    request = responses.calls[0].request
+    request = respx.calls[0].request
     assert request.headers["Content-Type"] == "application/yaml"
-    assert yaml.safe_load(request.body) == DOCUMENT
+    assert yaml.safe_load(request.content) == DOCUMENT
 
 
-@responses.activate
+@respx.mock
 def test_dataproduct_types_put_json(monkeypatch, tmp_path):
     _setup(monkeypatch, tmp_path)
-    responses.add(responses.PUT, URL, json=DOCUMENT, status=200)
+    respx.put(URL).mock(return_value=httpx.Response(200, json=DOCUMENT))
     file = tmp_path / "types.json"
     file.write_text(json.dumps(DOCUMENT))
     result = runner.invoke(app, ["settings", "dataproduct-types", "put", "--file", str(file)])
     assert result.exit_code == 0, result.output
-    assert responses.calls[0].request.headers["Content-Type"] == "application/json"
+    assert respx.calls[0].request.headers["Content-Type"] == "application/json"
 
 
-@responses.activate
+@respx.mock
 def test_dataproduct_types_put_validation_error(monkeypatch, tmp_path):
     _setup(monkeypatch, tmp_path)
-    responses.add(responses.PUT, URL, json={"detail": "Exactly one type must be the default."}, status=422)
+    respx.put(URL).mock(return_value=httpx.Response(422, json={"detail": "Exactly one type must be the default."}))
     file = tmp_path / "types.yaml"
     file.write_text(yaml.safe_dump(DOCUMENT))
     result = runner.invoke(app, ["settings", "dataproduct-types", "put", "--file", str(file)])

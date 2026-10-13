@@ -2,7 +2,8 @@
 
 import json
 
-import responses
+import httpx
+import respx
 from typer.testing import CliRunner
 
 import entropy_data.config as cfg
@@ -28,11 +29,11 @@ ORG_PAYLOAD = {
 }
 
 
-@responses.activate
+@respx.mock
 def test_organization_get_table(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(responses.GET, ORG_SETTINGS_URL, json=ORG_PAYLOAD, status=200)
+    respx.get(ORG_SETTINGS_URL).mock(return_value=httpx.Response(200, json=ORG_PAYLOAD))
     result = runner.invoke(app, ["organization", "get"])
     assert result.exit_code == 0
     assert "acme" in result.output
@@ -41,11 +42,11 @@ def test_organization_get_table(monkeypatch, tmp_path):
     assert "azuresso" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_organization_get_json(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(responses.GET, ORG_SETTINGS_URL, json=ORG_PAYLOAD, status=200)
+    respx.get(ORG_SETTINGS_URL).mock(return_value=httpx.Response(200, json=ORG_PAYLOAD))
     result = runner.invoke(app, ["organization", "get", "--output", "json"])
     assert result.exit_code == 0
     data = json.loads(result.output)
@@ -54,25 +55,25 @@ def test_organization_get_json(monkeypatch, tmp_path):
     assert data["sso"]["issuer"] == "azuresso"
 
 
-@responses.activate
+@respx.mock
 def test_organization_get_minimal_payload(monkeypatch, tmp_path):
     """Org without SSO / optional fields renders cleanly."""
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(
-        responses.GET,
-        ORG_SETTINGS_URL,
-        json={
-            "vanityUrl": "minimal",
-            "host": "https://minimal.entropy-data.com",
-            "fullName": "Minimal",
-            "logoUrl": "",
-            "supportEmailAddress": None,
-            "brand": None,
-            "plan": None,
-            "sso": None,
-        },
-        status=200,
+    respx.get(ORG_SETTINGS_URL).mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "vanityUrl": "minimal",
+                "host": "https://minimal.entropy-data.com",
+                "fullName": "Minimal",
+                "logoUrl": "",
+                "supportEmailAddress": None,
+                "brand": None,
+                "plan": None,
+                "sso": None,
+            },
+        )
     )
     result = runner.invoke(app, ["organization", "get"])
     assert result.exit_code == 0
@@ -85,47 +86,34 @@ MEMBERS_LIST = [
 ]
 
 
-@responses.activate
+@respx.mock
 def test_organization_members_list(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(
-        responses.GET,
-        f"{BASE_URL}/api/organization/members",
-        json=MEMBERS_LIST,
-        status=200,
-    )
+    respx.get(f"{BASE_URL}/api/organization/members").mock(return_value=httpx.Response(200, json=MEMBERS_LIST))
     result = runner.invoke(app, ["organization", "members", "list"])
     assert result.exit_code == 0
     assert "alice@example.com" in result.output
     assert "Owner" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_organization_members_list_json(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(
-        responses.GET,
-        f"{BASE_URL}/api/organization/members",
-        json=MEMBERS_LIST,
-        status=200,
-    )
+    respx.get(f"{BASE_URL}/api/organization/members").mock(return_value=httpx.Response(200, json=MEMBERS_LIST))
     result = runner.invoke(app, ["organization", "members", "list", "--output", "json"])
     assert result.exit_code == 0
     data = json.loads(result.output)
     assert len(data) == 2
 
 
-@responses.activate
+@respx.mock
 def test_organization_members_get(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(
-        responses.GET,
-        f"{BASE_URL}/api/organization/members/alice@example.com",
-        json=MEMBERS_LIST[0],
-        status=200,
+    respx.get(f"{BASE_URL}/api/organization/members/alice@example.com").mock(
+        return_value=httpx.Response(200, json=MEMBERS_LIST[0])
     )
     result = runner.invoke(app, ["organization", "members", "get", "alice@example.com"])
     assert result.exit_code == 0

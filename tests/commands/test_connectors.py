@@ -2,7 +2,8 @@
 
 import json
 
-import responses
+import httpx
+import respx
 from typer.testing import CliRunner
 
 import entropy_data.config as cfg
@@ -17,26 +18,23 @@ CONNECTORS_LIST = [
 ]
 
 
-@responses.activate
+@respx.mock
 def test_connectors_list(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(responses.GET, f"{BASE_URL}/api/connectors", json=CONNECTORS_LIST, status=200)
+    respx.get(f"{BASE_URL}/api/connectors").mock(return_value=httpx.Response(200, json=CONNECTORS_LIST))
     result = runner.invoke(app, ["connectors", "list"])
     assert result.exit_code == 0
     assert "databricks-prod" in result.output
     assert "snowflake" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_connectors_get(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(
-        responses.GET,
-        f"{BASE_URL}/api/connectors/databricks-prod",
-        json=CONNECTORS_LIST[0],
-        status=200,
+    respx.get(f"{BASE_URL}/api/connectors/databricks-prod").mock(
+        return_value=httpx.Response(200, json=CONNECTORS_LIST[0])
     )
     result = runner.invoke(app, ["connectors", "get", "databricks-prod", "--output", "json"])
     assert result.exit_code == 0
@@ -44,11 +42,11 @@ def test_connectors_get(monkeypatch, tmp_path):
     assert data["id"] == "databricks-prod"
 
 
-@responses.activate
+@respx.mock
 def test_connectors_put(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(responses.PUT, f"{BASE_URL}/api/connectors/databricks-prod", status=200)
+    respx.put(f"{BASE_URL}/api/connectors/databricks-prod").mock(return_value=httpx.Response(200))
     body_file = tmp_path / "connector.json"
     body_file.write_text(json.dumps(CONNECTORS_LIST[0]))
     result = runner.invoke(app, ["connectors", "put", "databricks-prod", "--file", str(body_file)])
@@ -56,11 +54,11 @@ def test_connectors_put(monkeypatch, tmp_path):
     assert "saved" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_connectors_delete(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(responses.DELETE, f"{BASE_URL}/api/connectors/databricks-prod", status=200)
+    respx.delete(f"{BASE_URL}/api/connectors/databricks-prod").mock(return_value=httpx.Response(200))
     result = runner.invoke(app, ["connectors", "delete", "databricks-prod"])
     assert result.exit_code == 0
     assert "deleted" in result.output

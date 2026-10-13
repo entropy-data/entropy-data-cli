@@ -2,7 +2,8 @@
 
 import json
 
-import responses
+import httpx
+import respx
 from typer.testing import CliRunner
 
 import entropy_data.config as cfg
@@ -17,56 +18,52 @@ TAGS_LIST = [
 ]
 
 
-@responses.activate
+@respx.mock
 def test_tags_list(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(responses.GET, f"{BASE_URL}/api/tags", json=TAGS_LIST, status=200)
+    respx.get(f"{BASE_URL}/api/tags").mock(return_value=httpx.Response(200, json=TAGS_LIST))
     result = runner.invoke(app, ["tags", "list"])
     assert result.exit_code == 0
     assert "Governance/PII" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_tags_list_json(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(responses.GET, f"{BASE_URL}/api/tags", json=TAGS_LIST, status=200)
+    respx.get(f"{BASE_URL}/api/tags").mock(return_value=httpx.Response(200, json=TAGS_LIST))
     result = runner.invoke(app, ["tags", "list", "--output", "json"])
     assert result.exit_code == 0
     data = json.loads(result.output)
     assert len(data) == 2
 
 
-@responses.activate
+@respx.mock
 def test_tags_list_with_owner(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(responses.GET, f"{BASE_URL}/api/tags", json=[TAGS_LIST[0]], status=200)
+    respx.get(f"{BASE_URL}/api/tags").mock(return_value=httpx.Response(200, json=[TAGS_LIST[0]]))
     result = runner.invoke(app, ["tags", "list", "--owner", "checkout"])
     assert result.exit_code == 0
     assert "Governance/PII" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_tags_get(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(responses.GET, f"{BASE_URL}/api/tags/Governance/PII", json=TAGS_LIST[0], status=200)
+    respx.get(f"{BASE_URL}/api/tags/Governance/PII").mock(return_value=httpx.Response(200, json=TAGS_LIST[0]))
     result = runner.invoke(app, ["tags", "get", "Governance/PII"])
     assert result.exit_code == 0
     assert "Governance/PII" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_tags_put(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(
-        responses.PUT,
-        f"{BASE_URL}/api/tags/Governance/PII",
-        status=200,
-    )
+    respx.put(f"{BASE_URL}/api/tags/Governance/PII").mock(return_value=httpx.Response(200))
     tag_file = tmp_path / "tag.json"
     tag_file.write_text(json.dumps({"id": "Governance/PII", "info": {"owner": "checkout"}}))
     result = runner.invoke(app, ["tags", "put", "Governance/PII", "--file", str(tag_file)])
@@ -74,11 +71,11 @@ def test_tags_put(monkeypatch, tmp_path):
     assert "saved" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_tags_delete(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(responses.DELETE, f"{BASE_URL}/api/tags/Governance/PII", status=200)
+    respx.delete(f"{BASE_URL}/api/tags/Governance/PII").mock(return_value=httpx.Response(200))
     result = runner.invoke(app, ["tags", "delete", "Governance/PII"])
     assert result.exit_code == 0
     assert "deleted" in result.output

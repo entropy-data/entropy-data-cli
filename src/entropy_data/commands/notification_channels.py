@@ -11,8 +11,12 @@ from entropy_data.util import read_body
 notifications_app = typer.Typer(no_args_is_help=True)
 
 
-def _channel_url(client, team_id: str, channel_id: str) -> str:
-    return f"{client.base_url}/api/teams/{team_id}/notification-channels/{channel_id}"
+def _channel_path(team_id: str, channel_id: str) -> str:
+    from entropy_data.client import _validate_resource_id
+
+    _validate_resource_id(team_id)
+    _validate_resource_id(channel_id)
+    return f"/api/teams/{team_id}/notification-channels/{channel_id}"
 
 
 @notifications_app.command("get")
@@ -23,16 +27,10 @@ def get_channel(
 ) -> None:
     """Get a team's notification channel."""
     from entropy_data.cli import get_client, get_output_format, handle_error
-    from entropy_data.client import _raise_for_status, _validate_resource_id
 
     fmt = output or get_output_format()
     try:
-        client = get_client()
-        _validate_resource_id(team_id)
-        _validate_resource_id(channel_id)
-        response = client.session.get(_channel_url(client, team_id, channel_id), timeout=client.timeout)
-        _raise_for_status(response)
-        data = response.json()
+        data = get_client().http.get_json(_channel_path(team_id, channel_id))
         print_data(data, fmt)
     except Exception as e:
         handle_error(e)
@@ -46,19 +44,10 @@ def put_channel(
 ) -> None:
     """Create or update a team's notification channel."""
     from entropy_data.cli import get_client, handle_error
-    from entropy_data.client import _raise_for_status, _validate_resource_id
 
     try:
         body = read_body(file)
-        client = get_client()
-        _validate_resource_id(team_id)
-        _validate_resource_id(channel_id)
-        response = client.session.put(
-            _channel_url(client, team_id, channel_id),
-            json=body,
-            timeout=client.timeout,
-        )
-        _raise_for_status(response)
+        get_client().http.put_json(_channel_path(team_id, channel_id), body)
         print_success(f"Notification channel '{channel_id}' saved for team '{team_id}'.")
     except Exception as e:
         handle_error(e)
@@ -71,14 +60,9 @@ def delete_channel(
 ) -> None:
     """Delete a team's notification channel."""
     from entropy_data.cli import get_client, handle_error
-    from entropy_data.client import _raise_for_status, _validate_resource_id
 
     try:
-        client = get_client()
-        _validate_resource_id(team_id)
-        _validate_resource_id(channel_id)
-        response = client.session.delete(_channel_url(client, team_id, channel_id), timeout=client.timeout)
-        _raise_for_status(response)
+        get_client().http.delete(_channel_path(team_id, channel_id))
         print_success(f"Notification channel '{channel_id}' deleted for team '{team_id}'.")
     except Exception as e:
         handle_error(e)

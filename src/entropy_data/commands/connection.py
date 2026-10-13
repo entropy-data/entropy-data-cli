@@ -21,15 +21,9 @@ def _fetch_vanity_url(api_key: str, host: str) -> str | None:
 
     try:
         client = EntropyDataClient(cfg.ConnectionConfig(api_key=api_key, host=host))
-        response = client.session.get(
-            f"{client.base_url}/api/organization/settings",
-            timeout=client.timeout,
-        )
-        if response.ok:
-            return response.json().get("vanityUrl")
+        return client.sdk.organization.get_settings().vanityUrl
     except Exception:
         return None
-    return None
 
 
 def _env_override_notice(overrides: dict[str, str], default_name: str | None) -> str:

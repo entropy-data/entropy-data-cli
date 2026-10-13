@@ -1,8 +1,8 @@
 """Tests for the global --timeout option."""
 
+import httpx
 import pytest
-import requests
-import responses
+import respx
 from typer.testing import CliRunner
 
 import entropy_data.config as cfg
@@ -22,14 +22,15 @@ def api_key(monkeypatch, tmp_path):
 
 @pytest.fixture
 def timeouts(monkeypatch):
+    """The read timeout of every request sent, as httpx carries it to the transport."""
     seen = []
-    send = requests.Session.send
+    send = httpx.Client.send
 
     def recording_send(self, request, **kwargs):
-        seen.append(kwargs.get("timeout"))
+        seen.append(request.extensions["timeout"]["read"])
         return send(self, request, **kwargs)
 
-    monkeypatch.setattr(requests.Session, "send", recording_send)
+    monkeypatch.setattr(httpx.Client, "send", recording_send)
     return seen
 
 
@@ -40,18 +41,18 @@ def document(tmp_path):
     return str(path)
 
 
-@responses.activate
+@respx.mock
 def test_requests_wait_30_seconds_by_default(timeouts, document):
-    responses.add(responses.PUT, f"{BRANCH}/ontology.yaml", status=200)
+    respx.put(f"{BRANCH}/ontology.yaml").mock(return_value=httpx.Response(200))
     result = runner.invoke(app, ["semantics", "branches", "put", "sales", "add-credit-limit", "-f", document])
     assert result.exit_code == 0
     assert timeouts == [30]
 
 
-@responses.activate
+@respx.mock
 def test_timeout_option_and_env_var(timeouts, document, monkeypatch):
-    responses.add(responses.PUT, f"{BRANCH}/ontology.yaml", status=200)
-    responses.add(responses.POST, f"{BRANCH}/merge", status=204)
+    respx.put(f"{BRANCH}/ontology.yaml").mock(return_value=httpx.Response(200))
+    respx.post(f"{BRANCH}/merge").mock(return_value=httpx.Response(204))
 
     result = runner.invoke(
         app, ["--timeout", "300", "semantics", "branches", "put", "sales", "add-credit-limit", "-f", document]
@@ -64,9 +65,11 @@ def test_timeout_option_and_env_var(timeouts, document, monkeypatch):
     assert timeouts == [300, 600]
 
 
-@responses.activate
+@respx.mock
 def test_timeout_overrides_a_commands_own_longer_wait(timeouts):
-    responses.add(responses.POST, f"{BASE_URL}/api/datacontracts/orders/test", json={"result": "passed"}, status=200)
+    respx.post(f"{BASE_URL}/api/datacontracts/orders/test").mock(
+        return_value=httpx.Response(200, json={"result": "passed"})
+    )
 
     assert runner.invoke(app, ["datacontracts", "test", "orders"]).exit_code == 0
     assert runner.invoke(app, ["--timeout", "60", "datacontracts", "test", "orders"]).exit_code == 0

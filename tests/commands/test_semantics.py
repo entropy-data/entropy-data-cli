@@ -2,7 +2,8 @@
 
 import json
 
-import responses
+import httpx
+import respx
 from typer.testing import CliRunner
 
 import entropy_data.config as cfg
@@ -57,38 +58,38 @@ RELATIONSHIP = {
 # Namespaces
 
 
-@responses.activate
+@respx.mock
 def test_semantics_namespaces_list(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(responses.GET, NS_URL, json=NAMESPACES, status=200)
+    respx.get(NS_URL).mock(return_value=httpx.Response(200, json=NAMESPACES))
     result = runner.invoke(app, ["semantics", "namespaces", "list"])
     assert result.exit_code == 0
     assert "main" in result.output
     assert "archive" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_semantics_namespaces_get(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(responses.GET, f"{NS_URL}/main", json=NAMESPACES[0], status=200)
+    respx.get(f"{NS_URL}/main").mock(return_value=httpx.Response(200, json=NAMESPACES[0]))
     result = runner.invoke(app, ["semantics", "namespaces", "get", "main", "--output", "json"])
     assert result.exit_code == 0
     data = json.loads(result.output)
     assert data["namespace"] == "main"
 
 
-@responses.activate
+@respx.mock
 def test_semantics_namespaces_put(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(responses.PUT, f"{NS_URL}/main", status=200)
+    respx.put(f"{NS_URL}/main").mock(return_value=httpx.Response(200))
     body_file = tmp_path / "ns.json"
     body_file.write_text(json.dumps({"name": "Main"}))
     result = runner.invoke(app, ["semantics", "namespaces", "put", "main", "--file", str(body_file)])
     assert result.exit_code == 0
-    body = json.loads(responses.calls[0].request.body)
+    body = json.loads(respx.calls[0].request.content)
     assert body == {"name": "Main", "namespace": "main"}
 
 
@@ -101,11 +102,11 @@ def test_semantics_namespaces_put_rejects_mismatched_id(monkeypatch, tmp_path):
     assert result.exit_code != 0
 
 
-@responses.activate
+@respx.mock
 def test_semantics_namespaces_delete(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(responses.DELETE, f"{NS_URL}/main", status=200)
+    respx.delete(f"{NS_URL}/main").mock(return_value=httpx.Response(200))
     result = runner.invoke(app, ["semantics", "namespaces", "delete", "main"])
     assert result.exit_code == 0
     assert "deleted" in result.output
@@ -114,31 +115,31 @@ def test_semantics_namespaces_delete(monkeypatch, tmp_path):
 # Concepts
 
 
-@responses.activate
+@respx.mock
 def test_semantics_concepts_list(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(responses.GET, f"{NS_URL}/main/concepts", json=[CONCEPT], status=200)
+    respx.get(f"{NS_URL}/main/concepts").mock(return_value=httpx.Response(200, json=[CONCEPT]))
     result = runner.invoke(app, ["semantics", "concepts", "list", "main"])
     assert result.exit_code == 0
     assert "customer" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_semantics_concepts_get(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(responses.GET, f"{NS_URL}/main/concepts/customer", json=CONCEPT, status=200)
+    respx.get(f"{NS_URL}/main/concepts/customer").mock(return_value=httpx.Response(200, json=CONCEPT))
     result = runner.invoke(app, ["semantics", "concepts", "get", "main", "customer"])
     assert result.exit_code == 0
     assert "customer" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_semantics_concepts_put(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(responses.PUT, f"{NS_URL}/main/concepts/customer", status=200)
+    respx.put(f"{NS_URL}/main/concepts/customer").mock(return_value=httpx.Response(200))
     body_file = tmp_path / "concept.json"
     body_file.write_text(json.dumps({"name": "Customer", "kind": "entity"}))
     result = runner.invoke(
@@ -146,16 +147,16 @@ def test_semantics_concepts_put(monkeypatch, tmp_path):
         ["semantics", "concepts", "put", "main", "customer", "--file", str(body_file)],
     )
     assert result.exit_code == 0
-    body = json.loads(responses.calls[0].request.body)
+    body = json.loads(respx.calls[0].request.content)
     assert body["id"] == "customer"
     assert body["name"] == "Customer"
 
 
-@responses.activate
+@respx.mock
 def test_semantics_concepts_put_hierarchical_id(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(responses.PUT, f"{NS_URL}/main/concepts/Security/Group", status=200)
+    respx.put(f"{NS_URL}/main/concepts/Security/Group").mock(return_value=httpx.Response(200))
     body_file = tmp_path / "concept.json"
     body_file.write_text(json.dumps({"kind": "group"}))
     result = runner.invoke(
@@ -165,11 +166,11 @@ def test_semantics_concepts_put_hierarchical_id(monkeypatch, tmp_path):
     assert result.exit_code == 0
 
 
-@responses.activate
+@respx.mock
 def test_semantics_concepts_delete(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(responses.DELETE, f"{NS_URL}/main/concepts/customer", status=200)
+    respx.delete(f"{NS_URL}/main/concepts/customer").mock(return_value=httpx.Response(200))
     result = runner.invoke(app, ["semantics", "concepts", "delete", "main", "customer"])
     assert result.exit_code == 0
     assert "deleted" in result.output
@@ -178,25 +179,21 @@ def test_semantics_concepts_delete(monkeypatch, tmp_path):
 # Relationships
 
 
-@responses.activate
+@respx.mock
 def test_semantics_relationships_list(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(responses.GET, f"{NS_URL}/main/relationships", json=[RELATIONSHIP], status=200)
+    respx.get(f"{NS_URL}/main/relationships").mock(return_value=httpx.Response(200, json=[RELATIONSHIP]))
     result = runner.invoke(app, ["semantics", "relationships", "list", "main"])
     assert result.exit_code == 0
     assert "customer-has-orders" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_semantics_relationships_put(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(
-        responses.PUT,
-        f"{NS_URL}/main/relationships/customer-has-orders",
-        status=200,
-    )
+    respx.put(f"{NS_URL}/main/relationships/customer-has-orders").mock(return_value=httpx.Response(200))
     body_file = tmp_path / "rel.json"
     body_file.write_text(
         json.dumps(
@@ -219,19 +216,15 @@ def test_semantics_relationships_put(monkeypatch, tmp_path):
         ],
     )
     assert result.exit_code == 0
-    body = json.loads(responses.calls[0].request.body)
+    body = json.loads(respx.calls[0].request.content)
     assert body["id"] == "customer-has-orders"
 
 
-@responses.activate
+@respx.mock
 def test_semantics_relationships_delete(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(
-        responses.DELETE,
-        f"{NS_URL}/main/relationships/customer-has-orders",
-        status=200,
-    )
+    respx.delete(f"{NS_URL}/main/relationships/customer-has-orders").mock(return_value=httpx.Response(200))
     result = runner.invoke(
         app,
         ["semantics", "relationships", "delete", "main", "customer-has-orders"],
@@ -242,11 +235,11 @@ def test_semantics_relationships_delete(monkeypatch, tmp_path):
 # Search
 
 
-@responses.activate
+@respx.mock
 def test_semantics_search_substring(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(responses.GET, f"{NS_URL}/main/concepts", json=CONCEPTS_FOR_SEARCH, status=200)
+    respx.get(f"{NS_URL}/main/concepts").mock(return_value=httpx.Response(200, json=CONCEPTS_FOR_SEARCH))
     result = runner.invoke(app, ["semantics", "search", "main", "customer", "--output", "json"])
     assert result.exit_code == 0
     data = json.loads(result.output)
@@ -255,11 +248,11 @@ def test_semantics_search_substring(monkeypatch, tmp_path):
     assert ids == {"customer", "account"}
 
 
-@responses.activate
+@respx.mock
 def test_semantics_search_kind_filter(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(responses.GET, f"{NS_URL}/main/concepts", json=CONCEPTS_FOR_SEARCH, status=200)
+    respx.get(f"{NS_URL}/main/concepts").mock(return_value=httpx.Response(200, json=CONCEPTS_FOR_SEARCH))
     result = runner.invoke(
         app,
         ["semantics", "search", "main", "revenue", "--kind", "metric", "--output", "json"],
@@ -270,11 +263,11 @@ def test_semantics_search_kind_filter(monkeypatch, tmp_path):
     assert data[0]["id"] == "mrr"
 
 
-@responses.activate
+@respx.mock
 def test_semantics_search_limit(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(responses.GET, f"{NS_URL}/main/concepts", json=CONCEPTS_FOR_SEARCH, status=200)
+    respx.get(f"{NS_URL}/main/concepts").mock(return_value=httpx.Response(200, json=CONCEPTS_FOR_SEARCH))
     result = runner.invoke(
         app,
         ["semantics", "search", "main", "a", "--limit", "1", "--output", "json"],

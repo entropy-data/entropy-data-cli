@@ -2,8 +2,9 @@
 
 import json
 
+import httpx
 import pytest
-import responses
+import respx
 from typer.testing import CliRunner
 
 import entropy_data.config as cfg
@@ -43,9 +44,9 @@ def api_key(monkeypatch, tmp_path):
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
 
 
-@responses.activate
+@respx.mock
 def test_branches_list_as_table_and_json():
-    responses.add(responses.GET, BRANCHES, json=[BRANCH], status=200)
+    respx.get(BRANCHES).mock(return_value=httpx.Response(200, json=[BRANCH]))
     result = runner.invoke(app, ["datacontracts", "branches", "list", "orders"])
     assert result.exit_code == 0
     assert "add-status" in result.output
@@ -56,11 +57,11 @@ def test_branches_list_as_table_and_json():
     assert json.loads(result.output)[0]["name"] == "add-status"
 
 
-@responses.activate
+@respx.mock
 def test_branches_create_get_delete():
-    responses.add(responses.PUT, f"{BRANCHES}/add-status", json=BRANCH, status=200)
-    responses.add(responses.GET, f"{BRANCHES}/add-status", json=BRANCH, status=200)
-    responses.add(responses.DELETE, f"{BRANCHES}/add-status", status=204)
+    respx.put(f"{BRANCHES}/add-status").mock(return_value=httpx.Response(200, json=BRANCH))
+    respx.get(f"{BRANCHES}/add-status").mock(return_value=httpx.Response(200, json=BRANCH))
+    respx.delete(f"{BRANCHES}/add-status").mock(return_value=httpx.Response(204))
 
     result = runner.invoke(app, ["datacontracts", "branches", "create", "orders", "add-status"])
     assert result.exit_code == 0
@@ -75,33 +76,29 @@ def test_branches_create_get_delete():
     assert "deleted" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_branches_yaml_and_put(tmp_path):
-    responses.add(
-        responses.GET,
-        f"{BRANCHES}/add-status/datacontract.yaml",
-        body=YAML_BODY,
-        content_type="application/yaml",
-        status=200,
+    respx.get(f"{BRANCHES}/add-status/datacontract.yaml").mock(
+        return_value=httpx.Response(200, text=YAML_BODY, headers={"Content-Type": "application/yaml"})
     )
-    responses.add(responses.PUT, f"{BRANCHES}/add-status/datacontract.yaml", status=200)
+    respx.put(f"{BRANCHES}/add-status/datacontract.yaml").mock(return_value=httpx.Response(200))
 
     result = runner.invoke(app, ["datacontracts", "branches", "yaml", "orders", "add-status"])
     assert result.exit_code == 0
     assert "kind: DataContract" in result.output
-    assert responses.calls[0].request.headers["Accept"] == "application/yaml"
+    assert respx.calls[0].request.headers["Accept"] == "application/yaml"
 
     edited = tmp_path / "orders.yaml"
     edited.write_text(YAML_BODY.replace("1.0.0", "1.1.0") + "# kept as written\n")
     result = runner.invoke(app, ["datacontracts", "branches", "put", "orders", "add-status", "--file", str(edited)])
     assert result.exit_code == 0
     assert "updated" in result.output
-    put = responses.calls[1].request
+    put = respx.calls[1].request
     assert put.headers["Content-Type"] == "application/yaml"
-    assert put.body.decode() == edited.read_text()
+    assert put.content.decode() == edited.read_text()
 
 
-@responses.activate
+@respx.mock
 def test_branches_changes_and_rebase():
     changes = [
         {
@@ -114,8 +111,10 @@ def test_branches_changes_and_rebase():
             "fields": [],
         }
     ]
-    responses.add(responses.GET, f"{BRANCHES}/add-status/changes", json=changes, status=200)
-    responses.add(responses.POST, f"{BRANCHES}/add-status/rebase", json={**BRANCH, "behind_target": False}, status=200)
+    respx.get(f"{BRANCHES}/add-status/changes").mock(return_value=httpx.Response(200, json=changes))
+    respx.post(f"{BRANCHES}/add-status/rebase").mock(
+        return_value=httpx.Response(200, json={**BRANCH, "behind_target": False})
+    )
 
     result = runner.invoke(app, ["datacontracts", "branches", "changes", "orders", "add-status"])
     assert result.exit_code == 0
@@ -127,9 +126,9 @@ def test_branches_changes_and_rebase():
     assert "updated from data contract" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_branches_merge_lands_with_version_and_route():
-    responses.add(responses.POST, f"{BRANCHES}/add-status/merge", status=204)
+    respx.post(f"{BRANCHES}/add-status/merge").mock(return_value=httpx.Response(204))
     result = runner.invoke(
         app,
         [
@@ -139,14 +138,14 @@ def test_branches_merge_lands_with_version_and_route():
     )  # fmt: skip
     assert result.exit_code == 0
     assert "merged into data contract" in result.output
-    assert json.loads(responses.calls[0].request.body) == {
+    assert json.loads(respx.calls[0].request.content) == {
         "update_port_versions": True,
         "version": "1.1.0",
         "route": "land",
     }
 
 
-@responses.activate
+@respx.mock
 def test_branches_merge_opens_a_request():
     request = {
         "remote_id": "7",
@@ -157,14 +156,14 @@ def test_branches_merge_opens_a_request():
         "mergeability": "mergeable",
         "comment_count": 0,
     }
-    responses.add(responses.POST, f"{BRANCHES}/add-status/merge", json=request, status=200)
+    respx.post(f"{BRANCHES}/add-status/merge").mock(return_value=httpx.Response(200, json=request))
     result = runner.invoke(
         app, ["datacontracts", "branches", "merge", "orders", "add-status", "--route", "pull_request", "-o", "json"]
     )
     assert result.exit_code == 0
     # A machine format carries the request alone, so it can be piped.
     assert json.loads(result.output)["url"] == "https://github.com/test/repo/pull/7"
-    assert json.loads(responses.calls[0].request.body) == {"update_port_versions": False, "route": "pull_request"}
+    assert json.loads(respx.calls[0].request.content) == {"update_port_versions": False, "route": "pull_request"}
 
     result = runner.invoke(
         app, ["datacontracts", "branches", "merge", "orders", "add-status", "--route", "pull_request"]
@@ -180,40 +179,30 @@ def test_branches_merge_rejects_an_unknown_route():
     assert "land, pull_request" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_branches_merge_surfaces_a_refusal():
-    responses.add(
-        responses.POST,
-        f"{BRANCHES}/add-status/merge",
-        json={"message": "Branch 'add-status' is still at version '1.0.0'"},
-        status=422,
+    respx.post(f"{BRANCHES}/add-status/merge").mock(
+        return_value=httpx.Response(422, json={"message": "Branch 'add-status' is still at version '1.0.0'"})
     )
     result = runner.invoke(app, ["datacontracts", "branches", "merge", "orders", "add-status"])
     assert result.exit_code != 0
     assert "1.0.0" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_datacontract_commands_take_a_branch():
-    responses.add(responses.POST, f"{BRANCHES}/add-status/test", json={"result": "passed"}, status=200)
-    responses.add(
-        responses.GET,
-        f"{BRANCHES}/add-status/datacontract.yaml",
-        body=YAML_BODY,
-        content_type="application/yaml",
-        status=200,
+    respx.post(f"{BRANCHES}/add-status/test").mock(return_value=httpx.Response(200, json={"result": "passed"}))
+    respx.get(f"{BRANCHES}/add-status/datacontract.yaml").mock(
+        return_value=httpx.Response(200, text=YAML_BODY, headers={"Content-Type": "application/yaml"})
     )
-    responses.add(
-        responses.POST,
-        f"{BRANCHES}/add-status/generate",
-        json={"dataContractId": "orders", "generationType": "sql-ddl", "files": []},
-        status=200,
+    respx.post(f"{BRANCHES}/add-status/generate").mock(
+        return_value=httpx.Response(200, json={"dataContractId": "orders", "generationType": "sql-ddl", "files": []})
     )
 
     result = runner.invoke(app, ["datacontracts", "test", "orders", "--branch", "add-status", "--server", "prod"])
     assert result.exit_code == 0
     assert json.loads(result.output) == {"result": "passed"}
-    assert responses.calls[0].request.params == {"server": "prod"}
+    assert dict(respx.calls[0].request.url.params) == {"server": "prod"}
 
     result = runner.invoke(app, ["datacontracts", "yaml", "orders", "-b", "add-status"])
     assert result.exit_code == 0

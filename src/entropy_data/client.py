@@ -1,59 +1,27 @@
-"""HTTP client for the Entropy Data API."""
+"""The commands' client for the Entropy Data API, built on the Python SDK.
 
-import json
+Commands print what the server returns, so this client speaks in paths and dictionaries and leaves
+parsing to the output layer. ``sdk`` is the typed SDK client underneath, and ``http`` its HTTP layer
+for endpoints without a method here.
+"""
+
 import re
 
-import requests
+from entropy_data_sdk import EntropyDataClient as SdkClient
+from entropy_data_sdk.errors import ApiError, NotFoundError, UnprocessableContentError
 
 from entropy_data.config import ConnectionConfig
 
-RESPONSE_HEADER_LOCATION_HTML = "location-html"
+__all__ = [
+    "ApiError",
+    "EntropyDataClient",
+    "NotFoundError",
+    "REQUEST_TIMEOUT",
+    "SCHEMA_SPECS",
+    "UnprocessableContentError",
+]
+
 REQUEST_TIMEOUT = 30
-
-
-class ApiError(Exception):
-    """HTTP error from the Entropy Data API."""
-
-    def __init__(self, status_code: int, message: str, url: str):
-        self.status_code = status_code
-        self.url = url
-        super().__init__(f"HTTP {status_code} from {url}: {message}")
-
-
-class NotFoundError(ApiError):
-    """404 from the API."""
-
-
-class ValidationError(ApiError):
-    """422 from the API."""
-
-
-def _raise_for_status(response: requests.Response) -> None:
-    """Raise appropriate ApiError subclass for non-2xx responses."""
-    if response.ok:
-        return
-    message = response.text
-    try:
-        body = response.json()
-        message = body.get("detail") or body.get("message") or body.get("title") or response.text
-    except (json.JSONDecodeError, AttributeError):
-        # If the response is HTML, extract a useful message instead of dumping raw markup
-        if "<html" in message.lower():
-            match = re.search(r"<title>([^<]+)</title>", message, re.IGNORECASE)
-            message = match.group(1).strip() if match else response.reason or "Server error"
-    if response.status_code == 404:
-        raise NotFoundError(response.status_code, message, response.url)
-    if response.status_code == 422:
-        raise ValidationError(response.status_code, message, response.url)
-    raise ApiError(response.status_code, message, response.url)
-
-
-def _has_next_page(response: requests.Response) -> bool:
-    """Check if the Link header contains rel="next"."""
-    link = response.headers.get("Link", "")
-    return bool(re.search(r'rel="next"', link))
-
-
 MAX_RESOURCE_ID_LENGTH = 256
 
 SCHEMA_SPECS = ("odcs", "odps")
@@ -76,56 +44,50 @@ def _validate_page(page: int) -> None:
         raise ValueError(f"Page number must not be negative: {page}")
 
 
+def _has_next_page(response) -> bool:
+    return bool(re.search(r'rel="next"', response.headers.get("Link", "")))
+
+
 class EntropyDataClient:
     def __init__(self, config: ConnectionConfig, timeout: int | None = None):
-        self.base_url = config.host.rstrip("/")
         # An explicit --timeout also overrides the longer waits some commands choose for themselves.
         self.timeout_override = timeout
         self.timeout = timeout or REQUEST_TIMEOUT
-        self.session = requests.Session()
-        self.session.headers.update(
-            {
-                "x-api-key": config.api_key,
-                "Content-Type": "application/json",
-            }
-        )
+        self.sdk = SdkClient(config.api_key, config.host, timeout=self.timeout)
+        self.http = self.sdk.http
+
+    @property
+    def base_url(self) -> str:
+        return self.http.base_url
 
     def list_resources(self, path: str, params: dict | None = None) -> tuple[list[dict], bool]:
         """GET /api/{path}. Returns (items, has_next_page)."""
         if params and "p" in params:
             _validate_page(int(params["p"]))
-        response = self.session.get(f"{self.base_url}/api/{path}", params=params, timeout=self.timeout)
-        _raise_for_status(response)
+        response = self.http.request("GET", f"/api/{path}", params=params)
         return response.json(), _has_next_page(response)
 
     def get_resource(self, path: str, resource_id: str) -> dict:
         """GET /api/{path}/{id}."""
         _validate_resource_id(resource_id)
-        response = self.session.get(f"{self.base_url}/api/{path}/{resource_id}", timeout=self.timeout)
-        _raise_for_status(response)
-        return response.json()
+        return self.http.get_json(f"/api/{path}/{resource_id}")
 
     def put_resource(self, path: str, resource_id: str, body: dict) -> str | None:
         """PUT /api/{path}/{id}. Returns location-html URL if present."""
         _validate_resource_id(resource_id)
         if "id" in body and body["id"] != resource_id:
             body = {**body, "id": resource_id}
-        response = self.session.put(f"{self.base_url}/api/{path}/{resource_id}", json=body, timeout=self.timeout)
-        _raise_for_status(response)
-        return response.headers.get(RESPONSE_HEADER_LOCATION_HTML)
+        return self.http.put_json(f"/api/{path}/{resource_id}", body).location_html
 
     def delete_resource(self, path: str, resource_id: str) -> None:
         """DELETE /api/{path}/{id}."""
         _validate_resource_id(resource_id)
-        response = self.session.delete(f"{self.base_url}/api/{path}/{resource_id}", timeout=self.timeout)
-        _raise_for_status(response)
+        self.http.delete(f"/api/{path}/{resource_id}")
 
     def post_action(self, path: str, resource_id: str, action: str) -> str | None:
         """POST /api/{path}/{id}/{action}. Returns location-html URL if present."""
         _validate_resource_id(resource_id)
-        response = self.session.post(f"{self.base_url}/api/{path}/{resource_id}/{action}", timeout=self.timeout)
-        _raise_for_status(response)
-        return response.headers.get(RESPONSE_HEADER_LOCATION_HTML)
+        return self.http.post_json(f"/api/{path}/{resource_id}/{action}").location_html
 
     def post_action_json(
         self,
@@ -138,68 +100,41 @@ class EntropyDataClient:
     ) -> dict:
         """POST /api/{path}/{id}/{action}. Returns response JSON."""
         _validate_resource_id(resource_id)
-        response = self.session.post(
-            f"{self.base_url}/api/{path}/{resource_id}/{action}",
+        response = self.http.request(
+            "POST",
+            f"/api/{path}/{resource_id}/{action}",
             params=params,
-            json=body if body is not None else None,
-            timeout=self.timeout_override or timeout or self.timeout,
+            json=body,
+            timeout=self.timeout_override or timeout,
         )
-        _raise_for_status(response)
         return response.json()
 
     def post_resource(self, path: str, body: dict, params: dict | None = None) -> str | None:
         """POST /api/{path}. Returns location-html URL if present."""
-        response = self.session.post(f"{self.base_url}/api/{path}", json=body, params=params, timeout=self.timeout)
-        _raise_for_status(response)
-        return response.headers.get(RESPONSE_HEADER_LOCATION_HTML)
+        return self.http.post_json(f"/api/{path}", body, params=params).location_html
 
     def delete_resources(self, path: str, params: dict | None = None) -> dict:
         """DELETE /api/{path} with query params. Returns response JSON."""
-        response = self.session.delete(f"{self.base_url}/api/{path}", params=params, timeout=self.timeout)
-        _raise_for_status(response)
-        try:
-            return response.json()
-        except Exception:
-            return {}
+        return self.http.delete(f"/api/{path}", params=params).data or {}
 
     def get_events(self, last_event_id: str | None = None) -> list[dict]:
         """GET /api/events. Returns list of events."""
-        params = {}
-        if last_event_id:
-            params["lastEventId"] = last_event_id
-        response = self.session.get(f"{self.base_url}/api/events", params=params, timeout=self.timeout)
-        _raise_for_status(response)
-        return response.json()
+        return self.http.get_json("/api/events", params={"lastEventId": last_event_id})
 
     def get_gitconnection(self, path: str, resource_id: str) -> dict:
         """GET /api/{path}/{id}/gitconnection."""
         _validate_resource_id(resource_id)
-        response = self.session.get(
-            f"{self.base_url}/api/{path}/{resource_id}/gitconnection",
-            timeout=self.timeout,
-        )
-        _raise_for_status(response)
-        return response.json()
+        return self.http.get_json(f"/api/{path}/{resource_id}/gitconnection")
 
     def put_gitconnection(self, path: str, resource_id: str, body: dict) -> dict:
         """PUT /api/{path}/{id}/gitconnection."""
         _validate_resource_id(resource_id)
-        response = self.session.put(
-            f"{self.base_url}/api/{path}/{resource_id}/gitconnection",
-            json=body,
-            timeout=self.timeout,
-        )
-        _raise_for_status(response)
-        return response.json()
+        return self.http.request("PUT", f"/api/{path}/{resource_id}/gitconnection", json=body).json()
 
     def delete_gitconnection(self, path: str, resource_id: str) -> None:
         """DELETE /api/{path}/{id}/gitconnection."""
         _validate_resource_id(resource_id)
-        response = self.session.delete(
-            f"{self.base_url}/api/{path}/{resource_id}/gitconnection",
-            timeout=self.timeout,
-        )
-        _raise_for_status(response)
+        self.http.delete(f"/api/{path}/{resource_id}/gitconnection")
 
     def gitconnection_action(
         self,
@@ -210,13 +145,7 @@ class EntropyDataClient:
     ) -> dict:
         """POST /api/{path}/{id}/gitconnection/{action}. action ∈ {pull, push, push-pr}."""
         _validate_resource_id(resource_id)
-        response = self.session.post(
-            f"{self.base_url}/api/{path}/{resource_id}/gitconnection/{action}",
-            json=body if body is not None else None,
-            timeout=self.timeout,
-        )
-        _raise_for_status(response)
-        return response.json()
+        return self.http.request("POST", f"/api/{path}/{resource_id}/gitconnection/{action}", json=body).json()
 
     def get_schema(self, spec: str, version: str | None = None, custom: bool = False) -> tuple[str, str | None]:
         """GET /api/schemas/{spec}[-{version}][-custom].schema.json.
@@ -228,13 +157,9 @@ class EntropyDataClient:
         if version is not None and not _SCHEMA_VERSION_PATTERN.match(version):
             raise ValueError(f"Invalid schema version '{version}'. Expected a version like 3.1.0.")
         filename = f"{spec}{f'-{version}' if version else ''}{'-custom' if custom else ''}.schema.json"
-        response = self.session.get(f"{self.base_url}/api/schemas/{filename}", timeout=self.timeout)
-        _raise_for_status(response)
+        response = self.http.request("GET", f"/api/schemas/{filename}")
         return response.text, response.headers.get("X-Schema-Version")
 
     def search(self, query: str, **params) -> dict:
         """GET /api/search."""
-        params["query"] = query
-        response = self.session.get(f"{self.base_url}/api/search", params=params, timeout=self.timeout)
-        _raise_for_status(response)
-        return response.json()
+        return self.http.get_json("/api/search", params={**params, "query": query})

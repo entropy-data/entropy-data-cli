@@ -63,16 +63,13 @@ def create_branch(
 ) -> None:
     """Cut a branch from a data contract. The branch starts as a copy of the data contract."""
     from entropy_data.cli import get_client, get_output_format, handle_error
-    from entropy_data.client import _raise_for_status
 
     fmt = output or get_output_format()
     try:
-        client = get_client()
-        response = client.session.put(f"{client.base_url}/api/{branch_path(id, branch)}", timeout=client.timeout)
-        _raise_for_status(response)
+        data = get_client().http.request("PUT", f"/api/{branch_path(id, branch)}").json()
         if fmt == OutputFormat.table:
             print_success(f"Branch '{branch}' of data contract '{id}' created.")
-        print_resource(response.json(), RESOURCE_TYPE, fmt)
+        print_resource(data, RESOURCE_TYPE, fmt)
     except Exception as e:
         handle_error(e)
 
@@ -122,21 +119,14 @@ def yaml_branch(
 ) -> None:
     """Get the branch's document as ODCS YAML."""
     from entropy_data.cli import get_client, handle_error
-    from entropy_data.client import _raise_for_status
 
     try:
-        client = get_client()
-        response = client.session.get(
-            f"{client.base_url}/api/{branch_path(id, branch)}/datacontract.yaml",
-            headers={"Accept": "application/yaml"},
-            timeout=client.timeout,
-        )
-        _raise_for_status(response)
+        text = get_client().http.get_text(f"/api/{branch_path(id, branch)}/datacontract.yaml")
         if out_file is not None:
-            out_file.write_text(response.text)
+            out_file.write_text(text)
             print_success(f"Branch '{branch}' of data contract '{id}' written to {out_file}.")
         else:
-            print(response.text)
+            print(text)
     except Exception as e:
         handle_error(e)
 
@@ -149,18 +139,10 @@ def put_branch(
 ) -> None:
     """Replace the branch's document with an ODCS YAML file. The data contract itself is untouched."""
     from entropy_data.cli import get_client, handle_error
-    from entropy_data.client import _raise_for_status
 
     try:
         content = read_text(file)
-        client = get_client()
-        response = client.session.put(
-            f"{client.base_url}/api/{branch_path(id, branch)}/datacontract.yaml",
-            data=content.encode("utf-8"),
-            headers={"Content-Type": "application/yaml"},
-            timeout=client.timeout,
-        )
-        _raise_for_status(response)
+        get_client().http.put_text(f"/api/{branch_path(id, branch)}/datacontract.yaml", content)
         print_success(f"Branch '{branch}' of data contract '{id}' updated.")
     except Exception as e:
         handle_error(e)
@@ -233,7 +215,6 @@ def merge_branch(
 ) -> None:
     """Merge the branch: land it on the data contract, or open a pull request from it."""
     from entropy_data.cli import get_client, get_output_format, handle_error
-    from entropy_data.client import _raise_for_status
 
     if route is not None and route not in MERGE_ROUTES:
         raise typer.BadParameter(f"Must be one of: {', '.join(MERGE_ROUTES)}", param_hint="--route")
@@ -245,11 +226,7 @@ def merge_branch(
     if route:
         body["route"] = route
     try:
-        client = get_client()
-        response = client.session.post(
-            f"{client.base_url}/api/{branch_path(id, branch)}/merge", json=body, timeout=client.timeout
-        )
-        _raise_for_status(response)
+        response = get_client().http.request("POST", f"/api/{branch_path(id, branch)}/merge", json=body)
         if response.status_code == 204:
             print_success(f"Branch '{branch}' merged into data contract '{id}'.")
             return

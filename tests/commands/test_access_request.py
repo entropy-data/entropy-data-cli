@@ -4,7 +4,8 @@ import json
 import re
 from datetime import date
 
-import responses
+import httpx
+import respx
 from typer.testing import CliRunner
 
 import entropy_data.config as cfg
@@ -21,16 +22,16 @@ def _setup(monkeypatch, tmp_path):
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
 
 
-@responses.activate
+@respx.mock
 def test_request_with_consumer_team(monkeypatch, tmp_path):
     _setup(monkeypatch, tmp_path)
     captured: dict = {}
 
     def _capture(request):
-        captured["body"] = json.loads(request.body)
-        return (200, {}, "")
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(200)
 
-    responses.add_callback(responses.PUT, re.compile(rf"{BASE_URL}/api/access/.+"), callback=_capture)
+    respx.put(url__regex=rf"{BASE_URL}/api/access/.+").mock(side_effect=_capture)
 
     result = runner.invoke(
         app,
@@ -57,16 +58,16 @@ def test_request_with_consumer_team(monkeypatch, tmp_path):
     assert UUID_RE.match(body["id"])
 
 
-@responses.activate
+@respx.mock
 def test_request_with_explicit_id_and_roles(monkeypatch, tmp_path):
     _setup(monkeypatch, tmp_path)
     captured: dict = {}
 
     def _capture(request):
-        captured["body"] = json.loads(request.body)
-        return (200, {}, "")
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(200)
 
-    responses.add_callback(responses.PUT, f"{BASE_URL}/api/access/req-001", callback=_capture)
+    respx.put(f"{BASE_URL}/api/access/req-001").mock(side_effect=_capture)
 
     result = runner.invoke(
         app,
@@ -122,10 +123,10 @@ def test_request_multiple_consumers(monkeypatch, tmp_path):
     assert result.exit_code == 2
 
 
-@responses.activate
+@respx.mock
 def test_list_with_filters(monkeypatch, tmp_path):
     _setup(monkeypatch, tmp_path)
-    responses.add(responses.GET, f"{BASE_URL}/api/access", json=[], status=200)
+    respx.get(f"{BASE_URL}/api/access").mock(return_value=httpx.Response(200, json=[]))
     result = runner.invoke(
         app,
         [
@@ -140,19 +141,19 @@ def test_list_with_filters(monkeypatch, tmp_path):
         ],
     )
     assert result.exit_code == 0
-    qs = responses.calls[0].request.url.split("?", 1)[1]
+    qs = str(respx.calls[0].request.url).split("?", 1)[1]
     assert "providerDataProductId=dp_provider" in qs
     assert "consumerDataProductId=dp_consumer" in qs
     assert "consumerType=team" in qs
 
 
-@responses.activate
+@respx.mock
 def test_list_without_filters(monkeypatch, tmp_path):
     _setup(monkeypatch, tmp_path)
-    responses.add(responses.GET, f"{BASE_URL}/api/access", json=[], status=200)
+    respx.get(f"{BASE_URL}/api/access").mock(return_value=httpx.Response(200, json=[]))
     result = runner.invoke(app, ["access", "list"])
     assert result.exit_code == 0
-    qs = responses.calls[0].request.url.split("?", 1)[1]
+    qs = str(respx.calls[0].request.url).split("?", 1)[1]
     assert "providerDataProductId" not in qs
     assert "consumerDataProductId" not in qs
     assert "consumerType" not in qs

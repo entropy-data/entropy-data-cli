@@ -2,8 +2,9 @@
 
 import json
 
+import httpx
 import pytest
-import responses
+import respx
 from typer.testing import CliRunner
 
 import entropy_data.config as cfg
@@ -26,20 +27,22 @@ def api_key(monkeypatch, tmp_path):
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
 
 
-@responses.activate
+@respx.mock
 def test_publish_to_the_data_contract(tmp_path):
-    responses.add(responses.POST, f"{BASE_URL}/api/test-results", status=201)
+    respx.post(f"{BASE_URL}/api/test-results").mock(return_value=httpx.Response(201))
     body = tmp_path / "results.json"
     body.write_text(json.dumps(RESULTS))
     result = runner.invoke(app, ["test-results", "publish", "--file", str(body)])
     assert result.exit_code == 0
     assert "published" in result.output
-    assert json.loads(responses.calls[0].request.body) == RESULTS
+    assert json.loads(respx.calls[0].request.content) == RESULTS
 
 
-@responses.activate
+@respx.mock
 def test_publish_onto_a_branch(tmp_path):
-    responses.add(responses.POST, f"{BASE_URL}/api/datacontracts/orders/branches/add-status/test-results", status=201)
+    respx.post(f"{BASE_URL}/api/datacontracts/orders/branches/add-status/test-results").mock(
+        return_value=httpx.Response(201)
+    )
     body = tmp_path / "results.json"
     body.write_text(json.dumps(RESULTS))
     result = runner.invoke(
@@ -48,7 +51,7 @@ def test_publish_onto_a_branch(tmp_path):
     )
     assert result.exit_code == 0
     assert "published onto branch" in result.output
-    assert json.loads(responses.calls[0].request.body) == RESULTS
+    assert json.loads(respx.calls[0].request.content) == RESULTS
 
 
 def test_publish_needs_both_the_data_contract_and_the_branch(tmp_path):
@@ -59,15 +62,15 @@ def test_publish_needs_both_the_data_contract_and_the_branch(tmp_path):
     assert "go together" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_list_narrows_to_a_branch():
-    responses.add(responses.GET, f"{BASE_URL}/api/test-results", json=[{"id": "r1", **RESULTS}], status=200)
+    respx.get(f"{BASE_URL}/api/test-results").mock(return_value=httpx.Response(200, json=[{"id": "r1", **RESULTS}]))
     result = runner.invoke(
         app, ["test-results", "list", "--data-contract-id", "orders", "--branch", "add-status", "-o", "json"]
     )
     assert result.exit_code == 0
     assert json.loads(result.output)[0]["id"] == "r1"
-    assert responses.calls[0].request.params == {
+    assert dict(respx.calls[0].request.url.params) == {
         "p": "0",
         "size": "10",
         "dataContractId": "orders",
@@ -81,24 +84,25 @@ def test_list_branch_needs_the_data_contract():
     assert "narrows the runs of one data contract" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_list_sends_the_time_range_and_page_size():
-    responses.add(responses.GET, f"{BASE_URL}/api/test-results", json=[], status=200)
+    respx.get(f"{BASE_URL}/api/test-results").mock(return_value=httpx.Response(200, json=[]))
     result = runner.invoke(app, ["test-results", "list", "--since", "2026-10-01", "--limit", "50"])
     assert result.exit_code == 0
-    assert responses.calls[0].request.params == {"from": "2026-10-01T00:00:00Z", "p": "0", "size": "50"}
+    assert dict(respx.calls[0].request.url.params) == {"from": "2026-10-01T00:00:00Z", "p": "0", "size": "50"}
 
 
-@responses.activate
+@respx.mock
 def test_list_filters_by_time_locally_when_the_server_ignores_it():
-    responses.add(
-        responses.GET,
-        f"{BASE_URL}/api/test-results",
-        json=[
-            {"id": "new", **RESULTS, "timestampStart": "2026-10-05T10:00:00Z"},
-            {"id": "old", **RESULTS, "timestampStart": "2026-09-01T10:00:00Z"},
-        ],
-        headers={"Link": '</api/test-results?p=1>; rel="next"'},
+    respx.get(f"{BASE_URL}/api/test-results").mock(
+        return_value=httpx.Response(
+            200,
+            json=[
+                {"id": "new", **RESULTS, "timestampStart": "2026-10-05T10:00:00Z"},
+                {"id": "old", **RESULTS, "timestampStart": "2026-09-01T10:00:00Z"},
+            ],
+            headers={"Link": '</api/test-results?p=1>; rel="next"'},
+        )
     )
     result = runner.invoke(app, ["-o", "json", "test-results", "list", "--since", "2026-10-01"])
     assert result.exit_code == 0
@@ -106,12 +110,12 @@ def test_list_filters_by_time_locally_when_the_server_ignores_it():
     assert "does not support all filters or the page size" in result.stderr
 
 
-@responses.activate
+@respx.mock
 def test_list_filters_by_server():
-    responses.add(responses.GET, f"{BASE_URL}/api/test-results", json=[], status=200)
+    respx.get(f"{BASE_URL}/api/test-results").mock(return_value=httpx.Response(200, json=[]))
     result = runner.invoke(app, ["test-results", "list", "--data-contract-id", "orders", "--server", "production"])
     assert result.exit_code == 0
-    assert responses.calls[0].request.params == {
+    assert dict(respx.calls[0].request.url.params) == {
         "dataContractId": "orders",
         "server": "production",
         "p": "0",
@@ -119,12 +123,12 @@ def test_list_filters_by_server():
     }
 
 
-@responses.activate
+@respx.mock
 def test_list_filters_by_server_locally_when_the_server_ignores_it():
-    responses.add(
-        responses.GET,
-        f"{BASE_URL}/api/test-results",
-        json=[{"id": "a", **RESULTS, "server": "production"}, {"id": "b", **RESULTS, "server": "staging"}],
+    respx.get(f"{BASE_URL}/api/test-results").mock(
+        return_value=httpx.Response(
+            200, json=[{"id": "a", **RESULTS, "server": "production"}, {"id": "b", **RESULTS, "server": "staging"}]
+        )
     )
     result = runner.invoke(app, ["-o", "json", "test-results", "list", "--server", "staging"])
     assert result.exit_code == 0

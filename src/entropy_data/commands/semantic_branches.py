@@ -61,16 +61,13 @@ def create_branch(
 ) -> None:
     """Cut a branch from a namespace. Cutting an existing name returns that branch."""
     from entropy_data.cli import get_client, get_output_format, handle_error
-    from entropy_data.client import _raise_for_status
 
     fmt = output or get_output_format()
     try:
-        client = get_client()
-        response = client.session.put(f"{client.base_url}/api/{branch_path(namespace, branch)}", timeout=client.timeout)
-        _raise_for_status(response)
+        data = get_client().http.request("PUT", f"/api/{branch_path(namespace, branch)}").json()
         if fmt == OutputFormat.table:
             print_success(f"Branch '{branch}' of namespace '{namespace}' created.")
-        print_resource(response.json(), RESOURCE_TYPE, fmt)
+        print_resource(data, RESOURCE_TYPE, fmt)
     except Exception as e:
         handle_error(e)
 
@@ -120,21 +117,14 @@ def yaml_branch(
 ) -> None:
     """Get the branch as one OSI ontology YAML document."""
     from entropy_data.cli import get_client, handle_error
-    from entropy_data.client import _raise_for_status
 
     try:
-        client = get_client()
-        response = client.session.get(
-            f"{client.base_url}/api/{branch_path(namespace, branch)}/ontology.yaml",
-            headers={"Accept": "application/yaml"},
-            timeout=client.timeout,
-        )
-        _raise_for_status(response)
+        text = get_client().http.get_text(f"/api/{branch_path(namespace, branch)}/ontology.yaml")
         if out_file is not None:
-            out_file.write_text(response.text)
+            out_file.write_text(text)
             print_success(f"Branch '{branch}' of namespace '{namespace}' written to {out_file}.")
         else:
-            print(response.text)
+            print(text)
     except Exception as e:
         handle_error(e)
 
@@ -151,18 +141,10 @@ def put_branch(
     from the branch. The namespace itself is untouched until the branch is merged.
     """
     from entropy_data.cli import get_client, handle_error
-    from entropy_data.client import _raise_for_status
 
     try:
         content = read_text(file)
-        client = get_client()
-        response = client.session.put(
-            f"{client.base_url}/api/{branch_path(namespace, branch)}/ontology.yaml",
-            data=content.encode("utf-8"),
-            headers={"Content-Type": "application/yaml"},
-            timeout=client.timeout,
-        )
-        _raise_for_status(response)
+        get_client().http.put_text(f"/api/{branch_path(namespace, branch)}/ontology.yaml", content)
         print_success(f"Branch '{branch}' of namespace '{namespace}' updated.")
     except Exception as e:
         handle_error(e)
@@ -214,15 +196,10 @@ def merge_branch(
 ) -> None:
     """Merge the branch: land it on the namespace, or open a pull request where git requires review."""
     from entropy_data.cli import get_client, get_output_format, handle_error
-    from entropy_data.client import _raise_for_status
 
     fmt = output or get_output_format()
     try:
-        client = get_client()
-        response = client.session.post(
-            f"{client.base_url}/api/{branch_path(namespace, branch)}/merge", timeout=client.timeout
-        )
-        _raise_for_status(response)
+        response = get_client().http.request("POST", f"/api/{branch_path(namespace, branch)}/merge")
         if response.status_code == 204:
             print_success(f"Branch '{branch}' merged into namespace '{namespace}'.")
             return

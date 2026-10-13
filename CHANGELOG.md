@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- The CLI now talks to the API through the [entropy-data-sdk](https://pypi.org/project/entropy-data-sdk/) package (httpx) instead of its own requests-based client. Commands behave as before; connection setup failures are retried a few times, and an API host with a path prefix (for example behind a reverse proxy) is kept in every request URL.
 - Fix: a `.env` file in the current working directory is loaded again. The CLI searched for `.env` upward from its installed package instead of from where it runs, so a project's `.env` was ignored when the CLI was installed with `uv tool` or `pip`.
 - Add `entropy-data dataproductbuilders list|get|put|delete` (EXPERIMENTAL) to manage data product builders, the coding agent plugins offered on a data product's Build page. Builders are addressed by a stable external ID (e.g. `dbt`); `put` creates a builder under a new ID and otherwise replaces the whole builder. Wraps `/api/dataproductbuilders` (entropy-data#1776, external IDs from entropy-data#1782).
 - Add `entropy-data settings dataproduct-types get|put` to manage the organization's data product types as one document. `put` replaces the whole list; `behavior` and `builtIn` are read-only, so a `get` written back unchanged is accepted. Wraps `GET`/`PUT /api/settings/dataproduct-types`.

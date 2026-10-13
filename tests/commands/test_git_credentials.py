@@ -2,7 +2,8 @@
 
 import json
 
-import responses
+import httpx
+import respx
 from typer.testing import CliRunner
 
 import entropy_data.config as cfg
@@ -27,31 +28,23 @@ CRED_RESPONSE = ORG_CRED_LIST[0]
 # Organization-scope
 
 
-@responses.activate
+@respx.mock
 def test_org_git_credentials_list(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(
-        responses.GET,
-        f"{BASE_URL}/api/organization/gitcredentials",
-        json=ORG_CRED_LIST,
-        status=200,
-    )
+    respx.get(f"{BASE_URL}/api/organization/gitcredentials").mock(return_value=httpx.Response(200, json=ORG_CRED_LIST))
     result = runner.invoke(app, ["organization", "git-credentials", "list"])
     assert result.exit_code == 0
     assert "ci-github" in result.output
     assert "github" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_org_git_credentials_get(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(
-        responses.GET,
-        f"{BASE_URL}/api/organization/gitcredentials/{CRED_RESPONSE['id']}",
-        json=CRED_RESPONSE,
-        status=200,
+    respx.get(f"{BASE_URL}/api/organization/gitcredentials/{CRED_RESPONSE['id']}").mock(
+        return_value=httpx.Response(200, json=CRED_RESPONSE)
     )
     result = runner.invoke(
         app,
@@ -62,16 +55,11 @@ def test_org_git_credentials_get(monkeypatch, tmp_path):
     assert data["externalId"] == "ci-github"
 
 
-@responses.activate
+@respx.mock
 def test_org_git_credentials_create_flags(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(
-        responses.POST,
-        f"{BASE_URL}/api/organization/gitcredentials",
-        json=CRED_RESPONSE,
-        status=201,
-    )
+    respx.post(f"{BASE_URL}/api/organization/gitcredentials").mock(return_value=httpx.Response(201, json=CRED_RESPONSE))
     result = runner.invoke(
         app,
         [
@@ -89,7 +77,7 @@ def test_org_git_credentials_create_flags(monkeypatch, tmp_path):
         ],
     )
     assert result.exit_code == 0
-    body = json.loads(responses.calls[0].request.body)
+    body = json.loads(respx.calls[0].request.content)
     assert body == {
         "gitConnectionType": "github",
         "authenticationToken": "ghp_secret",
@@ -99,14 +87,12 @@ def test_org_git_credentials_create_flags(monkeypatch, tmp_path):
     assert "created" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_org_git_credentials_update(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(
-        responses.PUT,
-        f"{BASE_URL}/api/organization/gitcredentials/{CRED_RESPONSE['id']}",
-        status=200,
+    respx.put(f"{BASE_URL}/api/organization/gitcredentials/{CRED_RESPONSE['id']}").mock(
+        return_value=httpx.Response(200)
     )
     result = runner.invoke(
         app,
@@ -122,19 +108,17 @@ def test_org_git_credentials_update(monkeypatch, tmp_path):
         ],
     )
     assert result.exit_code == 0
-    body = json.loads(responses.calls[0].request.body)
+    body = json.loads(respx.calls[0].request.content)
     # No authenticationToken means server preserves the existing one
     assert body == {"gitConnectionType": "github", "tokenName": "Rotated PAT"}
 
 
-@responses.activate
+@respx.mock
 def test_org_git_credentials_delete(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(
-        responses.DELETE,
-        f"{BASE_URL}/api/organization/gitcredentials/{CRED_RESPONSE['id']}",
-        status=204,
+    respx.delete(f"{BASE_URL}/api/organization/gitcredentials/{CRED_RESPONSE['id']}").mock(
+        return_value=httpx.Response(204)
     )
     result = runner.invoke(app, ["organization", "git-credentials", "delete", CRED_RESPONSE["id"]])
     assert result.exit_code == 0
@@ -144,30 +128,24 @@ def test_org_git_credentials_delete(monkeypatch, tmp_path):
 # Team-scope
 
 
-@responses.activate
+@respx.mock
 def test_team_git_credentials_list(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(
-        responses.GET,
-        f"{BASE_URL}/api/teams/marketing/gitcredentials",
-        json=ORG_CRED_LIST,
-        status=200,
+    respx.get(f"{BASE_URL}/api/teams/marketing/gitcredentials").mock(
+        return_value=httpx.Response(200, json=ORG_CRED_LIST)
     )
     result = runner.invoke(app, ["teams", "git-credentials", "list", "marketing"])
     assert result.exit_code == 0
     assert "ci-github" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_team_git_credentials_create_from_file(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    responses.add(
-        responses.POST,
-        f"{BASE_URL}/api/teams/marketing/gitcredentials",
-        json=CRED_RESPONSE,
-        status=201,
+    respx.post(f"{BASE_URL}/api/teams/marketing/gitcredentials").mock(
+        return_value=httpx.Response(201, json=CRED_RESPONSE)
     )
     body_file = tmp_path / "body.json"
     body_file.write_text(
@@ -184,7 +162,7 @@ def test_team_git_credentials_create_from_file(monkeypatch, tmp_path):
         ["teams", "git-credentials", "create", "marketing", "--file", str(body_file)],
     )
     assert result.exit_code == 0
-    body = json.loads(responses.calls[0].request.body)
+    body = json.loads(respx.calls[0].request.content)
     assert body["gitConnectionType"] == "gitlab"
     assert body["host"] == "gitlab.example.com"
 

@@ -83,7 +83,7 @@ def inject_system_truststore() -> None:
     """Verify TLS using the operating system's certificate trust store instead of the
     bundled CA certificates. This lets the CLI work behind corporate proxies or with
     internal CAs whose root certificates are installed in the OS trust store but not in
-    the certifi bundle that requests uses by default."""
+    the certifi bundle that httpx uses by default."""
     try:
         import truststore
     except ImportError:

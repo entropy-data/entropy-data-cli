@@ -15,12 +15,7 @@ from pathlib import Path
 
 import yaml
 
-from entropy_data.client import (
-    ApiError,
-    EntropyDataClient,
-    _raise_for_status,
-    _validate_resource_id,
-)
+from entropy_data.client import ApiError, EntropyDataClient, _validate_resource_id
 from entropy_data.output import console, error_console
 from entropy_data.resources import RESOURCE_BY_NAME, Resource, sanitize_filename, strip_audit_fields
 
@@ -105,16 +100,13 @@ def _child_document_ids(source: Path, resources: list[Resource], parent_name: st
 
 def _get_singleton(client: EntropyDataClient, resource: Resource) -> dict:
     """GET the singleton object at ``/api/{api_path}`` (returns ``{}`` when unset)."""
-    response = client.session.get(f"{client.base_url}/api/{resource.api_path}", timeout=client.timeout)
-    _raise_for_status(response)
-    body = response.json()
+    body = client.http.get_json(f"/api/{resource.api_path}")
     return body if isinstance(body, dict) else {}
 
 
 def _put_singleton(client: EntropyDataClient, resource: Resource, body: dict) -> None:
     """PUT the singleton object at ``/api/{api_path}`` (no id segment)."""
-    response = client.session.put(f"{client.base_url}/api/{resource.api_path}", json=body, timeout=client.timeout)
-    _raise_for_status(response)
+    client.http.put_json(f"/api/{resource.api_path}", body)
 
 
 def _singleton_file(root: Path, resource: Resource) -> Path:
@@ -126,24 +118,12 @@ def _singleton_file(root: Path, resource: Resource) -> Path:
 
 def _get_document(client: EntropyDataClient, resource: Resource, parent_id: str) -> str:
     """GET the raw YAML document at the expanded ``{parent}`` path."""
-    response = client.session.get(
-        f"{client.base_url}/api/{resource.path_for(parent_id)}",
-        headers={"Accept": "application/yaml"},
-        timeout=client.timeout,
-    )
-    _raise_for_status(response)
-    return response.text
+    return client.http.get_text(f"/api/{resource.path_for(parent_id)}")
 
 
 def _put_document(client: EntropyDataClient, resource: Resource, parent_id: str, text: str) -> None:
     """PUT the raw YAML document to the expanded ``{parent}`` path."""
-    response = client.session.put(
-        f"{client.base_url}/api/{resource.path_for(parent_id)}",
-        data=text.encode("utf-8"),
-        headers={"Content-Type": "application/yaml"},
-        timeout=client.timeout,
-    )
-    _raise_for_status(response)
+    client.http.put_text(f"/api/{resource.path_for(parent_id)}", text)
 
 
 def _export_document(client: EntropyDataClient, resource: Resource, parent_id: str, target_dir: Path) -> SyncResult:
@@ -171,22 +151,13 @@ def _export_document(client: EntropyDataClient, resource: Resource, parent_id: s
 
 def _get_assigned_tags(client: EntropyDataClient, asset_id: str) -> list[str]:
     _validate_resource_id(asset_id)
-    response = client.session.get(
-        f"{client.base_url}/api/assets/{asset_id}/assigned-tags",
-        timeout=client.timeout,
-    )
-    _raise_for_status(response)
-    return response.json()
+    return client.http.get_json(f"/api/assets/{asset_id}/assigned-tags")
 
 
 def _put_assigned_tag(client: EntropyDataClient, asset_id: str, tag_id: str) -> None:
     _validate_resource_id(asset_id)
     # tag_id may be hierarchical ("governance/PII"); the server validates it.
-    response = client.session.put(
-        f"{client.base_url}/api/assets/{asset_id}/assigned-tags/{tag_id}",
-        timeout=client.timeout,
-    )
-    _raise_for_status(response)
+    client.http.request("PUT", f"/api/assets/{asset_id}/assigned-tags/{tag_id}")
 
 
 def _apply_tag_assignments(client: EntropyDataClient, asset_id: str, body: dict) -> SyncResult:

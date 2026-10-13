@@ -4,8 +4,9 @@ import json
 import os
 import re
 
+import httpx
 import pytest
-import responses
+import respx
 import yaml
 from typer.testing import CliRunner
 
@@ -82,10 +83,10 @@ def test_configuration_errors_are_structured_on_stderr_in_machine_formats(fmt, l
     assert error["message"].startswith("No API key found.")
 
 
-@responses.activate
+@respx.mock
 def test_api_errors_are_json_on_stderr_with_status_and_url():
     url = "https://api.entropy-data.com/api/teams/missing"
-    responses.add(responses.GET, url, json={"detail": "Team not found"}, status=404)
+    respx.get(url).mock(return_value=httpx.Response(404, json={"detail": "Team not found"}))
     result = runner.invoke(app, ["-o", "json", "--api-key", "key", "teams", "get", "missing"])
     assert result.exit_code == 1
     assert result.stdout == ""

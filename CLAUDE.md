@@ -43,7 +43,7 @@ CLI for Entropy Data.
 ### Core Modules
 - `cli.py` — Typer app, global options, command group registration
 - `config.py` — Connection config management (~/.entropy-data/config.toml)
-- `client.py` — HTTP client wrapping requests (generic CRUD + actions)
+- `client.py` — path-and-dict client over the `entropy-data-sdk` package (generic CRUD + actions); `client.sdk` is the typed SDK client, `client.http` its HTTP layer for endpoints without a method
 - `output.py` — Output formatting (Rich tables, JSON)
 
 ### Command Modules (`commands/`)
@@ -57,6 +57,6 @@ Resources: dataproducts, datacontracts, access, teams, sourcesystems, definition
 
 ## Code Conventions
 - Python 3.11+
-- Typer for CLI, Rich for output, Pydantic for models, requests for HTTP
+- Typer for CLI, Rich for output, Pydantic for models, `entropy-data-sdk` (httpx) for HTTP
 - Ruff for linting/formatting (line-length 120)
-- Tests use pytest + responses (mocked HTTP)
+- Tests use pytest + respx (mocked HTTP)

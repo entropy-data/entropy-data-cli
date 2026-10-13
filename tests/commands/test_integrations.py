@@ -2,7 +2,8 @@
 
 import json
 
-import responses
+import httpx
+import respx
 from typer.testing import CliRunner
 
 import entropy_data.config as cfg
@@ -56,18 +57,15 @@ def _setup(monkeypatch, tmp_path):
 
 def _mock_list(integrations=None):
     """Register the list call the resolver uses to map an identifier to its externalId."""
-    responses.add(
-        responses.GET,
-        f"{BASE_URL}/api/integrations/ingest",
-        json=integrations if integrations is not None else [DEMO_INTEGRATION],
-        status=200,
+    respx.get(f"{BASE_URL}/api/integrations/ingest").mock(
+        return_value=httpx.Response(200, json=integrations if integrations is not None else [DEMO_INTEGRATION])
     )
 
 
-@responses.activate
+@respx.mock
 def test_integrations_list(monkeypatch, tmp_path):
     _setup(monkeypatch, tmp_path)
-    responses.add(responses.GET, f"{BASE_URL}/api/integrations/ingest", json=[DEMO_INTEGRATION], status=200)
+    respx.get(f"{BASE_URL}/api/integrations/ingest").mock(return_value=httpx.Response(200, json=[DEMO_INTEGRATION]))
     result = runner.invoke(app, ["integrations", "list", "--output", "json"])
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)
@@ -76,40 +74,30 @@ def test_integrations_list(monkeypatch, tmp_path):
     assert data[0]["source"] == "snowflake"
 
 
-@responses.activate
+@respx.mock
 def test_integrations_list_filters_source(monkeypatch, tmp_path):
     _setup(monkeypatch, tmp_path)
-    responses.add(
-        responses.GET,
-        f"{BASE_URL}/api/integrations/ingest",
-        json=[DEMO_INTEGRATION],
-        status=200,
-    )
+    respx.get(f"{BASE_URL}/api/integrations/ingest").mock(return_value=httpx.Response(200, json=[DEMO_INTEGRATION]))
     result = runner.invoke(app, ["integrations", "list", "--source", "snowflake"])
     assert result.exit_code == 0
-    assert "source=snowflake" in responses.calls[0].request.url
+    assert "source=snowflake" in str(respx.calls[0].request.url)
 
 
-@responses.activate
+@respx.mock
 def test_integrations_list_filters_enabled(monkeypatch, tmp_path):
     _setup(monkeypatch, tmp_path)
-    responses.add(
-        responses.GET,
-        f"{BASE_URL}/api/integrations/ingest",
-        json=[DEMO_INTEGRATION],
-        status=200,
-    )
+    respx.get(f"{BASE_URL}/api/integrations/ingest").mock(return_value=httpx.Response(200, json=[DEMO_INTEGRATION]))
     result = runner.invoke(app, ["integrations", "list", "--enabled"])
     assert result.exit_code == 0
-    assert "enabled=true" in responses.calls[0].request.url
+    assert "enabled=true" in str(respx.calls[0].request.url)
 
 
-@responses.activate
+@respx.mock
 def test_integrations_get_resolves_and_inlines_configuration(monkeypatch, tmp_path):
     _setup(monkeypatch, tmp_path)
     _mock_list()
-    responses.add(
-        responses.GET, f"{BASE_URL}/api/integrations/ingest/{EXTERNAL_ID}", json=DEMO_INTEGRATION_DETAIL, status=200
+    respx.get(f"{BASE_URL}/api/integrations/ingest/{EXTERNAL_ID}").mock(
+        return_value=httpx.Response(200, json=DEMO_INTEGRATION_DETAIL)
     )
     result = runner.invoke(app, ["integrations", "get", EXTERNAL_ID, "--output", "json"])
     assert result.exit_code == 0, result.output
@@ -117,10 +105,10 @@ def test_integrations_get_resolves_and_inlines_configuration(monkeypatch, tmp_pa
     assert data["externalId"] == EXTERNAL_ID
     assert data["configuration"]["source"] == "snowflake"
     # Resolve (list) then GET the single resource by externalId.
-    assert len(responses.calls) == 2
+    assert len(respx.calls) == 2
 
 
-@responses.activate
+@respx.mock
 def test_integrations_get_by_uuid_is_not_accepted(monkeypatch, tmp_path):
     _setup(monkeypatch, tmp_path)
     _mock_list()
@@ -130,7 +118,7 @@ def test_integrations_get_by_uuid_is_not_accepted(monkeypatch, tmp_path):
     assert "No integration found" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_integrations_get_name_not_found(monkeypatch, tmp_path):
     _setup(monkeypatch, tmp_path)
     _mock_list()
@@ -139,7 +127,7 @@ def test_integrations_get_name_not_found(monkeypatch, tmp_path):
     assert "No integration found" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_integrations_get_name_ambiguous(monkeypatch, tmp_path):
     _setup(monkeypatch, tmp_path)
     duplicate = {**DEMO_INTEGRATION, "externalId": "demo-snowflake-2"}
@@ -152,7 +140,7 @@ def test_integrations_get_name_ambiguous(monkeypatch, tmp_path):
     assert "demo-snowflake-2" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_integrations_runs_lists_history(monkeypatch, tmp_path):
     _setup(monkeypatch, tmp_path)
     _mock_list()
@@ -165,30 +153,24 @@ def test_integrations_runs_lists_history(monkeypatch, tmp_path):
             "completedAt": "2026-05-18T06:16:00Z",
         },
     ]
-    responses.add(
-        responses.GET,
-        f"{BASE_URL}/api/integrations/ingest/{EXTERNAL_ID}/runs",
-        json=runs,
-        status=200,
+    respx.get(f"{BASE_URL}/api/integrations/ingest/{EXTERNAL_ID}/runs").mock(
+        return_value=httpx.Response(200, json=runs)
     )
     result = runner.invoke(app, ["integrations", "runs", EXTERNAL_ID, "--limit", "10", "--output", "json"])
     assert result.exit_code == 0
     data = json.loads(result.output)
     assert [r["status"] for r in data] == ["SUCCESS", "FAILED"]
     # calls[0] is the resolve list; calls[1] is the runs request.
-    assert "limit=10" in responses.calls[1].request.url
+    assert "limit=10" in str(respx.calls[1].request.url)
 
 
-@responses.activate
+@respx.mock
 def test_integrations_runs_get_by_id(monkeypatch, tmp_path):
     _setup(monkeypatch, tmp_path)
     _mock_list()
     run_id = DEMO_RUN["ingestionRunId"]
-    responses.add(
-        responses.GET,
-        f"{BASE_URL}/api/integrations/ingest/{EXTERNAL_ID}/runs/{run_id}",
-        json=DEMO_RUN,
-        status=200,
+    respx.get(f"{BASE_URL}/api/integrations/ingest/{EXTERNAL_ID}/runs/{run_id}").mock(
+        return_value=httpx.Response(200, json=DEMO_RUN)
     )
     result = runner.invoke(app, ["integrations", "runs-get", EXTERNAL_ID, run_id, "--output", "json"])
     assert result.exit_code == 0, result.output
@@ -198,15 +180,12 @@ def test_integrations_runs_get_by_id(monkeypatch, tmp_path):
     assert data["status"] == "SUCCESS"
 
 
-@responses.activate
+@respx.mock
 def test_integrations_runs_latest(monkeypatch, tmp_path):
     _setup(monkeypatch, tmp_path)
     _mock_list()
-    responses.add(
-        responses.GET,
-        f"{BASE_URL}/api/integrations/ingest/{EXTERNAL_ID}/runs/latest",
-        json=DEMO_RUN,
-        status=200,
+    respx.get(f"{BASE_URL}/api/integrations/ingest/{EXTERNAL_ID}/runs/latest").mock(
+        return_value=httpx.Response(200, json=DEMO_RUN)
     )
     result = runner.invoke(app, ["integrations", "runs-latest", EXTERNAL_ID, "--output", "json"])
     assert result.exit_code == 0, result.output
@@ -215,35 +194,34 @@ def test_integrations_runs_latest(monkeypatch, tmp_path):
     assert data["status"] == "SUCCESS"
 
 
-@responses.activate
+@respx.mock
 def test_integrations_run_triggers_and_returns_scheduled(monkeypatch, tmp_path):
     _setup(monkeypatch, tmp_path)
     _mock_list()
-    responses.add(
-        responses.POST,
-        f"{BASE_URL}/api/integrations/ingest/{EXTERNAL_ID}/run",
-        json={
-            "integrationExternalId": EXTERNAL_ID,
-            "scheduledAt": "2026-05-20T07:43:00Z",
-            "deferred": False,
-            "message": "Run scheduled; poll /runs/latest for status.",
-        },
-        status=202,
+    respx.post(f"{BASE_URL}/api/integrations/ingest/{EXTERNAL_ID}/run").mock(
+        return_value=httpx.Response(
+            202,
+            json={
+                "integrationExternalId": EXTERNAL_ID,
+                "scheduledAt": "2026-05-20T07:43:00Z",
+                "deferred": False,
+                "message": "Run scheduled; poll /runs/latest for status.",
+            },
+        )
     )
     result = runner.invoke(app, ["integrations", "run", EXTERNAL_ID])
     assert result.exit_code == 0, result.output
     assert "Run scheduled" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_integrations_run_conflict_surfaces_clear_message(monkeypatch, tmp_path):
     _setup(monkeypatch, tmp_path)
     _mock_list()
-    responses.add(
-        responses.POST,
-        f"{BASE_URL}/api/integrations/ingest/{EXTERNAL_ID}/run",
-        json={"status": "already_running", "message": "An ingestion run is already in progress."},
-        status=409,
+    respx.post(f"{BASE_URL}/api/integrations/ingest/{EXTERNAL_ID}/run").mock(
+        return_value=httpx.Response(
+            409, json={"status": "already_running", "message": "An ingestion run is already in progress."}
+        )
     )
     result = runner.invoke(app, ["integrations", "run", EXTERNAL_ID])
     assert result.exit_code == 1
@@ -251,15 +229,11 @@ def test_integrations_run_conflict_surfaces_clear_message(monkeypatch, tmp_path)
     assert "already in progress" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_integrations_cancel_returns_success(monkeypatch, tmp_path):
     _setup(monkeypatch, tmp_path)
     _mock_list()
-    responses.add(
-        responses.POST,
-        f"{BASE_URL}/api/integrations/ingest/{EXTERNAL_ID}/cancel",
-        status=204,
-    )
+    respx.post(f"{BASE_URL}/api/integrations/ingest/{EXTERNAL_ID}/cancel").mock(return_value=httpx.Response(204))
     result = runner.invoke(app, ["integrations", "cancel", EXTERNAL_ID])
     assert result.exit_code == 0, result.output
     assert "Cancellation requested" in result.output
@@ -278,11 +252,11 @@ def test_top_level_help_includes_integrations():
     assert "integrations" in result.output
 
 
-@responses.activate
+@respx.mock
 def test_integrations_put_sends_configuration_credential_and_enabled(monkeypatch, tmp_path):
     _setup(monkeypatch, tmp_path)
-    responses.add(
-        responses.PUT, f"{BASE_URL}/api/integrations/ingest/{EXTERNAL_ID}", json=DEMO_INTEGRATION_DETAIL, status=201
+    respx.put(f"{BASE_URL}/api/integrations/ingest/{EXTERNAL_ID}").mock(
+        return_value=httpx.Response(201, json=DEMO_INTEGRATION_DETAIL)
     )
     # A 'get' output with a credential added is a valid file: the extra top-level keys are ignored
     document = {
@@ -293,14 +267,14 @@ def test_integrations_put_sends_configuration_credential_and_enabled(monkeypatch
     file.write_text(json.dumps(document))
     result = runner.invoke(app, ["integrations", "put", EXTERNAL_ID, "--file", str(file), "--disabled"])
     assert result.exit_code == 0, result.output
-    body = json.loads(responses.calls[0].request.body)
+    body = json.loads(respx.calls[0].request.content)
     assert body["configuration"]["scheduleExpression"] == "0 0 6 * * ?"
     assert body["credential"]["details"]["pat"] == "s3cret"
     assert body["enabled"] is False
     assert "externalId" not in body
 
 
-@responses.activate
+@respx.mock
 def test_integrations_put_needs_a_configuration(monkeypatch, tmp_path):
     _setup(monkeypatch, tmp_path)
     file = tmp_path / "integration.json"
@@ -308,18 +282,18 @@ def test_integrations_put_needs_a_configuration(monkeypatch, tmp_path):
     result = runner.invoke(app, ["integrations", "put", EXTERNAL_ID, "--file", str(file)])
     assert result.exit_code != 0
     assert "configuration" in result.output
-    assert len(responses.calls) == 0
+    assert len(respx.calls) == 0
 
 
-@responses.activate
+@respx.mock
 def test_integrations_delete_with_and_without_assets(monkeypatch, tmp_path):
     _setup(monkeypatch, tmp_path)
     _mock_list()
-    responses.add(responses.DELETE, f"{BASE_URL}/api/integrations/ingest/{EXTERNAL_ID}", status=204)
+    respx.delete(f"{BASE_URL}/api/integrations/ingest/{EXTERNAL_ID}").mock(return_value=httpx.Response(204))
     result = runner.invoke(app, ["integrations", "delete", "Demo Snowflake"])
     assert result.exit_code == 0, result.output
-    assert responses.calls[-1].request.url == f"{BASE_URL}/api/integrations/ingest/{EXTERNAL_ID}"
+    assert str(respx.calls[-1].request.url) == f"{BASE_URL}/api/integrations/ingest/{EXTERNAL_ID}"
 
     result = runner.invoke(app, ["integrations", "delete", EXTERNAL_ID, "--delete-assets"])
     assert result.exit_code == 0, result.output
-    assert "deleteAssets=true" in responses.calls[-1].request.url
+    assert "deleteAssets=true" in str(respx.calls[-1].request.url)
