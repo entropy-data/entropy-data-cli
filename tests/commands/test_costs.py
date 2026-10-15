@@ -48,7 +48,7 @@ def test_costs_add(monkeypatch, tmp_path):
     cost_file.write_text(json.dumps({"dataProductId": "dp-1", "amount": 100.0, "currency": "USD"}))
     result = runner.invoke(app, ["costs", "add", "--file", str(cost_file)])
     assert result.exit_code == 0
-    assert "added" in result.output
+    assert "saved" in result.output
 
 
 @respx.mock

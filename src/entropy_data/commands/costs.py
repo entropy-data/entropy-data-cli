@@ -34,14 +34,14 @@ def list_costs(
 def add_cost(
     file: Annotated[Path, typer.Option("--file", "-f", help="JSON or YAML file (use - for stdin).")] = ...,
 ) -> None:
-    """Add a cost."""
+    """Add a cost, or replace the data product's cost with the same name and yearMonth."""
     from entropy_data.cli import get_client, handle_error
 
     try:
         body = read_body(file)
         client = get_client()
         client.post_resource(RESOURCE_PATH, body)
-        print_success("Cost added.")
+        print_success("Cost saved.")
     except Exception as e:
         handle_error(e)
 

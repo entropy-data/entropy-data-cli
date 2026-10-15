@@ -134,7 +134,7 @@ entropy-data [--version] [--connection NAME] [--output table|json|yaml] [--debug
   dataproductbuilders list | get | put | delete
   example-data    list | get | put | delete
   test-results    list | get | publish | delete
-  costs           list | add | delete
+  costs           list | add (upsert) | delete
   assets          list | get | put | delete | tags ...
   tags            list | get | put | delete
   api-keys        create | delete
