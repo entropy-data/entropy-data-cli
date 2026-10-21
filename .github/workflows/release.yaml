@@ -22,7 +22,7 @@ jobs:
     secrets: inherit
 
   check_version:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
       - name: check tag version == pyproject.version
@@ -57,7 +57,7 @@ jobs:
           "
 
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs:
       - test
       - check_version
@@ -82,7 +82,7 @@ jobs:
       Publish Python distribution to PyPI
     needs:
       - build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment:
       name: release-pypi
       url: https://pypi.org/p/entropy-data
@@ -102,7 +102,7 @@ jobs:
       Create a GitHub Release
     needs:
       - publish-to-pypi
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
       id-token: write
@@ -142,7 +142,7 @@ jobs:
           --repo '${{ github.repository }}'
 
   docker:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs:
       - test
       - check_version
@@ -199,7 +199,7 @@ jobs:
     name: Publish Python distribution to TestPyPI
     needs:
       - build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment:
       name: release-testpypi
       url: https://test.pypi.org/p/entropy-data
