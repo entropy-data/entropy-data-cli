@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- `connection add --help` says that the added connection becomes the default.
 - `usage list`, `lineage list` and `test-results list` take `--since`/`--until` (ISO date or date-time, or relative like `7d`), `--page`, `--limit` and `--all` to follow every page, newest first; `test-results list` also takes `--server`. Before, `test-results list` only showed the first 10 results. Server-side filtering needs entropy-data#1784; against an older server the CLI filters itself and warns.
 - `costs add` says what it does: a cost with the same data product, name and month as an existing one replaces it (as the API always did), so it prints "Cost saved." instead of "Cost added.".
 - The CLI now talks to the API through the [entropy-data-sdk](https://pypi.org/project/entropy-data-sdk/) package (httpx) instead of its own requests-based client. Commands behave as before; connection setup failures are retried a few times, and an API host with a path prefix (for example behind a reverse proxy) is kept in every request URL.

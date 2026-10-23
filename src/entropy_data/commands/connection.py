@@ -163,6 +163,9 @@ def add_connection(
 ) -> None:
     """Add or update a named connection.
 
+    The connection becomes the default connection. Use `connection set-default`
+    to switch back.
+
     The organization vanity URL is read from /api/organization/settings using the
     provided API key. Fetching is best-effort: older servers or network errors
     fall back to no vanity URL on the stored connection.

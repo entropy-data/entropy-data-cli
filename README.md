@@ -50,6 +50,8 @@ entropy-data connection add prod
 # prompts for API key and host
 ```
 
+The added connection becomes the default. Switch with `entropy-data connection set-default <name>`, or pick one per call with `--connection <name>`.
+
 ### 2. Explore your data platform
 
 ```bash
