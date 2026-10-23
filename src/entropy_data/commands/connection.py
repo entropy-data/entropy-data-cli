@@ -215,14 +215,40 @@ def set_default(
         raise typer.Exit(1)
 
 
+def _credential_source() -> str:
+    """Name where the API key of the current command comes from, following resolve_connection's precedence."""
+    from entropy_data import cli
+
+    if cli._cli_api_key is not None:
+        return "--api-key"
+    if cli._connection_name is not None:
+        return f"connection '{cli._connection_name}'"
+    if "ENTROPY_DATA_API_KEY" in cfg.env_overrides():
+        return "ENTROPY_DATA_API_KEY"
+    default_name = cfg.load_config().get("default_connection_name")
+    return f"default connection '{default_name}'" if default_name else "default connection"
+
+
 @connection_app.command("test")
 def test_connection() -> None:
-    """Test the current connection by calling the API."""
+    """Test the current connection by calling the API.
+
+    Prints the organization the API key belongs to, the host, and where the key came from
+    (--api-key, --connection, ENTROPY_DATA_API_KEY, or the default connection), because an
+    environment variable silently overrides the default connection.
+    """
     from entropy_data.cli import get_client, handle_error
 
     try:
         client = get_client()
         client.list_resources("teams", params={"p": "0"})
-        print_success("Connection successful.")
     except Exception as e:
         handle_error(e)
+        return
+    # Best effort: older servers have no organization settings endpoint.
+    try:
+        settings = client.sdk.organization.get_settings()
+        organization = f"organization '{settings.vanityUrl}' ({settings.fullName})"
+    except Exception:
+        organization = "an unknown organization"
+    print_success(f"Connection successful: {organization} at {client.base_url}, using {_credential_source()}.")

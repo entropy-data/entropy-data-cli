@@ -156,6 +156,41 @@ def test_connection_test_success(tmp_path, monkeypatch):
 
 
 @respx.mock
+def test_connection_test_names_organization_and_default_connection(tmp_path, monkeypatch):
+    monkeypatch.setattr(cfg, "CONFIG_DIR", tmp_path)
+    monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
+    runner.invoke(app, ["connection", "add", "prod", "--api-key", "key1", "--host", BASE_URL])
+    respx.get(f"{BASE_URL}/api/teams").mock(return_value=httpx.Response(200, json=[]))
+    respx.get(ORG_SETTINGS_URL).mock(
+        return_value=httpx.Response(
+            200, json={"vanityUrl": "acme", "host": "https://acme.example", "fullName": "Acme Corp", "logoUrl": ""}
+        )
+    )
+    result = runner.invoke(app, ["connection", "test"])
+    assert result.exit_code == 0
+    assert "organization 'acme' (Acme Corp)" in " ".join(result.output.split())
+    assert "default connection 'prod'" in " ".join(result.output.split())
+
+
+@respx.mock
+def test_connection_test_names_env_var_that_overrides_default(tmp_path, monkeypatch):
+    monkeypatch.setattr(cfg, "CONFIG_DIR", tmp_path)
+    monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
+    runner.invoke(app, ["connection", "add", "prod", "--api-key", "key1", "--host", BASE_URL])
+    monkeypatch.setenv("ENTROPY_DATA_API_KEY", "envkey123456")
+    respx.get(f"{BASE_URL}/api/teams").mock(return_value=httpx.Response(200, json=[]))
+    respx.get(ORG_SETTINGS_URL).mock(
+        return_value=httpx.Response(
+            200, json={"vanityUrl": "other", "host": "https://other.example", "fullName": "Other Org", "logoUrl": ""}
+        )
+    )
+    result = runner.invoke(app, ["connection", "test"])
+    assert result.exit_code == 0
+    assert "organization 'other'" in " ".join(result.output.split())
+    assert "using ENTROPY_DATA_API_KEY" in " ".join(result.output.split())
+
+
+@respx.mock
 def test_connection_get_masked_by_default(tmp_path, monkeypatch):
     monkeypatch.setattr(cfg, "CONFIG_DIR", tmp_path)
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
