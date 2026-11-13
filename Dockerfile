@@ -3,7 +3,7 @@
 # reference is never updated.
 FROM ghcr.io/astral-sh/uv:0.13.1 AS uv
 
-FROM python:3.14-slim
+FROM python:3.15-slim
 
 ENV PYTHONUNBUFFERED=1
 ENV UV_COMPILE_BYTECODE=1
