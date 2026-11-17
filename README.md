@@ -135,6 +135,8 @@ entropy-data [--version] [--connection NAME] [--output table|json|yaml] [--debug
   policies        list | get | put | delete
   dataproductbuilders list | get | put | delete
   example-data    list | get | put | delete
+  usecases        list | get | yaml | put | delete (preview)
+  custom-quality-checks get
   test-results    list | get | publish | delete
   costs           list | add (upsert) | delete
   assets          list | get | put | delete | tags ...
@@ -142,8 +144,8 @@ entropy-data [--version] [--connection NAME] [--output table|json|yaml] [--debug
   api-keys        create | delete
   connectors      list | get | put | delete
   integrations    list | get | put | delete | runs | runs-get | runs-latest | run | cancel | unity-catalog-metadata ...
-  organization    get | members ... | git-credentials ...
-  settings        get-customization | put-customization | get-scim-mapping | put-scim-mapping | team-roles ... | email-templates ... | dataproduct-types ...
+  organization    get | members ... | features get | put | git-credentials ...
+  settings        get-customization | put-customization | get-scim-mapping | put-scim-mapping | team-roles ... | email-templates ... | dataproduct-types ... | output-port-types get | put | delete
   events          poll
   lineage         list | submit | delete
   schemas         get
@@ -170,9 +172,15 @@ idempotent PUT-by-id, so runs converge and are safe to repeat.
 `sync` copies **nothing by default** — name the resources to sync with `--include`.
 
 **Supported resources** (in dependency order): `teams`, `tags`, `definitions`, `policies`,
-`dataproduct-types`, `dataproductbuilders`, `sourcesystems`, `certifications`, `classification-schemes`, `assets`, `datacontracts`,
-`dataproducts`, `example-data`, `access`, `semantic-namespaces`, `semantic-ontology`,
+`dataproduct-types`, `output-port-types`, `dataproductbuilders`, `sourcesystems`, `certifications`, `classification-schemes`, `assets`, `datacontracts`,
+`dataproducts`, `example-data`, `usecases`, `access`, `semantic-namespaces`, `semantic-ontology`,
 `email-templates`, `organization-features`.
+
+`output-port-types` is copied only when the source has changed its output port types (not while
+it still shows the defaults, `legacy: true`). `usecases` needs Use Cases switched on
+(`useCasesEnabled`): a source with them off has none to copy, and a target with them off is
+switched on before the use cases are written when the applied `organization-features` turns them
+on; otherwise the run fails the use cases and says so.
 
 **Not synced:** users & team members, API keys, git credentials, integration and connector
 credentials, usage, costs, test results, events, and lineage (per-instance identity,

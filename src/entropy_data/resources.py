@@ -8,9 +8,9 @@ handling flags drive enumeration (export), upsert (import) and orchestration
 The canonical dependency order is:
 
     teams -> tags -> definitions -> policies -> dataproduct-types ->
-    dataproductbuilders -> sourcesystems ->
+    output-port-types -> dataproductbuilders -> sourcesystems ->
     certifications -> classification-schemes -> assets ->
-    datacontracts -> dataproducts -> example-data -> access ->
+    datacontracts -> dataproducts -> example-data -> usecases -> access ->
     semantic-namespaces -> semantic-ontology -> email-templates ->
     organization-features
 
@@ -68,6 +68,13 @@ class Resource:
                 prunable) rather than a collection
     document    one raw-YAML document per parent, GET/PUT directly at the expanded
                 ``{parent}`` path (not prunable); requires ``parent``
+    unset_flag  for a singleton: a boolean field that, when true, means the organization
+                has not configured the object yet (the GET shows defaults), so there
+                is nothing to copy (``output-port-types``: ``legacy``)
+    feature     the ``organization/features`` switch the resource needs; the API answers 404
+                while it is off (``usecases``: ``useCasesEnabled``). Off on the source means
+                nothing to copy; off on the target is switched on before the writes when the
+                applied ``organization-features`` turns it on, and fails the resource otherwise
     artifact    whether this resource is written to / read from its own directory in
                 the artifact tree. ``False`` for a parent whose metadata now travels
                 inside its document child (``semantic-namespaces``): it is still listed
@@ -87,6 +94,8 @@ class Resource:
     parent: str | None = None
     singleton: bool = False
     document: bool = False
+    unset_flag: str | None = None
+    feature: str | None = None
     artifact: bool = True
 
     def path_for(self, parent_id: str | None = None) -> str:
@@ -106,6 +115,9 @@ RESOURCE_ORDER: list[Resource] = [
     # Org-level singleton: the whole list of data product types. Applied before the builders and
     # data products that reference the type ids.
     Resource("dataproduct-types", "settings/dataproduct-types", singleton=True),
+    # Org-level singleton: the output port types and which of them each data product type offers,
+    # so it follows the data product types. Not copied while the source still shows the defaults.
+    Resource("output-port-types", "settings/output-port-types", singleton=True, unset_flag="legacy"),
     # References teams and tags by external id, and data product types by id.
     Resource("dataproductbuilders", "dataproductbuilders"),
     Resource("sourcesystems", "sourcesystems", paginated=True),
@@ -117,6 +129,8 @@ RESOURCE_ORDER: list[Resource] = [
     Resource("datacontracts", "datacontracts", detail=True),
     Resource("dataproducts", "dataproducts", detail=True),
     Resource("example-data", "example-data"),
+    # References teams and data products; access agreements cite use cases in info.useCase.
+    Resource("usecases", "usecases", paginated=True, feature="useCasesEnabled"),
     Resource("access", "access", paginated=True),
     # Semantics: one artifact per namespace. The whole ontology (concepts + relationships) is copied
     # as one OSI YAML document per namespace via the app's ontology.yaml endpoint, which imports it in

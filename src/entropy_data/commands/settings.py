@@ -15,6 +15,7 @@ settings_app = typer.Typer(no_args_is_help=True)
 team_roles_app = typer.Typer(no_args_is_help=True)
 email_templates_app = typer.Typer(no_args_is_help=True)
 dataproduct_types_app = typer.Typer(no_args_is_help=True)
+output_port_types_app = typer.Typer(no_args_is_help=True)
 
 
 @settings_app.command("get-customization")
@@ -292,4 +293,101 @@ settings_app.add_typer(
     dataproduct_types_app,
     name="dataproduct-types",
     help="Get or set the organization's data product types.",
+)
+
+
+OUTPUT_PORT_TYPES_PATH = "/api/settings/output-port-types"
+
+
+@output_port_types_app.command("get")
+def get_output_port_types(
+    output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
+) -> None:
+    """Show the organization's output port types.
+
+    The types with their access request rules (enabled ones first, in dropdown order), the output
+    port types each data product type offers, and whether only the enabled types are allowed.
+    `legacy: true` means the organization has not changed them yet; the document then shows the
+    settings that apply today. `--output yaml` prints the document `put` takes.
+    """
+    from entropy_data.cli import get_client, get_output_format, handle_error
+
+    fmt = output or get_output_format()
+    try:
+        data = get_client().http.get_json(OUTPUT_PORT_TYPES_PATH)
+        if fmt != OutputFormat.table:
+            print_data(data, fmt)
+            return
+
+        table = Table()
+        table.add_column("id", style="cyan")
+        table.add_column("label")
+        table.add_column("enabled")
+        table.add_column("access requests")
+        table.add_column("id pattern")
+        for type_ in data.get("outputPortTypes") or []:
+            table.add_row(
+                type_.get("id", ""),
+                type_.get("label") or "",
+                "yes" if type_.get("enabled", True) else "no",
+                (type_.get("accessRequests") or {}).get("mode") or "default",
+                type_.get("outputPortIdPattern") or "",
+            )
+        console.print(table)
+        notes = []
+        if data.get("legacy"):
+            notes.append("legacy: not changed by the organization yet; these are the settings that apply today")
+        if data.get("onlyListedTypes"):
+            notes.append("only the enabled types are allowed")
+        for supported in data.get("supportedOutputPortTypes") or []:
+            dp_type = supported.get("dataProductType") or ""
+            types = supported.get("outputPortTypes") or []
+            notes.append(f"data product type {dp_type}: {', '.join(types) or 'none'}")
+        for note in notes:
+            console.print(f"[dim]{note}[/dim]")
+    except Exception as e:
+        handle_error(e)
+
+
+@output_port_types_app.command("put")
+def put_output_port_types(
+    file: Annotated[
+        Path, typer.Option("--file", "-f", help="JSON or YAML file with the body (use - for stdin).")
+    ] = ...,
+) -> None:
+    """Replace the organization's output port types.
+
+    The body is the document `get --output yaml` prints. The order of the enabled
+    `outputPortTypes` is the dropdown order. Own types not in the file are removed; a default type
+    not in the file stays, disabled. `legacy` is read-only and ignored.
+    """
+    from entropy_data.cli import get_client, handle_error
+
+    try:
+        _put_yaml_or_json(get_client(), OUTPUT_PORT_TYPES_PATH, file)
+        print_success("Output port types saved.")
+    except Exception as e:
+        handle_error(e)
+
+
+@output_port_types_app.command("delete")
+def delete_output_port_types() -> None:
+    """Drop the organization's output port type settings and use the defaults again.
+
+    The output port types and rules that applied before apply again, including the output port
+    type list of the customization YAML.
+    """
+    from entropy_data.cli import get_client, handle_error
+
+    try:
+        get_client().http.delete(OUTPUT_PORT_TYPES_PATH)
+        print_success("Output port type settings deleted; the defaults apply again.")
+    except Exception as e:
+        handle_error(e)
+
+
+settings_app.add_typer(
+    output_port_types_app,
+    name="output-port-types",
+    help="Get, set or reset the organization's output port types.",
 )

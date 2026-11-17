@@ -15,7 +15,7 @@ from pathlib import Path
 
 import yaml
 
-from entropy_data.client import ApiError, EntropyDataClient, _validate_resource_id
+from entropy_data.client import ApiError, EntropyDataClient, NotFoundError, _validate_resource_id
 from entropy_data.output import console, error_console
 from entropy_data.resources import RESOURCE_BY_NAME, Resource, sanitize_filename, strip_audit_fields
 
@@ -196,6 +196,13 @@ def _export_items(client: EntropyDataClient, resource: Resource, parent_id: str 
     api_path = resource.path_for(parent_id)
     try:
         items = _list_all(client, resource, parent_id)
+    except NotFoundError as e:
+        if not resource.feature:
+            error_console.print(f"  [red]FAIL[/red] list {resource.name}: {e}")
+            total.fail += 1
+            return total
+        console.print(f"  [dim]skipped: {resource.feature} is off on the source[/dim]")
+        return total
     except ApiError as e:
         error_console.print(f"  [red]FAIL[/red] list {resource.name}: {e}")
         total.fail += 1
@@ -237,6 +244,9 @@ def _export_singleton(client: EntropyDataClient, resource: Resource, target_dir:
         return total
 
     if not body:  # nothing configured on the source; nothing to copy
+        return total
+    if resource.unset_flag and body.get(resource.unset_flag):
+        console.print(f"  [dim]skipped: not configured on the source ({resource.unset_flag})[/dim]")
         return total
 
     target_dir.mkdir(parents=True, exist_ok=True)
@@ -376,6 +386,11 @@ def _prune_one(
     result = SyncResult()
     try:
         existing = _list_all(client, resource, parent_id)
+    except NotFoundError as e:
+        if not resource.feature:
+            error_console.print(f"  [red]FAIL[/red] list {resource.name}: {e}")
+            result.fail += 1
+        return result  # feature off on the target: nothing there to prune
     except ApiError as e:
         error_console.print(f"  [red]FAIL[/red] list {resource.name}: {e}")
         result.fail += 1
@@ -454,6 +469,11 @@ def plan_apply(
                 imported = {rid for rid, _ in entries}
             try:
                 existing = _enumerate_ids(client, resource)
+            except NotFoundError as e:
+                if not resource.feature:
+                    error_console.print(f"[red]FAIL[/red] list {resource.name}: {e}")
+                    plan.fail += 1
+                existing = set()  # feature off on the target: everything is a create
             except ApiError as e:
                 error_console.print(f"[red]FAIL[/red] list {resource.name}: {e}")
                 existing = set()
@@ -467,6 +487,44 @@ def plan_apply(
         if counts.create or counts.update or counts.prune:
             plan.counts[resource.name] = counts
     return plan
+
+
+FEATURES_PATH = "/api/organization/features"
+
+
+def _ensure_feature(client: EntropyDataClient, resource: Resource, source: Path, resources: list[Resource]) -> bool:
+    """Make sure the target has ``resource.feature`` on before writing the resource.
+
+    ``organization-features`` is applied last (a restrictive policy in it could reject earlier
+    writes), but use cases need ``useCasesEnabled`` on the target before they and the access
+    agreements citing them are written. When the applied ``organization-features`` artifact turns
+    the switch on, switch on just that one now; the full document still applies at the end.
+    Otherwise the resource cannot be written, and the run says how to fix that.
+    """
+    try:
+        current = client.http.get_json(FEATURES_PATH) or {}
+    except ApiError:
+        return True  # cannot tell; let the writes answer for themselves
+    if current.get(resource.feature):
+        return True
+
+    features = RESOURCE_BY_NAME["organization-features"]
+    artifact = _singleton_file(source, features)
+    wanted = features in resources and artifact.is_file()
+    wanted = wanted and bool((yaml.safe_load(artifact.read_text()) or {}).get(resource.feature))
+    if not wanted:
+        error_console.print(
+            f"  [red]FAIL[/red] {resource.name}: {resource.feature} is off on the target. Switch it on "
+            f"('organization features put') or include organization-features from a source that has it on."
+        )
+        return False
+    try:
+        client.http.put_json(FEATURES_PATH, {**current, resource.feature: True})
+    except ApiError as e:
+        error_console.print(f"  [red]FAIL[/red] switch on {resource.feature}: {e}")
+        return False
+    console.print(f"  [green]OK[/green]   {resource.feature} switched on (organization-features follows in full)")
+    return True
 
 
 def apply_dir(
@@ -528,6 +586,9 @@ def apply_dir(
         if not entries:
             continue
         console.print(f"\n[bold]{resource.name}[/bold]")
+        if resource.feature and not _ensure_feature(client, resource, source, resources):
+            total.fail += len(entries)
+            continue
         total.add(_upsert(client, resource, resource.api_path, entries))
 
     if prune:

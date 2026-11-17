@@ -38,6 +38,7 @@ LIST_ENDPOINTS = {
     "classification-schemes": "/api/classification-schemes",
     "organization-members": "/api/organization/members",
     "connectors": "/api/connectors",
+    "usecases": "/api/usecases",
     "integrations": "/api/integrations/ingest",
     "unity-catalog-metadata-integrations": "/api/integrations/unity-catalog-metadata",
     "unity-catalog-metadata-tables": "/api/integrations/unity-catalog-metadata/{integration}/tables",

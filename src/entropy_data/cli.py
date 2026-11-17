@@ -156,6 +156,7 @@ from entropy_data.commands.classifications import classifications_app  # noqa: E
 from entropy_data.commands.connection import connection_app  # noqa: E402
 from entropy_data.commands.connectors import connectors_app  # noqa: E402
 from entropy_data.commands.costs import costs_app  # noqa: E402
+from entropy_data.commands.custom_quality_checks import custom_quality_checks_app  # noqa: E402
 from entropy_data.commands.datacontracts import datacontracts_app  # noqa: E402
 from entropy_data.commands.dataproductbuilders import dataproductbuilders_app  # noqa: E402
 from entropy_data.commands.dataproducts import dataproducts_app  # noqa: E402
@@ -177,6 +178,7 @@ from entropy_data.commands.tags import tags_app  # noqa: E402
 from entropy_data.commands.teams import teams_app  # noqa: E402
 from entropy_data.commands.test_results import test_results_app  # noqa: E402
 from entropy_data.commands.usage import usage_app  # noqa: E402
+from entropy_data.commands.usecases import usecases_app  # noqa: E402
 
 app.add_typer(connection_app, name="connection", help="Manage connections.")
 app.add_typer(teams_app, name="teams", help="Manage teams.")
@@ -194,6 +196,12 @@ app.add_typer(
     help="EXPERIMENTAL Manage data product builders.",
 )
 app.add_typer(example_data_app, name="example-data", help="Manage example data.")
+app.add_typer(usecases_app, name="usecases", help="PREVIEW Manage use cases.")
+app.add_typer(
+    custom_quality_checks_app,
+    name="custom-quality-checks",
+    help="Get custom quality checks as the YAML files datacontract-cli reads.",
+)
 app.add_typer(test_results_app, name="test-results", help="Manage test results.")
 app.add_typer(costs_app, name="costs", help="Manage costs.")
 app.add_typer(assets_app, name="assets", help="Manage data assets.")

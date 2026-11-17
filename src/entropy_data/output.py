@@ -111,6 +111,7 @@ RESOURCE_COLUMNS: dict[str, list[tuple[str, str]]] = {
         ("Description", "description"),
     ],
     "connectors": [("ID", "id"), ("Type", "info.type"), ("Version", "info.connectorVersion")],
+    "usecases": [("ID", "id"), ("Name", "name"), ("Status", "status"), ("Team", "team.name")],
     "integrations": [
         ("ID", "externalId"),
         ("Name", "name"),
