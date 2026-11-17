@@ -19,6 +19,18 @@ def list_dataproducts(
     query: Annotated[Optional[str], typer.Option("--query", "-q", help="Search term.")] = None,
     status: Annotated[Optional[str], typer.Option("--status", help="Filter by status.")] = None,
     tag: Annotated[Optional[str], typer.Option("--tag", help="Filter by tag.")] = None,
+    team: Annotated[
+        Optional[list[str]],
+        typer.Option("--team", help="Filter by owning team ID. Repeat for several teams."),
+    ] = None,
+    domain: Annotated[
+        Optional[list[str]],
+        typer.Option("--domain", help="Filter by domain ID. Repeat for several domains."),
+    ] = None,
+    type: Annotated[
+        Optional[list[str]],
+        typer.Option("--type", help="Filter by data product type (e.g. source-aligned). Repeat for several types."),
+    ] = None,
     sort: Annotated[Optional[str], typer.Option("--sort", help="Sort field.")] = None,
     output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
 ) -> None:
@@ -35,6 +47,12 @@ def list_dataproducts(
             params["status"] = status
         if tag:
             params["tag"] = tag
+        if team:
+            params["teamId"] = team
+        if domain:
+            params["domainId"] = domain
+        if type:
+            params["type"] = type
         if sort:
             params["sort"] = sort
         data, has_next = client.list_resources(RESOURCE_PATH, params=params)

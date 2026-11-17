@@ -1,6 +1,7 @@
 """Search commands."""
 
 import json
+from enum import Enum
 from typing import Annotated, Optional
 
 import typer
@@ -10,12 +11,38 @@ from entropy_data.output import OutputFormat, console, print_data
 search_app = typer.Typer(no_args_is_help=True)
 
 
+class SearchMode(str, Enum):
+    DISCOVER = "DISCOVER"
+    FIND = "FIND"
+    GET_HELP = "GET_HELP"
+
+
 @search_app.command("query")
 def search_query(
     query: Annotated[str, typer.Argument(help="Search query.")],
     resource_type: Annotated[
-        Optional[str], typer.Option("--resource-type", "-t", help="Filter by resource type.")
+        Optional[str],
+        typer.Option(
+            "--resource-type",
+            "-t",
+            help="Filter by resource type: DATA_PRODUCT, DATA_CONTRACT, SEMANTIC_CONCEPT, DATA_ASSET, DEFINITION, "
+            "TEAM, TAG.",
+        ),
     ] = None,
+    mode: Annotated[
+        Optional[SearchMode],
+        typer.Option(
+            "--mode",
+            case_sensitive=False,
+            help="Search mode instead of the one guessed from the query: DISCOVER (hybrid search with LLM "
+            "reasoning), FIND (filtered search by id, title, ownership, ...), GET_HELP (explains business context "
+            "and usage).",
+        ),
+    ] = None,
+    diagnostics: Annotated[
+        bool,
+        typer.Option("--diagnostics", help="Add sources, userIntention and searchCriteria to the response."),
+    ] = False,
     output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
 ) -> None:
     """Search across all resources."""
@@ -27,6 +54,10 @@ def search_query(
         params = {}
         if resource_type:
             params["resourceType"] = resource_type
+        if mode:
+            params["searchMode"] = mode.value
+        if diagnostics:
+            params["diagnostics"] = "true"
         data = client.search(query, **params)
 
         if fmt != OutputFormat.table:

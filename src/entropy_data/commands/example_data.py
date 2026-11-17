@@ -16,6 +16,10 @@ RESOURCE_TYPE = "example-data"
 @example_data_app.command("list")
 def list_example_data(
     data_product_id: Annotated[Optional[str], typer.Option("--data-product-id", help="Filter by data product.")] = None,
+    output_port_id: Annotated[Optional[str], typer.Option("--output-port-id", help="Filter by output port.")] = None,
+    data_contract_id: Annotated[
+        Optional[str], typer.Option("--data-contract-id", help="Filter by data contract.")
+    ] = None,
     output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
 ) -> None:
     """List all example data entries."""
@@ -27,6 +31,10 @@ def list_example_data(
         params = {}
         if data_product_id:
             params["dataProductId"] = data_product_id
+        if output_port_id:
+            params["outputPortId"] = output_port_id
+        if data_contract_id:
+            params["dataContractId"] = data_contract_id
         data, has_next = client.list_resources(RESOURCE_PATH, params=params or None)
         print_resource_list(data, RESOURCE_TYPE, fmt, has_next_page=has_next)
     except Exception as e:

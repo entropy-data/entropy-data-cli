@@ -33,10 +33,12 @@ def list_teams(
             print_resource_list(data, RESOURCE_TYPE, fmt, has_next_page=has_next, page=page)
             return
 
+        # The server narrows to the teams the email is a direct member of; the CLI still matches the
+        # members itself, for the Role column and for servers that ignore `email`.
         all_teams: list[dict] = []
         current_page = 0
         while True:
-            items, has_next = client.list_resources(RESOURCE_PATH, params={"p": current_page})
+            items, has_next = client.list_resources(RESOURCE_PATH, params={"p": current_page, "email": member})
             all_teams.extend(items)
             if not has_next:
                 break

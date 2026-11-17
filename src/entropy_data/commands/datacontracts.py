@@ -28,8 +28,21 @@ def _branch_action(branch: Optional[str], action: str) -> str:
 def list_datacontracts(
     page: Annotated[int, typer.Option("--page", "-p", help="Page number (0-indexed).")] = 0,
     query: Annotated[Optional[str], typer.Option("--query", "-q", help="Search term.")] = None,
-    owner: Annotated[Optional[str], typer.Option("--owner", help="Filter by owner.")] = None,
+    owner: Annotated[
+        Optional[str], typer.Option("--owner", help="Filter by owning team name. Deprecated by the API: use --team.")
+    ] = None,
     tag: Annotated[Optional[str], typer.Option("--tag", help="Filter by tag.")] = None,
+    team: Annotated[
+        Optional[list[str]],
+        typer.Option("--team", help="Filter by owning team ID. Repeat for several teams."),
+    ] = None,
+    domain: Annotated[
+        Optional[list[str]],
+        typer.Option("--domain", help="Filter by domain ID. Repeat for several domains."),
+    ] = None,
+    status: Annotated[
+        Optional[str], typer.Option("--status", help="Filter by status (e.g. active, draft, deprecated).")
+    ] = None,
     sort: Annotated[Optional[str], typer.Option("--sort", help="Sort field.")] = None,
     output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
 ) -> None:
@@ -46,6 +59,12 @@ def list_datacontracts(
             params["owner"] = owner
         if tag:
             params["tag"] = tag
+        if team:
+            params["teamId"] = team
+        if domain:
+            params["domainId"] = domain
+        if status:
+            params["status"] = status
         if sort:
             params["sort"] = sort
         data, has_next = client.list_resources(RESOURCE_PATH, params=params)

@@ -99,12 +99,12 @@ def test_teams_list_member_filter_case_insensitive(monkeypatch, tmp_path):
 def test_teams_list_member_filter_paginates(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
     monkeypatch.setenv("ENTROPY_DATA_API_KEY", "test-key")
-    respx.get(f"{BASE_URL}/api/teams", params__eq={"p": "0"}).mock(
+    respx.get(f"{BASE_URL}/api/teams", params__eq={"p": "0", "email": "alice@example.com"}).mock(
         return_value=httpx.Response(
             200, json=TEAMS_LIST_WITH_MEMBERS[:1], headers={"Link": '</api/teams?p=1>; rel="next"'}
         )
     )
-    respx.get(f"{BASE_URL}/api/teams", params__eq={"p": "1"}).mock(
+    respx.get(f"{BASE_URL}/api/teams", params__eq={"p": "1", "email": "alice@example.com"}).mock(
         return_value=httpx.Response(200, json=TEAMS_LIST_WITH_MEMBERS[1:])
     )
     result = runner.invoke(app, ["teams", "list", "--member", "alice@example.com", "--output", "json"])

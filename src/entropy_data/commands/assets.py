@@ -25,6 +25,16 @@ RESOURCE_TYPE = "assets"
 @assets_app.command("list")
 def list_assets(
     page: Annotated[int, typer.Option("--page", "-p", help="Page number (0-indexed).")] = 0,
+    source: Annotated[
+        Optional[str], typer.Option("--source", help="Only assets whose info.source equals this (e.g. snowflake).")
+    ] = None,
+    qualified_name: Annotated[
+        Optional[str],
+        typer.Option("--qualified-name", help="Only assets whose info.qualifiedName equals this, ignoring case."),
+    ] = None,
+    source_id: Annotated[
+        Optional[str], typer.Option("--source-id", help="Only assets whose info.sourceId equals this.")
+    ] = None,
     output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
 ) -> None:
     """List all data assets."""
@@ -33,7 +43,9 @@ def list_assets(
     fmt = output or get_output_format()
     try:
         client = get_client()
-        data, has_next = client.list_resources(RESOURCE_PATH, params={"p": page})
+        params = {"p": page, "source": source, "qualifiedName": qualified_name, "sourceId": source_id}
+        params = {k: v for k, v in params.items() if v is not None}
+        data, has_next = client.list_resources(RESOURCE_PATH, params=params)
         print_resource_list(data, RESOURCE_TYPE, fmt, has_next_page=has_next, page=page)
     except Exception as e:
         handle_error(e)
