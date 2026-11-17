@@ -38,6 +38,25 @@ def test_connection_add_and_list(tmp_path, monkeypatch):
 
 
 @respx.mock
+def test_connection_add_says_that_the_default_switched(tmp_path, monkeypatch):
+    monkeypatch.setattr(cfg, "CONFIG_DIR", tmp_path)
+    monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
+    result = runner.invoke(app, ["connection", "add", "prod", "--api-key", "mykey123456", "--host", BASE_URL])
+    assert "'prod' is now the default connection." in result.output
+
+    result = runner.invoke(app, ["connection", "add", "demo", "--api-key", "demokey123456", "--host", BASE_URL])
+    assert result.exit_code == 0
+    assert "Default connection switched from 'prod' to 'demo'." in result.output
+    assert "entropy-data connection set-default prod" in result.output
+    assert cfg.load_config()["default_connection_name"] == "demo"
+
+    # Updating the default connection itself switches nothing
+    result = runner.invoke(app, ["connection", "add", "demo", "--api-key", "newkey123456", "--host", BASE_URL])
+    assert "switched" not in result.output
+    assert "now the default" not in result.output
+
+
+@respx.mock
 def test_connection_add_with_api_key_does_not_prompt_for_host(tmp_path, monkeypatch):
     monkeypatch.setattr(cfg, "CONFIG_DIR", tmp_path)
     monkeypatch.setattr(cfg, "CONFIG_FILE", tmp_path / "config.toml")
@@ -277,6 +296,18 @@ def test_connection_list_without_env_overrides_has_no_notice(tmp_path, monkeypat
     assert result.stderr == ""
     rows = {row["name"]: row for row in json.loads(result.stdout)}
     assert "overridden_by" not in rows["prod"]
+
+
+def test_connection_list_honours_global_output_option(tmp_path, monkeypatch):
+    """`entropy-data -o json connection list` prints JSON with the full names, like `connection list -o json`."""
+    _two_connections(tmp_path, monkeypatch)
+    for args in (["-o", "json", "connection", "list"], ["connection", "list", "-o", "json"]):
+        result = runner.invoke(app, args)
+        assert result.exit_code == 0, args
+        rows = {row["name"]: row for row in json.loads(result.stdout)}
+        assert set(rows) == {"prod", "staging"}
+        assert rows["prod"]["default"] is True
+        assert rows["staging"]["default"] is False
 
 
 def test_connection_list_shows_env_api_key_overrides_default(tmp_path, monkeypatch):

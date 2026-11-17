@@ -2,8 +2,11 @@
 
 ## [Unreleased]
 
+- Fix: `connection list` honours `-o json` / `-o yaml`, both as the global option (`entropy-data -o json connection list`) and on the command, and prints every connection with its full name, host, vanity URL and `default` flag. Before, it always printed the table, with long names truncated, so scripts could not read which connection is the default. With `ENTROPY_DATA_API_KEY` or `ENTROPY_DATA_HOST` set, it warns that they override the default connection (marked `* (env)`, and `overridden_by` in JSON/YAML).
+- With `-o json` or `-o yaml`, errors are a structured document on stderr (`{"error": {"type", "message", "status", "url"}}`), so scripts and agents parse failures like results.
 - `connection test` names the organization it reached, the host, and where the API key came from (`--api-key`, `--connection`, `ENTROPY_DATA_API_KEY`, or the default connection), because an environment variable silently overrides the default connection.
 - `connection add --help` says that the added connection becomes the default.
+- `connection add` says when it switches the default connection ("Default connection switched from 'prod' to 'demo'.") and how to switch back with `connection set-default`. Before, the default changed silently, and the next commands went to the new organization.
 - `usage list`, `lineage list` and `test-results list` take `--since`/`--until` (ISO date or date-time, or relative like `7d`), `--page`, `--limit` and `--all` to follow every page, newest first; `test-results list` also takes `--server`. Before, `test-results list` only showed the first 10 results. Server-side filtering needs entropy-data#1784; against an older server the CLI filters itself and warns.
 - `costs add` says what it does: a cost with the same data product, name and month as an existing one replaces it (as the API always did), so it prints "Cost saved." instead of "Cost added.".
 - The CLI now talks to the API through the [entropy-data-sdk](https://pypi.org/project/entropy-data-sdk/) package (httpx) instead of its own requests-based client. Commands behave as before; connection setup failures are retried a few times, and an API host with a path prefix (for example behind a reverse proxy) is kept in every request URL.

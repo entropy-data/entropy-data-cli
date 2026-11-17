@@ -179,11 +179,21 @@ def add_connection(
     if host is None:
         host = cfg.DEFAULT_HOST
     try:
+        previous_default = cfg.load_config().get("default_connection_name")
         vanity_url = _fetch_vanity_url(api_key, host)
         if vanity_url:
             console.print(f"Fetched organization vanity URL '[cyan]{vanity_url}[/cyan]' from {host}.")
         cfg.add_connection(name, api_key, host, vanity_url=vanity_url)
         print_success(f"Connection '{name}' saved.")
+        if previous_default and previous_default != name:
+            console.print(
+                f"[yellow]Default connection switched from '{previous_default}' to '{name}'. "
+                f"Run `entropy-data connection set-default {previous_default}` to switch back.[/yellow]",
+                highlight=False,
+                soft_wrap=True,
+            )
+        elif not previous_default:
+            console.print(f"'{name}' is now the default connection.", highlight=False)
     except cfg.ConfigurationError as e:
         print_error(str(e))
         raise typer.Exit(1)

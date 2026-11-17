@@ -104,7 +104,7 @@ requires-dist = [
     { name = "pyyaml", specifier = ">=6.0,<7.0" },
     { name = "respx", marker = "extra == 'dev'", specifier = ">=0.22" },
     { name = "rich", specifier = ">=14.0,<16.0" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8,<0.17" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8,<0.18" },
     { name = "tomli-w", specifier = ">=1.0,<2.0" },
     { name = "truststore", specifier = ">=0.10,<1.0" },
     { name = "typer", specifier = ">=0.15.0,<1.0" },
