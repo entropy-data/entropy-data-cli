@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [0.3.28]
+
+- Add `entropy-data settings output-port-types get|put|delete` to manage the organization's output port types as one document: the types with their access request rules and ID patterns, the output port types each data product type offers, and whether only the enabled types are allowed. `put` replaces the settings; `delete` drops them so the defaults apply again.
+- `export`, `apply`, `import`, and `sync` handle `output-port-types` as an organization-level singleton, applied right after `dataproduct-types`. Before, they dropped the output port types. A source that has not changed its output port types (`legacy: true`) has nothing to copy.
+- Add `entropy-data organization features get|put` to read and replace the organization's feature configuration (change process, managed tags, auto-approval, Use Cases, MCP, Quality Score, …). Before, only `sync` touched it. `put` replaces the whole configuration: a feature the file leaves out goes back to its default.
+- Add `entropy-data usecases list|get|yaml|put|delete` (preview) for use cases. `yaml` prints the stored YAML with its comments, and `put` sends a YAML file as written so the comments are kept. The API answers 404 while Use Cases are off for the organization.
+- `export`, `apply`, `import`, and `sync` copy `usecases`, after `dataproducts` and before `access`, whose agreements cite use cases. A source with Use Cases off has none to copy; a target with them off gets `useCasesEnabled` switched on first when the applied `organization-features` turns it on, and otherwise the use cases fail with a message saying how to switch it on.
+- Add `entropy-data custom-quality-checks get <id> [--file]` to download a custom quality check as the YAML file datacontract-cli reads from a local checks folder.
+
 ## [0.3.27]
 
 - `dataproducts list` takes `--team`, `--domain` and `--type` (each repeatable) to filter by owning team, domain and data product type.

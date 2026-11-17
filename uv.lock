@@ -71,7 +71,7 @@ wheels = [
 
 [[package]]
 name = "entropy-data"
-version = "0.3.27"
+version = "0.3.28"
 source = { editable = "." }
 dependencies = [
     { name = "entropy-data-sdk" },
