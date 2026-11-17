@@ -75,9 +75,58 @@ def test_integrations_list(monkeypatch, tmp_path):
 
 
 @respx.mock
+def test_integrations_list_table_shows_latest_run_from_runs_latest(monkeypatch, tmp_path):
+    """The list response no longer embeds the latest run, so the table asks …/runs/latest."""
+    _setup(monkeypatch, tmp_path)
+    never_ran = {**DEMO_INTEGRATION, "externalId": "new-bigquery", "name": "New BigQuery", "source": "bigquery"}
+    respx.get(f"{BASE_URL}/api/integrations/ingest").mock(
+        return_value=httpx.Response(200, json=[DEMO_INTEGRATION, never_ran])
+    )
+    latest = respx.get(f"{BASE_URL}/api/integrations/ingest/{EXTERNAL_ID}/runs/latest").mock(
+        return_value=httpx.Response(200, json={**DEMO_RUN, "status": "FAILED"})
+    )
+    respx.get(f"{BASE_URL}/api/integrations/ingest/new-bigquery/runs/latest").mock(
+        return_value=httpx.Response(404, json={"detail": "No runs for this integration"})
+    )
+    result = runner.invoke(app, ["integrations", "list"])
+    assert result.exit_code == 0, result.output
+    assert latest.called
+    demo_row = next(line for line in result.output.splitlines() if "snowflake" in line)
+    assert "FAILED" in demo_row
+    new_row = next(line for line in result.output.splitlines() if "bigquery" in line)
+    assert "FAILED" not in new_row
+
+
+@respx.mock
+def test_integrations_list_table_keeps_an_embedded_latest_run(monkeypatch, tmp_path):
+    """A server that embeds latestRun again needs no extra calls."""
+    _setup(monkeypatch, tmp_path)
+    respx.get(f"{BASE_URL}/api/integrations/ingest").mock(
+        return_value=httpx.Response(200, json=[{**DEMO_INTEGRATION, "latestRun": DEMO_RUN}])
+    )
+    result = runner.invoke(app, ["integrations", "list"])
+    assert result.exit_code == 0, result.output
+    assert len(respx.calls) == 1
+    assert "SUCCESS" in result.output
+
+
+@respx.mock
+def test_integrations_list_json_prints_the_list_as_sent(monkeypatch, tmp_path):
+    _setup(monkeypatch, tmp_path)
+    respx.get(f"{BASE_URL}/api/integrations/ingest").mock(return_value=httpx.Response(200, json=[DEMO_INTEGRATION]))
+    result = runner.invoke(app, ["integrations", "list", "-o", "json"])
+    assert result.exit_code == 0, result.output
+    assert len(respx.calls) == 1
+    assert "latestRun" not in json.loads(result.output)[0]
+
+
+@respx.mock
 def test_integrations_list_filters_source(monkeypatch, tmp_path):
     _setup(monkeypatch, tmp_path)
     respx.get(f"{BASE_URL}/api/integrations/ingest").mock(return_value=httpx.Response(200, json=[DEMO_INTEGRATION]))
+    respx.get(f"{BASE_URL}/api/integrations/ingest/{EXTERNAL_ID}/runs/latest").mock(
+        return_value=httpx.Response(200, json=DEMO_RUN)
+    )
     result = runner.invoke(app, ["integrations", "list", "--source", "snowflake"])
     assert result.exit_code == 0
     assert "source=snowflake" in str(respx.calls[0].request.url)
@@ -87,6 +136,9 @@ def test_integrations_list_filters_source(monkeypatch, tmp_path):
 def test_integrations_list_filters_enabled(monkeypatch, tmp_path):
     _setup(monkeypatch, tmp_path)
     respx.get(f"{BASE_URL}/api/integrations/ingest").mock(return_value=httpx.Response(200, json=[DEMO_INTEGRATION]))
+    respx.get(f"{BASE_URL}/api/integrations/ingest/{EXTERNAL_ID}/runs/latest").mock(
+        return_value=httpx.Response(200, json=DEMO_RUN)
+    )
     result = runner.invoke(app, ["integrations", "list", "--enabled"])
     assert result.exit_code == 0
     assert "enabled=true" in str(respx.calls[0].request.url)

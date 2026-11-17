@@ -1,0 +1,7 @@
+#!/bin/bash
+# Refresh the copy of the Entropy Data OpenAPI spec that the drift tests check the CLI against
+# (tests/test_openapi_drift.py). Run it, then `pytest tests/test_openapi_drift.py`.
+set -euo pipefail
+
+curl -fsS -o tests/openapi.yaml https://api.entropy-data.com/openapi.yaml
+echo "Updated tests/openapi.yaml"

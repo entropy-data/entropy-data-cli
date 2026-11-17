@@ -1,10 +1,12 @@
 """Semantics commands (EXPERIMENTAL): namespaces, concepts, relationships."""
 
+import sys
 from pathlib import Path
 from typing import Annotated, Optional
 
 import typer
 
+from entropy_data.client import _validate_resource_id
 from entropy_data.output import OutputFormat, print_link, print_resource, print_resource_list, print_success
 from entropy_data.util import read_body
 
@@ -96,11 +98,64 @@ def delete_namespace(
 # Concepts
 
 
+@namespaces_app.command("yaml")
+def yaml_namespace(
+    namespace: Annotated[str, typer.Argument(help="Namespace ID.")],
+    out_file: Annotated[
+        Optional[Path],
+        typer.Option("--file", "-f", help="Write YAML to this file. Defaults to stdout."),
+    ] = None,
+) -> None:
+    """Get the whole namespace as one OSI ontology YAML document (concepts and relationships)."""
+    from entropy_data.cli import get_client, handle_error
+
+    try:
+        _validate_resource_id(namespace)
+        text = get_client().http.get_text(f"/api/{BASE}/{namespace}/ontology.yaml")
+        if out_file is not None:
+            out_file.write_text(text)
+            print_success(f"Namespace '{namespace}' written to {out_file}.")
+        else:
+            print(text)
+    except Exception as e:
+        handle_error(e)
+
+
+@namespaces_app.command("put-yaml")
+def put_namespace_yaml(
+    namespace: Annotated[str, typer.Argument(help="Namespace ID.")],
+    file: Annotated[Path, typer.Option("--file", "-f", help="OSI ontology YAML file (use - for stdin).")] = ...,
+) -> None:
+    """Replace the namespace's concepts and relationships with an OSI ontology YAML document.
+
+    The document is the namespace's complete state: a concept or relationship it leaves out is
+    deleted. Creates the namespace if it does not exist. To change a draft first, use
+    'semantics branches'.
+    """
+    from entropy_data.cli import get_client, handle_error
+
+    try:
+        _validate_resource_id(namespace)
+        content = sys.stdin.read() if str(file) == "-" else file.read_text()
+        get_client().http.put_text(f"/api/{BASE}/{namespace}/ontology.yaml", content)
+        print_success(f"Namespace '{namespace}' replaced from {'stdin' if str(file) == '-' else file}.")
+    except Exception as e:
+        handle_error(e)
+
+
+# Concepts and relationships (deprecated upstream: write the namespace as a whole instead)
+
+DEPRECATED_HINT = (
+    "Deprecated by the API: read and write the namespace as a whole with "
+    "'semantics namespaces yaml' and 'semantics namespaces put-yaml'."
+)
+
+
 def _concepts_path(namespace: str) -> str:
     return f"{BASE}/{namespace}/concepts"
 
 
-@concepts_app.command("list")
+@concepts_app.command("list", deprecated=True)
 def list_concepts(
     namespace: Annotated[str, typer.Argument(help="Namespace ID.")],
     output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
@@ -117,7 +172,7 @@ def list_concepts(
         handle_error(e)
 
 
-@concepts_app.command("get")
+@concepts_app.command("get", deprecated=True)
 def get_concept(
     namespace: Annotated[str, typer.Argument(help="Namespace ID.")],
     external_id: Annotated[str, typer.Argument(help="Concept external ID (may contain '/').")],
@@ -135,7 +190,7 @@ def get_concept(
         handle_error(e)
 
 
-@concepts_app.command("put")
+@concepts_app.command("put", deprecated=True)
 def put_concept(
     namespace: Annotated[str, typer.Argument(help="Namespace ID.")],
     external_id: Annotated[str, typer.Argument(help="Concept external ID.")],
@@ -159,7 +214,7 @@ def put_concept(
         handle_error(e)
 
 
-@concepts_app.command("delete")
+@concepts_app.command("delete", deprecated=True)
 def delete_concept(
     namespace: Annotated[str, typer.Argument(help="Namespace ID.")],
     external_id: Annotated[str, typer.Argument(help="Concept external ID.")],
@@ -182,7 +237,7 @@ def _relationships_path(namespace: str) -> str:
     return f"{BASE}/{namespace}/relationships"
 
 
-@relationships_app.command("list")
+@relationships_app.command("list", deprecated=True)
 def list_relationships(
     namespace: Annotated[str, typer.Argument(help="Namespace ID.")],
     output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
@@ -199,7 +254,7 @@ def list_relationships(
         handle_error(e)
 
 
-@relationships_app.command("get")
+@relationships_app.command("get", deprecated=True)
 def get_relationship(
     namespace: Annotated[str, typer.Argument(help="Namespace ID.")],
     external_id: Annotated[str, typer.Argument(help="Relationship external ID (may contain '/').")],
@@ -217,7 +272,7 @@ def get_relationship(
         handle_error(e)
 
 
-@relationships_app.command("put")
+@relationships_app.command("put", deprecated=True)
 def put_relationship(
     namespace: Annotated[str, typer.Argument(help="Namespace ID.")],
     external_id: Annotated[str, typer.Argument(help="Relationship external ID.")],
@@ -241,7 +296,7 @@ def put_relationship(
         handle_error(e)
 
 
-@relationships_app.command("delete")
+@relationships_app.command("delete", deprecated=True)
 def delete_relationship(
     namespace: Annotated[str, typer.Argument(help="Namespace ID.")],
     external_id: Annotated[str, typer.Argument(help="Relationship external ID.")],
@@ -306,8 +361,14 @@ def search_concepts(
 from entropy_data.commands.semantic_branches import branches_app  # noqa: E402
 
 semantics_app.add_typer(namespaces_app, name="namespaces", help="Manage semantic namespaces.")
-semantics_app.add_typer(concepts_app, name="concepts", help="Manage semantic concepts.")
-semantics_app.add_typer(relationships_app, name="relationships", help="Manage semantic relationships.")
+semantics_app.add_typer(
+    concepts_app, name="concepts", help=f"Manage semantic concepts one at a time. {DEPRECATED_HINT}"
+)
+semantics_app.add_typer(
+    relationships_app,
+    name="relationships",
+    help=f"Manage semantic relationships one at a time. {DEPRECATED_HINT}",
+)
 semantics_app.add_typer(
     branches_app,
     name="branches",

@@ -126,7 +126,7 @@ entropy-data [--version] [--connection NAME] [--output table|json|yaml] [--debug
   dataproducts    list | get | put | delete | import-from-git | star | unstar | star-status | stargazers | gitconnection ...
   datacontracts   list | get | put | test | delete | yaml | generate | import-from-git | gitconnection ...
                   branches list | create | get | put | yaml | changes | rebase | merge | delete
-  access          list | get | put | delete | approve | reject | cancel | request
+  access          list | get | put | delete | approve | reject [--reason] | cancel [--reason] [--end] | request
   teams           list | get | put | delete | git-credentials ... | notifications ...
   sourcesystems   list | get | put | delete
   definitions     list | get | put | delete
@@ -148,7 +148,8 @@ entropy-data [--version] [--connection NAME] [--output table|json|yaml] [--debug
   lineage         list | submit | delete
   schemas         get
   search          query
-  semantics       namespaces ... | concepts ... | relationships ... | search
+  semantics       namespaces list | get | put | delete | yaml | put-yaml | search
+                  concepts ... | relationships ... (deprecated: use namespaces yaml / put-yaml)
                   branches list | create | get | put | yaml | changes | rebase | merge | delete
   usage           list | submit | delete
   export          dir
@@ -330,6 +331,12 @@ uv sync --dev
 uv run pytest
 uv run ruff check .
 ```
+
+The tests check the CLI against a copy of the Entropy Data OpenAPI spec in `tests/openapi.yaml`:
+every table column must be in its endpoint's response schema, and every request a command sends
+in the tests must be a documented operation with documented query parameters. A field or parameter
+the API drops then fails the tests instead of printing an empty column. Refresh the copy with
+`./update-openapi` when the API changes.
 
 ## Release
 

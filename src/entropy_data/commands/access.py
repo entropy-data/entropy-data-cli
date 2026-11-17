@@ -1,7 +1,7 @@
 """Access (data usage agreements) commands."""
 
 import uuid
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import Annotated, Optional
 
@@ -120,13 +120,21 @@ def approve_access(
 @access_app.command("reject")
 def reject_access(
     id: Annotated[str, typer.Argument(help="Access agreement ID.")],
+    reason: Annotated[
+        Optional[str],
+        typer.Option(
+            "--reason",
+            help="Why the request is rejected; shown to the consumer. Required where the organization asks for one.",
+        ),
+    ] = None,
 ) -> None:
     """Reject an access agreement."""
     from entropy_data.cli import get_client, handle_error
 
     try:
         client = get_client()
-        location = client.post_action(RESOURCE_PATH, id, "reject")
+        body = {"reason": reason} if reason else None
+        location = client.post_action(RESOURCE_PATH, id, "reject", body)
         print_success(f"Access agreement '{id}' rejected.")
         print_link(location)
     except Exception as e:
@@ -136,17 +144,48 @@ def reject_access(
 @access_app.command("cancel")
 def cancel_access(
     id: Annotated[str, typer.Argument(help="Access agreement ID.")],
+    reason: Annotated[
+        Optional[str],
+        typer.Option("--reason", help="Why the access ends; recorded in the audit trail as the termination reason."),
+    ] = None,
+    end: Annotated[
+        Optional[str],
+        typer.Option(
+            "--end",
+            help=(
+                "When the access ends (ISO date-time, e.g. 2026-12-31T00:00:00Z; exclusive). Overrides the data "
+                "contract's notice period; a time not in the future ends the access now. Without it, the access ends "
+                "after the notice period, or today if there is none."
+            ),
+        ),
+    ] = None,
 ) -> None:
-    """Cancel an access agreement."""
+    """Cancel (terminate) an access agreement."""
     from entropy_data.cli import get_client, handle_error
 
     try:
+        body = {}
+        if end:
+            body["endTimestamp"] = _parse_end_timestamp(end)
+        if reason:
+            body["reason"] = reason
         client = get_client()
-        location = client.post_action(RESOURCE_PATH, id, "cancel")
+        location = client.post_action(RESOURCE_PATH, id, "cancel", body or None)
         print_success(f"Access agreement '{id}' cancelled.")
         print_link(location)
     except Exception as e:
         handle_error(e)
+
+
+def _parse_end_timestamp(value: str) -> str:
+    """Validate an ISO date-time for ``--end`` and return it in the form the API takes."""
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        raise typer.BadParameter(f"Invalid --end '{value}'. Expected an ISO date-time like 2026-12-31T00:00:00Z.")
+    if parsed.tzinfo is None:
+        raise typer.BadParameter(f"--end '{value}' needs a time zone, e.g. 2026-12-31T00:00:00Z.")
+    return parsed.isoformat().replace("+00:00", "Z")
 
 
 @access_app.command("request")

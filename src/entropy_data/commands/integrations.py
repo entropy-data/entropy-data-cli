@@ -19,7 +19,7 @@ from typing import Annotated, Optional
 
 import typer
 
-from entropy_data.client import ApiError, EntropyDataClient
+from entropy_data.client import ApiError, EntropyDataClient, NotFoundError
 from entropy_data.output import (
     OutputFormat,
     print_resource,
@@ -85,9 +85,27 @@ def list_integrations(
         if enabled is not None:
             params["enabled"] = "true" if enabled else "false"
         data, _ = client.list_resources(RESOURCE_PATH, params=params)
+        if fmt == OutputFormat.table:
+            data = [_with_latest_run(client, integration) for integration in data]
         print_resource_list(data, RESOURCE_TYPE, fmt)
     except Exception as e:
         handle_error(e)
+
+
+def _with_latest_run(client: EntropyDataClient, integration: dict) -> dict:
+    """Fill in ``latestRun`` for the table's Latest Run column when the list leaves it out.
+
+    The list response no longer embeds the latest run (entropy-data a46b13e06), so the CLI asks
+    ``…/runs/latest`` for each integration; they are few per organization. An integration that
+    never ran answers 404 and keeps an empty cell. JSON and YAML print the list as the server sent it.
+    """
+    if "latestRun" in integration or not integration.get("externalId"):
+        return integration
+    try:
+        latest = client.get_resource(f"{RESOURCE_PATH}/{integration['externalId']}/runs", "latest")
+    except NotFoundError:
+        latest = None
+    return {**integration, "latestRun": latest}
 
 
 @integrations_app.command("get")

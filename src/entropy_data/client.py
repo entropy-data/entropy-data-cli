@@ -84,10 +84,10 @@ class EntropyDataClient:
         _validate_resource_id(resource_id)
         self.http.delete(f"/api/{path}/{resource_id}")
 
-    def post_action(self, path: str, resource_id: str, action: str) -> str | None:
-        """POST /api/{path}/{id}/{action}. Returns location-html URL if present."""
+    def post_action(self, path: str, resource_id: str, action: str, body: dict | None = None) -> str | None:
+        """POST /api/{path}/{id}/{action}, with an optional JSON body. Returns location-html URL if present."""
         _validate_resource_id(resource_id)
-        return self.http.post_json(f"/api/{path}/{resource_id}/{action}").location_html
+        return self.http.post_json(f"/api/{path}/{resource_id}/{action}", body).location_html
 
     def post_action_json(
         self,
