@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [0.3.27]
+
+- `dataproducts list` takes `--team`, `--domain` and `--type` (each repeatable) to filter by owning team, domain and data product type.
+- `datacontracts list` takes `--team` and `--domain` (repeatable) and `--status`. `--owner` (a team name) still works but is deprecated by the API in favor of `--team`.
+- `assets list` takes `--source`, `--qualified-name` (ignoring case) and `--source-id` to find assets by where they come from (entropy-data 5c81d3df0).
+- `example-data list` takes `--output-port-id` and `--data-contract-id` besides `--data-product-id`.
+- `search query` takes `--mode DISCOVER|FIND|GET_HELP` to choose the search mode instead of the one guessed from the query, and `--diagnostics` to add the sources, the detected intention and the search criteria to the response.
+- `teams list --member` asks the server for the teams the email is a direct member of, instead of fetching every page of teams and matching members locally.
+
 ## [0.3.26]
 
 - Fix: the Latest Run column of `integrations list` shows each integration's latest run again. The API stopped embedding the latest run in the integrations list (entropy-data a46b13e06), so the column was always empty; the table now asks `…/runs/latest` for each integration that the list sends without one. JSON and YAML print the list as the server sends it.
