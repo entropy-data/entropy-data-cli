@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.3.25]
+
 - Fix: `connection list` honours `-o json` / `-o yaml`, both as the global option (`entropy-data -o json connection list`) and on the command, and prints every connection with its full name, host, vanity URL and `default` flag. Before, it always printed the table, with long names truncated, so scripts could not read which connection is the default. With `ENTROPY_DATA_API_KEY` or `ENTROPY_DATA_HOST` set, it warns that they override the default connection (marked `* (env)`, and `overridden_by` in JSON/YAML).
 - With `-o json` or `-o yaml`, errors are a structured document on stderr (`{"error": {"type", "message", "status", "url"}}`), so scripts and agents parse failures like results.
 - `connection test` names the organization it reached, the host, and where the API key came from (`--api-key`, `--connection`, `ENTROPY_DATA_API_KEY`, or the default connection), because an environment variable silently overrides the default connection.
