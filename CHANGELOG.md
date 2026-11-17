@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [0.3.29]
+
+- Add `entropy-data insights dashboards list|get|yaml|put|delete` (EXPERIMENTAL) to manage Insights dashboards in the Perses format (`kind: PersesDashboard`), addressed by `metadata.name`. `yaml` prints the stored YAML; `put` takes JSON or YAML and fills in `metadata.name` from the ID when the file leaves it out. The built-in Overview cannot be deleted.
+- Add `entropy-data insights semantic-models list|get|yaml|put|delete` (EXPERIMENTAL) for the semantic models (Ossie documents) that dashboard metrics come from. `yaml` prints the standalone Ossie document other Ossie tools read. `put --removed-metrics remove|keep` decides what happens to dashboard widgets that show a metric the update removes; without it, such an update is refused with 409.
+
 ## [0.3.28]
 
 - Add `entropy-data settings output-port-types get|put|delete` to manage the organization's output port types as one document: the types with their access request rules and ID patterns, the output port types each data product type offers, and whether only the enabled types are allowed. `put` replaces the settings; `delete` drops them so the defaults apply again.
