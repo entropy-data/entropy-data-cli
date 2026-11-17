@@ -164,6 +164,7 @@ from entropy_data.commands.definitions import definitions_app  # noqa: E402
 from entropy_data.commands.events import events_app  # noqa: E402
 from entropy_data.commands.example_data import example_data_app  # noqa: E402
 from entropy_data.commands.import_export import apply_app, export_app, import_app  # noqa: E402
+from entropy_data.commands.insights import insights_app  # noqa: E402
 from entropy_data.commands.integrations import integrations_app  # noqa: E402
 from entropy_data.commands.lineage import lineage_app  # noqa: E402
 from entropy_data.commands.organization import organization_app  # noqa: E402
@@ -219,6 +220,7 @@ app.add_typer(
     help="Get the JSON Schemas that data contracts (ODCS) and data products (ODPS) validate against.",
 )
 app.add_typer(search_app, name="search", help="Search across resources.")
+app.add_typer(insights_app, name="insights", help="EXPERIMENTAL Insights dashboards and semantic models.")
 app.add_typer(semantics_app, name="semantics", help="EXPERIMENTAL semantics API.")
 app.add_typer(usage_app, name="usage", help="Manage usage (OpenTelemetry traces).")
 app.add_typer(import_app, name="import", help="Import organization exports.")

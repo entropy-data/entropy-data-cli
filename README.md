@@ -150,6 +150,8 @@ entropy-data [--version] [--connection NAME] [--output table|json|yaml] [--debug
   lineage         list | submit | delete
   schemas         get
   search          query
+  insights        dashboards list | get | yaml | put | delete
+                  semantic-models list | get | yaml | put [--removed-metrics] | delete
   semantics       namespaces list | get | put | delete | yaml | put-yaml | search
                   concepts ... | relationships ... (deprecated: use namespaces yaml / put-yaml)
                   branches list | create | get | put | yaml | changes | rebase | merge | delete
