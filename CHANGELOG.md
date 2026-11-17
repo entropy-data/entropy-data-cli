@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [0.3.26]
+
+- Fix: the Latest Run column of `integrations list` shows each integration's latest run again. The API stopped embedding the latest run in the integrations list (entropy-data a46b13e06), so the column was always empty; the table now asks `…/runs/latest` for each integration that the list sends without one. JSON and YAML print the list as the server sends it.
+- `access reject` takes `--reason`, shown to the consumer. An organization can require a reason to reject (entropy-data e36483fff); there, a rejection without one is refused with 400, and the CLI could not reject at all.
+- `access cancel` takes `--reason`, recorded as the termination reason, and `--end` (ISO date-time with a time zone) for when the access ends, overriding the data contract's notice period; a time not in the future ends the access now.
+- Add `semantics namespaces yaml <namespace>` and `semantics namespaces put-yaml <namespace> --file <file>` to read and replace a whole namespace as one OSI ontology YAML document. `put-yaml` replaces: a concept or relationship the document leaves out is deleted.
+- `semantics concepts …` and `semantics relationships …` are marked deprecated, as the API now deprecates the per-concept and per-relationship endpoints in favor of the whole-namespace document. They keep working.
+- The tests now check the CLI against the Entropy Data OpenAPI spec (`tests/openapi.yaml`, refreshed with `./update-openapi`): table columns must be in their endpoint's response schema, and every request the tests send must be a documented operation with documented query parameters.
+
 ## [0.3.25]
 
 - Fix: `connection list` honours `-o json` / `-o yaml`, both as the global option (`entropy-data -o json connection list`) and on the command, and prints every connection with its full name, host, vanity URL and `default` flag. Before, it always printed the table, with long names truncated, so scripts could not read which connection is the default. With `ENTROPY_DATA_API_KEY` or `ENTROPY_DATA_HOST` set, it warns that they override the default connection (marked `* (env)`, and `overridden_by` in JSON/YAML).
