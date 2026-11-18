@@ -26,7 +26,8 @@ def search_query(
             "--resource-type",
             "-t",
             help="Filter by resource type: DATA_PRODUCT, DATA_CONTRACT, SEMANTIC_CONCEPT, DATA_ASSET, DEFINITION, "
-            "TEAM, TAG.",
+            "TEAM, TAG. Without it, the search covers data products and, when semantics are enabled, semantic "
+            "concepts.",
         ),
     ] = None,
     mode: Annotated[

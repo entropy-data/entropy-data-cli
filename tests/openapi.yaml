@@ -1916,6 +1916,53 @@ paths:
         404:
           $ref: "#/components/responses/NotFound"
           description: Branch not found
+  /api/datacontracts/{id}/branches/{branch}/blast-radius:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        example: orders_v1
+        schema:
+          type: string
+      - name: branch
+        in: path
+        required: true
+        example: add-order-status
+        schema:
+          type: string
+    get:
+      tags:
+        - Data Contracts
+      summary: Get a branch's blast radius
+      description: |
+        What merging the branch would touch beyond its data contract: the output ports that implement
+        the data contract, the access agreements on those ports, the input ports of consuming data
+        products, the semantic concepts the branch links or unlinks, and the assets behind the
+        changed servers and schema objects.
+
+        Only a structural change to a schema object, a property, a server or a quality rule carries
+        to people. An addition, a modification and a removal reach the implementing output ports
+        and their consumers; an addition takes nothing from a consumer, who is listed to be told.
+        The same holds for a schema object or a property that comes to reference another concept. A reworded schema object, property or server reaches the
+        integrations only.
+
+        A changed status reaches the output ports that have no status of their own, since they are
+        shown with and judged by the data contract's, and the integrations when the status enters or
+        leaves `active`. Which columns a consumer reads is not known, so every consumer of
+        an affected output port is reported as `potential`.
+
+        Data products the caller may not see are counted, not listed.
+      operationId: getDataContractBranchBlastRadius
+      responses:
+        200:
+          description: The blast radius
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataContractBlastRadius'
+        404:
+          $ref: "#/components/responses/NotFound"
+          description: Branch not found
   /api/datacontracts/{id}/branches/{branch}/merge:
     parameters:
       - name: id
@@ -2252,6 +2299,13 @@ paths:
           description: |
             Changing the status to `rejected` where the organization's customization requires a rejection reason. The access resource
             carries no reason, so reject with `POST /api/access/{id}/reject` and a reason instead.
+
+            Or a new access request (status `requested`, the default) without `info.useCase` where the organization's customization
+            requires a use case (`useCase` marked `required` under `access.root.standardProperties`), Use Cases are switched on, and
+            at least one use case can be cited (neither proposed nor retired). The message lists the ids of the use cases that can be
+            cited. Without a use case to cite, the request goes through. Updates of existing access and access created with another
+            status, such as `approved`, are not affected.
+            Also returned when `info.useCase.id` names an unknown, proposed or retired use case.
         422:
           description: The consumer data product is the provider data product. A data product cannot request access to itself.
       requestBody:
@@ -8384,6 +8438,9 @@ paths:
           in: query
           description: |
             Can be used as a filter to constrain the search to a specific type of searchable resource.
+            Without it, the search covers data products and, when semantics are enabled, semantic concepts.
+            With an AI model configured, the query text can still ask for other types.
+            Concepts on a branch of a semantic namespace are never returned, only those of the namespace itself.
             Possible values include:
             - DATA_PRODUCT
             - DATA_CONTRACT
@@ -9737,6 +9794,47 @@ paths:
         404:
           $ref: "#/components/responses/NotFound"
           description: Branch not found
+  /api/semantics/experimental/namespaces/{namespace}/branches/{branch}/blast-radius:
+    parameters:
+      - name: namespace
+        in: path
+        required: true
+        example: main
+        schema:
+          type: string
+      - name: branch
+        in: path
+        required: true
+        example: add-subscription-billing
+        schema:
+          type: string
+    get:
+      tags:
+        - Semantics
+      summary: Get a branch's blast radius
+      description: |
+        EXPERIMENTAL What merging the branch would touch outside its namespace.
+
+        A removed concept, or one whose IRI changes, leaves the links to it `dangling`. A concept
+        whose data type, required flag, enum, pattern or classification changes is `inherits` for
+        the properties linked to it. Both are reported for every data contract and data product
+        that links the concept, and followed through the data contracts to their output ports,
+        access agreements, input ports and assets. Everything reached through a data contract is
+        `potential`, since a property may state its own value where its concept offers one.
+
+        Changed relationships carry nowhere. Data products the caller may not see are counted, not
+        listed.
+      operationId: getSemanticBranchBlastRadius
+      responses:
+        200:
+          description: The blast radius
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SemanticBlastRadius'
+        404:
+          $ref: "#/components/responses/NotFound"
+          description: Branch not found
   /api/semantics/experimental/namespaces/{namespace}/branches/{branch}/merge:
     parameters:
       - name: namespace
@@ -10268,7 +10366,8 @@ components:
                 Preview. The use case the request cites instead of a made-up purpose. Optional: omitted on
                 a PUT, the agreement keeps the use case it has. A new citation must name a use case that is
                 neither proposed nor retired. Approving the agreement assigns the provider's data product
-                to the use case. Not returned, and ignored, while Use Cases are switched off.
+                to the use case. Not returned, and ignored, while Use Cases are switched off. Required for a
+                new access request where the organization's customization requires a use case and one can be cited.
               properties:
                 id:
                   type: string
@@ -10438,7 +10537,8 @@ components:
                 Preview. The use case the request cites instead of a made-up purpose. Optional: omitted on
                 a PUT, the agreement keeps the use case it has. A new citation must name a use case that is
                 neither proposed nor retired. Approving the agreement assigns the provider's data product
-                to the use case. Not returned, and ignored, while Use Cases are switched off.
+                to the use case. Not returned, and ignored, while Use Cases are switched off. Required for a
+                new access request where the organization's customization requires a use case and one can be cited.
               properties:
                 id:
                   type: string
@@ -15236,7 +15336,7 @@ components:
           example: property:ORDERS.ORDER_STATUS
         element_type:
           type: string
-          enum: [field, schema, property, server, role, sla, member, support, customProperty, definition, tag]
+          enum: [field, schema, property, quality, server, role, sla, member, support, customProperty, definition, tag, statement, constraint]
         path:
           type: string
           description: The element's path; a property's is `SCHEMA.PROPERTY[.NESTED]`.
@@ -15255,6 +15355,150 @@ components:
           description: Per-field before/after pairs of a modified element; empty for an addition or a removal.
           items:
             $ref: '#/components/schemas/SemanticBranchFieldChange'
+    DataContractBlastRadius:
+      type: object
+      description: What merging a branch would touch beyond its data contract.
+      properties:
+        causes:
+          type: array
+          description: The branch's changes, each with how far it carries.
+          items:
+            $ref: '#/components/schemas/DataContractBlastRadiusCause'
+        impacts:
+          type: array
+          items:
+            $ref: '#/components/schemas/DataContractBlastRadiusImpact'
+        hidden_data_product_count:
+          type: integer
+          description: Affected data products the caller may not see.
+          example: 0
+        downstream_data_product_count:
+          type: integer
+          description: Data products that consume the affected consumers, at any distance. Known per data product only.
+          example: 2
+    DataContractBlastRadiusCause:
+      type: object
+      properties:
+        change:
+          $ref: '#/components/schemas/DataContractBranchChange'
+        breaking:
+          type: boolean
+          description: Whether the change removes or retypes a schema object, a property or a server, or turns a required property optional.
+        reach:
+          type: string
+          description: How far the change carries, each step including the one before, to nobody, to the implementing output ports, or on to their consumers.
+          enum: [none, providers, consumers]
+    DataContractBlastRadiusImpact:
+      type: object
+      description: One affected thing, with the changes that reach it.
+      properties:
+        kind:
+          type: string
+          description: A data contract's branch never reports `dataContract` or `dataProduct`; those are the documents that link a concept a semantic branch changes.
+          enum: [outputPort, accessAgreement, inputPort, concept, asset, dataContract, dataProduct]
+        id:
+          type: string
+          description: The affected thing's id; a concept's is `namespace/id`.
+          example: orders-prod
+        name:
+          type: string
+        certainty:
+          type: string
+          description: A consumer is `potential`, since which columns it reads is not known.
+          enum: [direct, potential]
+        causes:
+          type: array
+          description: Keys of the changes that reach this.
+          items:
+            type: string
+            example: property:ORDERS.ORDER_STATUS
+        path:
+          type: array
+          description: From the data contract to the affected thing, the thing itself left out.
+          items:
+            $ref: '#/components/schemas/DataContractBlastRadiusStep'
+        lifecycle:
+          type: string
+          description: For an access agreement, its lifecycle.
+          enum: [requested, upcoming, active]
+        consumer_type:
+          type: string
+          description: For an access agreement, who consumes.
+          enum: [dataproduct, team, user, agent]
+        consumer_id:
+          type: string
+        consumer_name:
+          type: string
+        effect:
+          type: string
+          description: For a concept, whether the branch adds or drops the link. For a document that links a changed concept, whether the link is left pointing at nothing or the document takes a changed value from the concept.
+          enum: [linked, unlinked, dangling, inherits]
+        location:
+          type: string
+          description: For a document that links a changed concept, where the link sits, such as a property's path.
+          example: ORDERS.CUSTOMER_EMAIL
+        elements:
+          type: array
+          description: The elements of the data contract in question, by path. For an output port, what it has to deliver differently. For a consumer, what to ask about, since which of them it reads is not recorded.
+          items:
+            type: string
+            example: ORDERS.CUSTOMER_EMAIL
+    DataContractBlastRadiusStep:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum: [dataContract, dataProduct, outputPort]
+        id:
+          type: string
+        name:
+          type: string
+    SemanticBlastRadius:
+      type: object
+      description: What merging a semantic branch would touch outside its namespace.
+      properties:
+        causes:
+          type: array
+          items:
+            $ref: '#/components/schemas/SemanticBlastRadiusCause'
+        impacts:
+          type: array
+          items:
+            $ref: '#/components/schemas/DataContractBlastRadiusImpact'
+        hidden_data_product_count:
+          type: integer
+          description: Affected data products the caller may not see.
+        downstream_data_product_count:
+          type: integer
+          description: Data products that consume the affected consumers, at any distance.
+    SemanticBlastRadiusCause:
+      type: object
+      properties:
+        key:
+          type: string
+          description: The form an impact names its causes in.
+          example: concept:customer.email
+        target_type:
+          type: string
+          enum: [concept, relationship, namespace]
+        external_id:
+          type: string
+        name:
+          type: string
+        op:
+          type: string
+          enum: [add, modify, remove]
+        impact:
+          type: string
+          enum: [structural, descriptive, cosmetic]
+        fields:
+          type: array
+          description: The fields a modification changes.
+          items:
+            type: string
+        reach:
+          type: string
+          enum: [none, providers, consumers]
     DataContractCreatedEvent:
       type: object
       description: A data contract was created.

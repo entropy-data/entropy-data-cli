@@ -155,3 +155,29 @@ def test_branches_merge_surfaces_a_conflict():
     result = runner.invoke(app, ["semantics", "branches", "merge", "sales", "add-credit-limit"])
     assert result.exit_code != 0
     assert "no changes to merge" in result.output
+
+
+@respx.mock
+def test_branches_blast_radius():
+    blast_radius = {
+        "causes": [{"key": "concept:credit-limit", "target_type": "concept", "op": "remove", "reach": "consumers"}],
+        "impacts": [
+            {
+                "kind": "dataContract",
+                "id": "orders",
+                "name": "Orders",
+                "certainty": "direct",
+                "effect": "dangling",
+                "causes": ["concept:credit-limit"],
+            }
+        ],
+        "hidden_data_product_count": 0,
+        "downstream_data_product_count": 0,
+    }
+    respx.get(f"{BRANCHES}/add-credit-limit/blast-radius").mock(return_value=httpx.Response(200, json=blast_radius))
+
+    result = runner.invoke(app, ["semantics", "branches", "blast-radius", "sales", "add-credit-limit"])
+    assert result.exit_code == 0
+    assert "dangling" in result.output
+    assert "concept:credit-limit" in result.output
+    assert "downstream" not in result.output

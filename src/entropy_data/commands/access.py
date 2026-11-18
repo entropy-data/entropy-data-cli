@@ -209,6 +209,14 @@ def request_access(
         Optional[str],
         typer.Option("--roles", help="Comma-separated list of roles to request (e.g. analyst,data_engineer)."),
     ] = None,
+    use_case: Annotated[
+        Optional[str],
+        typer.Option(
+            "--use-case",
+            help="ID of the use case the request cites (preview). Required where the organization's "
+            "customization requires a use case on access requests.",
+        ),
+    ] = None,
     id: Annotated[
         Optional[str],
         typer.Option("--id", help="Agreement ID. Auto-generated UUID if not provided."),
@@ -253,6 +261,8 @@ def request_access(
             "startDate": date.today().isoformat(),
         },
     }
+    if use_case:
+        body["info"]["useCase"] = {"id": use_case}
     if roles:
         body["roles"] = [r.strip() for r in roles.split(",") if r.strip()]
 

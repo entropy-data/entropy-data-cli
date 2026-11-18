@@ -85,6 +85,14 @@ RESOURCE_COLUMNS: dict[str, list[tuple[str, str]]] = {
         ("Op", "op"),
         ("Impact", "impact"),
     ],
+    "blast-radius-impacts": [
+        ("Kind", "kind"),
+        ("ID", "id"),
+        ("Name", "name"),
+        ("Certainty", "certainty"),
+        ("Effect", "effect"),
+        ("Causes", "causes"),
+    ],
     "events": [("ID", "id"), ("Type", "type"), ("Subject", "subject"), ("Time", "time")],
     "costs": [("ID", "id"), ("Data Product", "dataProductId"), ("Amount", "amount"), ("Currency", "currency")],
     "assets": [
@@ -247,6 +255,25 @@ def print_resource_list(
 
     if has_next_page:
         console.print(f"\nMore results available. Use --page {page + 1} to see the next page.")
+
+
+def print_blast_radius(data: dict, fmt: OutputFormat, title: str) -> None:
+    """Print what merging a branch would affect: the impacts as a table, the counts below it."""
+    if fmt != OutputFormat.table:
+        print_data(data, fmt)
+        return
+
+    impacts = [{**impact, "causes": ", ".join(impact.get("causes") or [])} for impact in data.get("impacts") or []]
+    if impacts:
+        print_resource_list(impacts, "blast-radius-impacts", fmt, title=title)
+    else:
+        console.print("Merging the branch affects nothing beyond it.")
+    for label, key in (
+        ("Affected data products you may not see", "hidden_data_product_count"),
+        ("Data products further downstream", "downstream_data_product_count"),
+    ):
+        if data.get(key):
+            console.print(f"{label}: {data[key]}")
 
 
 def print_success(message: str) -> None:

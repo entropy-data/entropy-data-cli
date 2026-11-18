@@ -6,7 +6,14 @@ from typing import Annotated, Optional
 
 import typer
 
-from entropy_data.output import OutputFormat, print_data, print_resource, print_resource_list, print_success
+from entropy_data.output import (
+    OutputFormat,
+    print_blast_radius,
+    print_data,
+    print_resource,
+    print_resource_list,
+    print_success,
+)
 
 branches_app = typer.Typer(no_args_is_help=True)
 RESOURCE_TYPE = "semantic-branches"
@@ -164,6 +171,23 @@ def changes_of_branch(
         client = get_client()
         data, _ = client.list_resources(f"{branch_path(namespace, branch)}/changes")
         print_resource_list(data, CHANGES_TYPE, fmt, title=f"Changes on {branch}")
+    except Exception as e:
+        handle_error(e)
+
+
+@branches_app.command("blast-radius")
+def blast_radius_of_branch(
+    namespace: Annotated[str, typer.Argument(help=NAMESPACE_HELP)],
+    branch: Annotated[str, typer.Argument(help=BRANCH_HELP)],
+    output: Annotated[Optional[OutputFormat], typer.Option("--output", "-o", help="Output format.")] = None,
+) -> None:
+    """Show what merging the branch would affect outside the namespace: the data contracts and data products that link its concepts, and what they reach."""
+    from entropy_data.cli import get_client, get_output_format, handle_error
+
+    fmt = output or get_output_format()
+    try:
+        data = get_client().http.get_json(f"/api/{branch_path(namespace, branch)}/blast-radius")
+        print_blast_radius(data, fmt, title=f"Blast radius of {branch}")
     except Exception as e:
         handle_error(e)
 

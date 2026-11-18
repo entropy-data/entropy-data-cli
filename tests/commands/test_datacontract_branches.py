@@ -217,3 +217,46 @@ def test_branch_names_are_validated():
     result = runner.invoke(app, ["datacontracts", "yaml", "orders", "--branch", "../main"])
     assert result.exit_code != 0
     assert "path traversal" in result.output
+
+
+BLAST_RADIUS = {
+    "causes": [{"change": {"key": "server:prod", "op": "remove"}, "breaking": True, "reach": "consumers"}],
+    "impacts": [
+        {
+            "kind": "outputPort",
+            "id": "orders-prod",
+            "name": "Orders",
+            "certainty": "direct",
+            "causes": ["server:prod"],
+            "path": [],
+        }
+    ],
+    "hidden_data_product_count": 1,
+    "downstream_data_product_count": 2,
+}
+
+
+@respx.mock
+def test_branches_blast_radius_as_table_and_json():
+    respx.get(f"{BRANCHES}/add-status/blast-radius").mock(return_value=httpx.Response(200, json=BLAST_RADIUS))
+
+    result = runner.invoke(app, ["datacontracts", "branches", "blast-radius", "orders", "add-status"])
+    assert result.exit_code == 0
+    assert "orders-prod" in result.output
+    assert "server:prod" in result.output
+    assert "may not see: 1" in result.output
+    assert "downstream: 2" in result.output
+
+    result = runner.invoke(app, ["datacontracts", "branches", "blast-radius", "orders", "add-status", "-o", "json"])
+    assert result.exit_code == 0
+    assert json.loads(result.output) == BLAST_RADIUS
+
+
+@respx.mock
+def test_branches_blast_radius_without_impacts():
+    respx.get(f"{BRANCHES}/add-status/blast-radius").mock(
+        return_value=httpx.Response(200, json={"causes": [], "impacts": []})
+    )
+    result = runner.invoke(app, ["datacontracts", "branches", "blast-radius", "orders", "add-status"])
+    assert result.exit_code == 0
+    assert "affects nothing beyond it" in result.output
