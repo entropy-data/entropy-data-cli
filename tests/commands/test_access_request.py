@@ -157,3 +157,33 @@ def test_list_without_filters(monkeypatch, tmp_path):
     assert "providerDataProductId" not in qs
     assert "consumerDataProductId" not in qs
     assert "consumerType" not in qs
+
+
+@respx.mock
+def test_request_cites_a_use_case(monkeypatch, tmp_path):
+    _setup(monkeypatch, tmp_path)
+    captured: dict = {}
+
+    def _capture(request):
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(200)
+
+    respx.put(url__regex=rf"{BASE_URL}/api/access/.+").mock(side_effect=_capture)
+
+    result = runner.invoke(
+        app,
+        [
+            "access",
+            "request",
+            "dp_account_master",
+            "accounts",
+            "--purpose",
+            "Building churn model.",
+            "--consumer-team",
+            "customer-success",
+            "--use-case",
+            "churn-prediction",
+        ],
+    )
+    assert result.exit_code == 0
+    assert captured["body"]["info"]["useCase"] == {"id": "churn-prediction"}

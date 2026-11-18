@@ -58,6 +58,8 @@ LIST_ENDPOINTS = {
 CLIENT_SIDE_TABLES = {
     # settings team-roles get prints `team-roles` out of {mode, team-roles}.
     "custom-team-roles": ("/api/settings/team-roles", "team-roles"),
+    # branches blast-radius prints `impacts` out of the blast radius, the same items for both kinds of branch.
+    "blast-radius-impacts": ("/api/datacontracts/{id}/branches/{branch}/blast-radius", "impacts"),
 }
 
 # Columns the CLI fills in itself; the spec is not expected to have them.

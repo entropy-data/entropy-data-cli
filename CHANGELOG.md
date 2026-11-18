@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+- Add `entropy-data datacontracts branches blast-radius <id> <branch>` to show what merging a branch of a data contract would affect beyond it: the implementing output ports, the access agreements on them, the consuming input ports, the linked semantic concepts and the assets. The table lists the impacts; `-o json` and `-o yaml` add the causes with how far each change carries.
+- Add `entropy-data semantics branches blast-radius <namespace> <branch>` (EXPERIMENTAL) to show what merging a branch of a semantic namespace would affect outside it: the data contracts and data products that link a changed concept, and what is reached through them.
+- `access request` takes `--use-case <id>` (preview) to cite a use case. An organization can require one on new access requests through its customization; without the option, such a request is refused with 400.
+- `search query --resource-type` help states the default: without it, the search covers data products and, when semantics are enabled, semantic concepts.
+
 ## [0.3.29]
 
 - Add `entropy-data insights dashboards list|get|yaml|put|delete` (EXPERIMENTAL) to manage Insights dashboards in the Perses format (`kind: PersesDashboard`), addressed by `metadata.name`. `yaml` prints the stored YAML; `put` takes JSON or YAML and fills in `metadata.name` from the ID when the file leaves it out. The built-in Overview cannot be deleted.
