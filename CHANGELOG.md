@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.3.30]
+
 - Add `entropy-data datacontracts branches blast-radius <id> <branch>` to show what merging a branch of a data contract would affect beyond it: the implementing output ports, the access agreements on them, the consuming input ports, the linked semantic concepts and the assets. The table lists the impacts; `-o json` and `-o yaml` add the causes with how far each change carries.
 - Add `entropy-data semantics branches blast-radius <namespace> <branch>` (EXPERIMENTAL) to show what merging a branch of a semantic namespace would affect outside it: the data contracts and data products that link a changed concept, and what is reached through them.
 - `access request` takes `--use-case <id>` (preview) to cite a use case. An organization can require one on new access requests through its customization; without the option, such a request is refused with 400.
