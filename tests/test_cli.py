@@ -197,3 +197,83 @@ def test_a_failing_proxy_tunnel_is_reported_as_a_proxy_error(proxy_env):
     assert error["type"] == "proxy_error"
     assert error["proxy"] == "http://proxy.example.test:8080"
     assert error["message"] == "The proxy http://proxy.example.test:8080 refused the connection: 403 Forbidden"
+
+
+@pytest.fixture
+def clients(monkeypatch):
+    """The httpx client behind every request sent."""
+    seen = []
+    send = httpx.Client.send
+
+    def recording_send(self, request, **kwargs):
+        seen.append(self)
+        return send(self, request, **kwargs)
+
+    monkeypatch.setattr(httpx.Client, "send", recording_send)
+    return seen
+
+
+def _proxied(client: httpx.Client, url: str) -> bool:
+    return any(
+        pattern.matches(httpx.URL(url)) and transport is not None for pattern, transport in client._mounts.items()
+    )
+
+
+@respx.mock
+def test_the_proxy_environment_is_honored_by_default(proxy_env, clients):
+    proxy_env("HTTPS_PROXY", "http://proxy.example.test:8080")
+    respx.get(TEAMS_URL).mock(return_value=httpx.Response(200, json=[]))
+
+    result = runner.invoke(app, ["--api-key", "key", "teams", "list"])
+
+    assert result.exit_code == 0
+    assert clients[0].trust_env is True
+    assert _proxied(clients[0], TEAMS_URL)
+
+
+@respx.mock
+@pytest.mark.parametrize("how", ["option", "env"])
+def test_no_trust_env_ignores_the_proxy_environment(proxy_env, clients, how):
+    proxy_env("HTTPS_PROXY", "http://proxy.example.test:8080")
+    respx.get(TEAMS_URL).mock(return_value=httpx.Response(200, json=[]))
+    options = ["--no-trust-env"] if how == "option" else []
+    if how == "env":
+        proxy_env("ENTROPY_DATA_TRUST_ENV", "false")
+
+    result = runner.invoke(app, [*options, "--api-key", "key", "teams", "list"])
+
+    assert result.exit_code == 0
+    assert clients[0].trust_env is False
+    assert not _proxied(clients[0], TEAMS_URL)
+
+
+@respx.mock
+def test_no_trust_env_keeps_the_proxy_out_of_connection_errors(proxy_env):
+    proxy_env("HTTPS_PROXY", "http://proxy.example.test:8080")
+    respx.get(TEAMS_URL).mock(side_effect=httpx.ConnectError("[Errno 61] Connection refused"))
+
+    error = _teams_list_error("--no-trust-env")
+
+    assert "proxy" not in error
+    assert "proxy" not in error["message"]
+
+
+def test_trust_env_option_in_help():
+    result = runner.invoke(app, ["--help"], env={"COLUMNS": "200"})
+    assert result.exit_code == 0
+    assert "--no-trust-env" in re.sub(r"\x1b\[[0-9;]*m", "", result.stdout)
+
+
+@respx.mock
+def test_a_proxy_tunnel_asking_for_credentials_gets_the_credentials_hint(proxy_env):
+    # For an https:// host the proxy answers the CONNECT request, so the 407 arrives as a failed tunnel.
+    proxy_env("HTTPS_PROXY", "http://proxy.example.test:8080")
+    respx.get(TEAMS_URL).mock(side_effect=httpx.ProxyError("407 Proxy Authentication Required"))
+
+    error = _teams_list_error()
+
+    assert error["type"] == "proxy_error"
+    assert error["message"] == (
+        "The proxy http://proxy.example.test:8080 requires authentication (HTTP 407). "
+        "Put the credentials into the proxy URL, for example http://user:password@proxy.example.com:8080."
+    )

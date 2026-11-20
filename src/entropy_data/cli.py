@@ -23,6 +23,7 @@ _cli_host: str | None = None
 _output_format: OutputFormat = OutputFormat.table
 _debug: bool = False
 _timeout: int | None = None
+_trust_env: bool = True
 
 error_console = Console(stderr=True)
 
@@ -34,7 +35,7 @@ def get_client() -> EntropyDataClient:
         cli_api_key=_cli_api_key,
         cli_host=_cli_host,
     )
-    return EntropyDataClient(config, timeout=_timeout)
+    return EntropyDataClient(config, timeout=_timeout, trust_env=_trust_env)
 
 
 def client_for_connection(name: str) -> EntropyDataClient:
@@ -44,16 +45,20 @@ def client_for_connection(name: str) -> EntropyDataClient:
     target the primary connection and must not bleed into a second endpoint.
     """
     config = resolve_connection(connection_name=name)
-    return EntropyDataClient(config, timeout=_timeout)
+    return EntropyDataClient(config, timeout=_timeout, trust_env=_trust_env)
 
 
 def get_output_format() -> OutputFormat:
     return _output_format
 
 
+def get_trust_env() -> bool:
+    return _trust_env
+
+
 def _configured_proxy(url: str | None) -> str | None:
     """The proxy the environment names for this URL, without its credentials. None if the host is reached directly."""
-    if not url:
+    if not url or not _trust_env:
         return None
     target = urlsplit(url)
     proxies = getproxies()
@@ -71,6 +76,13 @@ def _request_url(e: httpx.RequestError) -> str | None:
         return None
 
 
+def _proxy_authentication_message(proxy: str | None) -> str:
+    return (
+        f"The proxy {proxy or 'in front of the API'} requires authentication (HTTP 407). "
+        "Put the credentials into the proxy URL, for example http://user:password@proxy.example.com:8080."
+    )
+
+
 def handle_error(e: Exception) -> None:
     """Handle errors with appropriate output and exit codes.
 
@@ -86,10 +98,7 @@ def handle_error(e: Exception) -> None:
     elif isinstance(e, ApiError) and e.status_code == 407:
         kind, label, exit_code = "proxy_error", "Proxy error", 1
         proxy = _configured_proxy(e.url)
-        message = (
-            f"The proxy {proxy or 'in front of the API'} requires authentication (HTTP 407). "
-            "Put the credentials into the proxy URL, for example http://user:password@proxy.example.com:8080."
-        )
+        message = _proxy_authentication_message(proxy)
         details = {"status": e.status_code, "url": e.url, "proxy": proxy}
     elif isinstance(e, ApiError):
         kind, label, exit_code = "api_error", "API error", 1
@@ -98,8 +107,14 @@ def handle_error(e: Exception) -> None:
         kind, label, exit_code = "proxy_error", "Proxy error", 1
         url = _request_url(e)
         proxy = _configured_proxy(url)
-        message = f"The proxy {proxy or 'in front of the API'} refused the connection: {e}"
-        details = {"url": url, "proxy": proxy}
+        # For an https:// host the proxy answers the CONNECT request, so its 407 arrives as a failed tunnel.
+        asks_for_credentials = str(e).startswith("407")
+        message = (
+            _proxy_authentication_message(proxy)
+            if asks_for_credentials
+            else f"The proxy {proxy or 'in front of the API'} refused the connection: {e}"
+        )
+        details = {"status": 407 if asks_for_credentials else None, "url": url, "proxy": proxy}
     elif isinstance(e, (httpx.ConnectError, httpx.ConnectTimeout)):
         kind, label, exit_code = "connection_error", "Connection error", 1
         url = _request_url(e)
@@ -182,9 +197,18 @@ def main(
             envvar="ENTROPY_DATA_SYSTEM_TRUSTSTORE",
         ),
     ] = False,
+    trust_env: Annotated[
+        bool,
+        typer.Option(
+            "--trust-env/--no-trust-env",
+            help="Honor the proxy and certificate environment variables (HTTP_PROXY, HTTPS_PROXY, ALL_PROXY, "
+            "NO_PROXY, SSL_CERT_FILE, SSL_CERT_DIR). Use --no-trust-env to ignore them and connect directly.",
+            envvar="ENTROPY_DATA_TRUST_ENV",
+        ),
+    ] = True,
 ) -> None:
     """Entropy Data CLI — manage your data platform from the command line."""
-    global _connection_name, _cli_api_key, _cli_host, _output_format, _debug, _timeout
+    global _connection_name, _cli_api_key, _cli_host, _output_format, _debug, _timeout, _trust_env
     # usecwd: find the .env where the user runs the CLI, not next to the installed package.
     load_dotenv(find_dotenv(usecwd=True))
     _connection_name = connection
@@ -193,6 +217,7 @@ def main(
     _output_format = output
     _debug = debug
     _timeout = timeout
+    _trust_env = trust_env
     if debug:
         logging.basicConfig(level=logging.DEBUG, stream=sys.stderr)
     if system_truststore:
