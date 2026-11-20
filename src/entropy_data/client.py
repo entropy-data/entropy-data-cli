@@ -49,11 +49,11 @@ def _has_next_page(response) -> bool:
 
 
 class EntropyDataClient:
-    def __init__(self, config: ConnectionConfig, timeout: int | None = None):
+    def __init__(self, config: ConnectionConfig, timeout: int | None = None, trust_env: bool = True):
         # An explicit --timeout also overrides the longer waits some commands choose for themselves.
         self.timeout_override = timeout
         self.timeout = timeout or REQUEST_TIMEOUT
-        self.sdk = SdkClient(config.api_key, config.host, timeout=self.timeout)
+        self.sdk = SdkClient(config.api_key, config.host, timeout=self.timeout, trust_env=trust_env)
         self.http = self.sdk.http
 
     @property

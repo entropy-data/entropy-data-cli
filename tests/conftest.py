@@ -8,7 +8,7 @@ from entropy_data import config as cfg
 @pytest.fixture(autouse=True)
 def clean_env(monkeypatch):
     """Ensure no env vars leak between tests."""
-    for key in ["ENTROPY_DATA_API_KEY", "ENTROPY_DATA_HOST", "ENTROPY_DATA_SSL_VERIFY"]:
+    for key in ["ENTROPY_DATA_API_KEY", "ENTROPY_DATA_HOST", "ENTROPY_DATA_SSL_VERIFY", "ENTROPY_DATA_TRUST_ENV"]:
         monkeypatch.delenv(key, raising=False)
 
 

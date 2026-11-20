@@ -17,10 +17,11 @@ def _fetch_vanity_url(api_key: str, host: str) -> str | None:
     Returns None on any failure (older server, network error, etc.) so callers
     can fall back to None instead of failing the whole `connection add`.
     """
+    from entropy_data.cli import get_trust_env
     from entropy_data.client import EntropyDataClient
 
     try:
-        client = EntropyDataClient(cfg.ConnectionConfig(api_key=api_key, host=host))
+        client = EntropyDataClient(cfg.ConnectionConfig(api_key=api_key, host=host), trust_env=get_trust_env())
         return client.sdk.organization.get_settings().vanityUrl
     except Exception:
         return None

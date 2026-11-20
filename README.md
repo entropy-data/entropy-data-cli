@@ -357,6 +357,12 @@ entropy-data datacontracts list
 
 A proxy URL may use `http`, `https`, `socks5` or `socks5h`, and may carry credentials (`http://user:password@proxy.example.com:8080`). A proxy that inspects TLS usually needs `--system-truststore` as well, see above. Connection failures are not retried for requests that go through a proxy.
 
+To ignore these variables and connect directly, use the global `--no-trust-env` option or set `ENTROPY_DATA_TRUST_ENV=false`. This also ignores the certificate variables `SSL_CERT_FILE` and `SSL_CERT_DIR`:
+
+```bash
+entropy-data --no-trust-env datacontracts list
+```
+
 ### Timeouts
 
 Each API request waits 30 seconds for a response by default (some commands wait longer, e.g. `datacontracts test`). Large documents, such as a semantic ontology with a thousand concepts, can take the server longer. Use the global `--timeout` option, or `ENTROPY_DATA_TIMEOUT`, to wait longer; it applies to every request of the invocation:
