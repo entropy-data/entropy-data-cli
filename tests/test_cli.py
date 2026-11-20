@@ -15,10 +15,14 @@ from entropy_data.cli import app
 runner = CliRunner()
 
 
+def _plain(text: str) -> str:
+    return re.sub(r"\x1b\[[0-9;]*m", "", text)
+
+
 def test_system_truststore_option_in_help():
     result = runner.invoke(app, ["--help"], env={"COLUMNS": "200"})
     assert result.exit_code == 0
-    plain_output = re.sub(r"\x1b\[[0-9;]*m", "", result.stdout)
+    plain_output = _plain(result.stdout)
     assert "--system-truststore" in plain_output
 
 
@@ -202,8 +206,9 @@ def test_a_failing_proxy_tunnel_is_reported_as_a_proxy_error(proxy_env):
 @pytest.mark.parametrize("args", [["--help"], ["teams", "--help"], ["teams", "list", "--help"]])
 def test_flags_have_no_type_placeholder_in_help(args):
     # Typer 0.29 labels every flag, its own --help included, with <bool>, as if the flag took a value.
-    result = runner.invoke(app, args)
+    result = runner.invoke(app, args, env={"COLUMNS": "200"})
     assert result.exit_code == 0
-    assert "--help" in result.output
-    assert "<bool>" not in result.output
-    assert "<str>" in runner.invoke(app, ["--help"]).output
+    plain_output = _plain(result.stdout)
+    assert "--help" in plain_output
+    assert "<bool>" not in plain_output
+    assert "<str>" in _plain(runner.invoke(app, ["--help"], env={"COLUMNS": "200"}).stdout)
