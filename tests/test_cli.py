@@ -98,3 +98,102 @@ def test_api_errors_are_json_on_stderr_with_status_and_url():
             "url": url,
         }
     }
+
+
+TEAMS_URL = "https://api.entropy-data.com/api/teams"
+PROXY_VARIABLES = ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY"]
+
+
+@pytest.fixture
+def proxy_env(monkeypatch):
+    for name in PROXY_VARIABLES:
+        monkeypatch.delenv(name, raising=False)
+        monkeypatch.delenv(name.lower(), raising=False)
+    # Without any proxy variable, urllib falls back to the operating system's proxy settings.
+    monkeypatch.setenv("NO_PROXY", "unrelated.example.test")
+    return monkeypatch.setenv
+
+
+def _teams_list_error(*options):
+    result = runner.invoke(app, ["-o", "json", "--api-key", "key", *options, "teams", "list"])
+    assert result.exit_code == 1
+    assert result.stdout == ""
+    return json.loads(result.stderr)["error"]
+
+
+@respx.mock
+def test_connection_errors_name_the_host(proxy_env):
+    respx.get(TEAMS_URL).mock(side_effect=httpx.ConnectError("[Errno 61] Connection refused"))
+
+    assert _teams_list_error() == {
+        "type": "connection_error",
+        "message": "Could not connect to https://api.entropy-data.com: [Errno 61] Connection refused",
+        "url": "https://api.entropy-data.com/api/teams?p=0",
+    }
+
+
+@respx.mock
+def test_connection_errors_name_the_configured_proxy_without_its_credentials(proxy_env):
+    proxy_env("HTTPS_PROXY", "http://user:secret@proxy.example.test:8080")
+    respx.get(TEAMS_URL).mock(side_effect=httpx.ConnectError("[Errno 61] Connection refused"))
+
+    error = _teams_list_error()
+
+    assert error["type"] == "connection_error"
+    assert error["proxy"] == "http://proxy.example.test:8080"
+    assert error["message"] == (
+        "Could not connect to https://api.entropy-data.com: [Errno 61] Connection refused. "
+        "A proxy is configured for this host (http://proxy.example.test:8080): "
+        "check that it is reachable, or list the host in NO_PROXY to connect directly."
+    )
+    assert "secret" not in json.dumps(error)
+
+
+@respx.mock
+def test_connection_errors_do_not_mention_a_proxy_the_host_bypasses(proxy_env):
+    proxy_env("HTTPS_PROXY", "http://proxy.example.test:8080")
+    proxy_env("NO_PROXY", "api.entropy-data.com")
+    respx.get(TEAMS_URL).mock(side_effect=httpx.ConnectError("[Errno 61] Connection refused"))
+
+    error = _teams_list_error()
+
+    assert "proxy" not in error
+    assert "proxy" not in error["message"]
+
+
+@respx.mock
+def test_connection_errors_are_plain_text_in_table_mode(proxy_env):
+    respx.get(TEAMS_URL).mock(side_effect=httpx.ConnectTimeout("timed out"))
+
+    result = runner.invoke(app, ["--api-key", "key", "teams", "list"])
+
+    assert result.exit_code == 1
+    assert "Connection error: Could not connect to https://api.entropy-data.com: timed out" in result.stderr
+
+
+@respx.mock
+def test_a_proxy_asking_for_credentials_is_reported_as_a_proxy_error(proxy_env):
+    proxy_env("HTTPS_PROXY", "http://proxy.example.test:8080")
+    respx.get(TEAMS_URL).mock(return_value=httpx.Response(407))
+
+    error = _teams_list_error()
+
+    assert error["type"] == "proxy_error"
+    assert error["status"] == 407
+    assert error["proxy"] == "http://proxy.example.test:8080"
+    assert error["message"] == (
+        "The proxy http://proxy.example.test:8080 requires authentication (HTTP 407). "
+        "Put the credentials into the proxy URL, for example http://user:password@proxy.example.com:8080."
+    )
+
+
+@respx.mock
+def test_a_failing_proxy_tunnel_is_reported_as_a_proxy_error(proxy_env):
+    proxy_env("HTTPS_PROXY", "http://proxy.example.test:8080")
+    respx.get(TEAMS_URL).mock(side_effect=httpx.ProxyError("403 Forbidden"))
+
+    error = _teams_list_error()
+
+    assert error["type"] == "proxy_error"
+    assert error["proxy"] == "http://proxy.example.test:8080"
+    assert error["message"] == "The proxy http://proxy.example.test:8080 refused the connection: 403 Forbidden"

@@ -3,7 +3,10 @@
 import logging
 import sys
 from typing import Annotated, Optional
+from urllib.parse import urlsplit
+from urllib.request import getproxies, proxy_bypass
 
+import httpx
 import typer
 from dotenv import find_dotenv, load_dotenv
 from rich.console import Console
@@ -48,6 +51,26 @@ def get_output_format() -> OutputFormat:
     return _output_format
 
 
+def _configured_proxy(url: str | None) -> str | None:
+    """The proxy the environment names for this URL, without its credentials. None if the host is reached directly."""
+    if not url:
+        return None
+    target = urlsplit(url)
+    proxies = getproxies()
+    proxy = proxies.get(target.scheme) or proxies.get("all")
+    if not proxy or proxy_bypass(target.hostname or ""):
+        return None
+    parts = urlsplit(proxy if "://" in proxy else f"http://{proxy}")
+    return f"{parts.scheme}://{parts.netloc.rpartition('@')[2]}"
+
+
+def _request_url(e: httpx.RequestError) -> str | None:
+    try:
+        return str(e.request.url)
+    except RuntimeError:
+        return None
+
+
 def handle_error(e: Exception) -> None:
     """Handle errors with appropriate output and exit codes.
 
@@ -56,20 +79,49 @@ def handle_error(e: Exception) -> None:
     """
     if _debug:
         raise e
+    message = str(e)
+    details: dict = {}
     if isinstance(e, ConfigurationError):
         kind, label, exit_code = "configuration_error", "Configuration error", 2
+    elif isinstance(e, ApiError) and e.status_code == 407:
+        kind, label, exit_code = "proxy_error", "Proxy error", 1
+        proxy = _configured_proxy(e.url)
+        message = (
+            f"The proxy {proxy or 'in front of the API'} requires authentication (HTTP 407). "
+            "Put the credentials into the proxy URL, for example http://user:password@proxy.example.com:8080."
+        )
+        details = {"status": e.status_code, "url": e.url, "proxy": proxy}
     elif isinstance(e, ApiError):
         kind, label, exit_code = "api_error", "API error", 1
+        details = {"status": e.status_code, "url": e.url}
+    elif isinstance(e, httpx.ProxyError):
+        kind, label, exit_code = "proxy_error", "Proxy error", 1
+        url = _request_url(e)
+        proxy = _configured_proxy(url)
+        message = f"The proxy {proxy or 'in front of the API'} refused the connection: {e}"
+        details = {"url": url, "proxy": proxy}
+    elif isinstance(e, (httpx.ConnectError, httpx.ConnectTimeout)):
+        kind, label, exit_code = "connection_error", "Connection error", 1
+        url = _request_url(e)
+        proxy = _configured_proxy(url)
+        target = urlsplit(url) if url else None
+        message = (
+            f"Could not connect to {target.scheme}://{target.netloc}: {e}" if target else f"Could not connect: {e}"
+        )
+        if proxy:
+            message += (
+                f". A proxy is configured for this host ({proxy}): "
+                "check that it is reachable, or list the host in NO_PROXY to connect directly."
+            )
+        details = {"url": url, "proxy": proxy}
     else:
         kind, label, exit_code = "error", "Error", 1
     if _output_format != OutputFormat.table:
-        error: dict = {"type": kind, "message": str(e)}
-        if isinstance(e, ApiError):
-            error["status"] = e.status_code
-            error["url"] = e.url
+        error: dict = {"type": kind, "message": message}
+        error.update({key: value for key, value in details.items() if value is not None})
         print_data({"error": error}, _output_format, stream=sys.stderr)
     else:
-        error_console.print(f"[red]{label}: {e}[/red]", highlight=False, soft_wrap=True)
+        error_console.print(f"[red]{label}: {message}[/red]", highlight=False, soft_wrap=True)
     raise SystemExit(exit_code)
 
 
