@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.3.32]
+
 - Add the global option `--no-trust-env` (env `ENTROPY_DATA_TRUST_ENV=false`) to ignore the proxy and certificate environment variables (`HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, `NO_PROXY`, `SSL_CERT_FILE`, `SSL_CERT_DIR`) and connect directly.
 - A proxy that asks for credentials while opening the tunnel to an `https://` host is reported with the same hint as for an `http://` host: put the credentials into the proxy URL. Before, the message only said the proxy refused the connection.
 
