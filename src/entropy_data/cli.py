@@ -10,6 +10,7 @@ import httpx
 import typer
 from dotenv import find_dotenv, load_dotenv
 from rich.console import Console
+from typer.core import TyperOption
 
 from entropy_data import __version__
 from entropy_data.client import ApiError, EntropyDataClient
@@ -25,6 +26,24 @@ _debug: bool = False
 _timeout: int | None = None
 
 error_console = Console(stderr=True)
+
+
+def _hide_flag_type_in_help() -> None:
+    """Typer 0.29 labels every flag in --help with <bool>, its own --help included, as if the flag took a value.
+
+    It has no setting for this, and `metavar` cannot reach the options Typer adds itself.
+    """
+    original = getattr(TyperOption, "display_type_rich", None)
+    if original is None:
+        return
+
+    def display_type_rich(self, ctx):
+        return None if self.is_bool_flag else original(self, ctx)
+
+    TyperOption.display_type_rich = display_type_rich
+
+
+_hide_flag_type_in_help()
 
 
 def get_client() -> EntropyDataClient:

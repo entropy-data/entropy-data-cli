@@ -197,3 +197,13 @@ def test_a_failing_proxy_tunnel_is_reported_as_a_proxy_error(proxy_env):
     assert error["type"] == "proxy_error"
     assert error["proxy"] == "http://proxy.example.test:8080"
     assert error["message"] == "The proxy http://proxy.example.test:8080 refused the connection: 403 Forbidden"
+
+
+@pytest.mark.parametrize("args", [["--help"], ["teams", "--help"], ["teams", "list", "--help"]])
+def test_flags_have_no_type_placeholder_in_help(args):
+    # Typer 0.29 labels every flag, its own --help included, with <bool>, as if the flag took a value.
+    result = runner.invoke(app, args)
+    assert result.exit_code == 0
+    assert "--help" in result.output
+    assert "<bool>" not in result.output
+    assert "<str>" in runner.invoke(app, ["--help"]).output
