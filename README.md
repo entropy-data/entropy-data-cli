@@ -308,6 +308,18 @@ Errors are written to stderr, never stdout, and the CLI exits non-zero (2 for co
 }
 ```
 
+`type` is one of:
+
+| Type | Meaning | Extra fields |
+|---|---|---|
+| `configuration_error` | No usable connection, for example a missing API key | |
+| `api_error` | The API answered with an error status | `status`, `url` |
+| `connection_error` | The host could not be reached | `url`, and `proxy` when a proxy is configured for the host |
+| `proxy_error` | A proxy refused the request or asked for credentials | `url`, `proxy`, and `status` when the proxy answered with one |
+| `error` | Anything else | |
+
+`proxy` never contains the proxy's credentials.
+
 ### TLS behind a corporate proxy or internal CA
 
 By default the CLI verifies TLS certificates against the bundled CA certificates (`certifi`). In a corporate network with a TLS-inspecting proxy or an internal certificate authority, this can fail with `CERTIFICATE_VERIFY_FAILED: unable to get local issuer certificate`, because the root CA is installed in the operating system's trust store but not in the bundled list.
@@ -325,6 +337,25 @@ export ENTROPY_DATA_SYSTEM_TRUSTSTORE=1
 ```
 
 This keeps certificate verification on while trusting the corporate root CA, and applies to every command that makes HTTPS requests.
+
+### Proxies
+
+The CLI honors the standard proxy environment variables (upper or lower case):
+
+| Variable | Used for |
+|---|---|
+| `HTTPS_PROXY` | requests to an `https://` host |
+| `HTTP_PROXY` | requests to an `http://` host |
+| `ALL_PROXY` | requests that no other variable covers |
+| `NO_PROXY` | hosts to reach directly: a comma-separated list of hosts, domain suffixes or IP addresses; `*` turns proxying off |
+
+```bash
+export HTTPS_PROXY=http://proxy.example.com:8080
+export NO_PROXY=localhost,.internal.example.com
+entropy-data datacontracts list
+```
+
+A proxy URL may use `http`, `https`, `socks5` or `socks5h`, and may carry credentials (`http://user:password@proxy.example.com:8080`). A proxy that inspects TLS usually needs `--system-truststore` as well, see above. Connection failures are not retried for requests that go through a proxy.
 
 ### Timeouts
 

@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+- The CLI honors the proxy environment variables `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY` and `NO_PROXY`, including SOCKS proxies. Before, it ignored them and always connected directly.
+- A failed connection names the host and, when a proxy is configured for it, the proxy: `Could not connect to https://api.entropy-data.com: … A proxy is configured for this host (http://proxy.example.com:8080)`. A proxy that asks for credentials (HTTP 407) or refuses the tunnel is reported as a proxy problem with a hint. With `-o json` or `-o yaml` these errors have the new types `connection_error` and `proxy_error`; before, a failed connection had the type `error`.
+
 ## [0.3.30]
 
 - Add `entropy-data datacontracts branches blast-radius <id> <branch>` to show what merging a branch of a data contract would affect beyond it: the implementing output ports, the access agreements on them, the consuming input ports, the linked semantic concepts and the assets. The table lists the impacts; `-o json` and `-o yaml` add the causes with how far each change carries.
