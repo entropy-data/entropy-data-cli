@@ -27,7 +27,7 @@ keywords = [
 ]
 dependencies = [
     # 0.29 prints a <bool> placeholder next to every flag in --help (`--help <bool>`).
-    "typer>=0.15.0,<0.29",
+    "typer>=0.15.0,<0.30",
     "rich>=14.0,<16.0",
     "pydantic>=2.10,<3.0",
     "tomli_w>=1.0,<2.0",
